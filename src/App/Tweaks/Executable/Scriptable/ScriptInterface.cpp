@@ -73,7 +73,7 @@ void App::ScriptInterface::GetRecords(Red::IScriptable*, Red::CStackFrame* aFram
     if (!aRet)
         return;
 
-    auto records = FetchRecords(s_reflection->GetRecordFullName(recordTypeName));
+    auto records = FetchRecords(Red::CName(s_reflection->GetRecordFullName(recordTypeName).c_str()));
 
     if (!records || records->size <= 0)
         return;

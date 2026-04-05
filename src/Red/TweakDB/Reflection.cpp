@@ -339,7 +339,7 @@ const Red::CClass* Red::TweakDBReflection::GetRecordType(Red::CName aTypeName)
 
 const Red::CClass* Red::TweakDBReflection::GetRecordType(const char* aTypeName)
 {
-    auto aFullName = GetRecordFullName(aTypeName);
+    auto aFullName = Red::CName(GetRecordFullName(aTypeName).c_str());
 
     Red::CClass* type = m_rtti->GetClass(aFullName);
 
@@ -553,12 +553,12 @@ Red::CName Red::TweakDBReflection::GetElementTypeName(const Red::CBaseRTTIType* 
     return GetElementTypeName(aType->GetName());
 }
 
-Red::CName Red::TweakDBReflection::GetRecordFullName(Red::CName aName)
+std::string Red::TweakDBReflection::GetRecordFullName(Red::CName aName)
 {
     return GetRecordFullName(aName.ToString());
 }
 
-Red::CName Red::TweakDBReflection::GetRecordFullName(const char* aName)
+std::string Red::TweakDBReflection::GetRecordFullName(const char* aName)
 {
     std::string finalName = aName;
 
@@ -588,6 +588,24 @@ std::string Red::TweakDBReflection::GetRecordShortName(const char* aName)
 
     if (finalName.ends_with(RecordTypeSuffix))
         finalName.erase(finalName.end() - RecordTypeSuffixLength, finalName.end());
+
+    return finalName;
+}
+
+std::string Red::TweakDBReflection::GetRecordAliasName(Red::CName aName)
+{
+    return GetRecordAliasName(aName.ToString());
+}
+
+std::string Red::TweakDBReflection::GetRecordAliasName(const char* aName)
+{
+    std::string finalName = aName;
+
+    if (finalName.starts_with(RecordTypePrefix))
+        finalName.erase(0, RecordTypePrefixLength);
+
+    if (!finalName.ends_with(RecordTypeSuffix))
+        finalName.append(RecordTypeSuffix);
 
     return finalName;
 }

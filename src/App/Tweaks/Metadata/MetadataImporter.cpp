@@ -142,7 +142,7 @@ bool App::MetadataImporter::ImportExtraFlats(const std::filesystem::path& aPath)
 
         for (const auto& topNodeIt : data)
         {
-            const auto recordType = m_reflection->GetRecordFullName(topNodeIt.first.Scalar().data());
+            const auto recordType = Red::CName(m_reflection->GetRecordFullName(topNodeIt.first.Scalar().data()).c_str());
 
             if (!m_reflection->IsRecordType(recordType))
                 return false;
@@ -179,7 +179,7 @@ bool App::MetadataImporter::ImportExtraFlats(const std::filesystem::path& aPath)
                     if (!foreignTypeNode.IsScalar())
                         return false;
 
-                    foreignType = m_reflection->GetRecordFullName(foreignTypeNode.Scalar().data());
+                    foreignType = Red::CName(m_reflection->GetRecordFullName(foreignTypeNode.Scalar().data()).c_str());
 
                     if (!m_reflection->IsRecordType(foreignType))
                         return false;

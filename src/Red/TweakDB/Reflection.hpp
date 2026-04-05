@@ -113,11 +113,14 @@ public:
     Red::CName GetElementTypeName(Red::CName aTypeName);
     Red::CName GetElementTypeName(const Red::CBaseRTTIType* aType);
 
-    Red::CName GetRecordFullName(Red::CName aName);
-    Red::CName GetRecordFullName(const char* aName);
+    std::string GetRecordFullName(Red::CName aName);
+    std::string GetRecordFullName(const char* aName);
 
     std::string GetRecordShortName(Red::CName aName);
     std::string GetRecordShortName(const char* aName);
+
+    std::string GetRecordAliasName(Red::CName aName);
+    std::string GetRecordAliasName(const char* aName);
 
     Red::InstancePtr<> Construct(Red::CName aTypeName);
     Red::InstancePtr<> Construct(const Red::CBaseRTTIType* aType);
