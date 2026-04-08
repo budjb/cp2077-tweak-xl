@@ -1,12 +1,13 @@
 #pragma once
 
-namespace App::Record
+namespace App::Schema
 {
 
 class CustomTweakRecord : public Red::gamedataTweakDBRecord
 {
 public:
     static constexpr auto NAME = "gamedataCustomTweakRecord";
+    static constexpr auto ALIAS = "CustomTweakRecord";
 
     RED4ext::CClass* GetNativeType() override;
 
@@ -18,9 +19,9 @@ public:
 };
 RED4EXT_ASSERT_SIZE(CustomTweakRecord, 0x48);
 
-} // namespace App::Record
+} // namespace App::Schema
 
-RTTI_DEFINE_CLASS(App::Record::CustomTweakRecord, App::Record::CustomTweakRecord::NAME, {
+RTTI_DEFINE_CLASS(App::Schema::CustomTweakRecord, App::Schema::CustomTweakRecord::NAME, {
     RTTI_ABSTRACT();
     RTTI_PARENT(Red::gamedataTweakDBRecord);
 });

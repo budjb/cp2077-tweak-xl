@@ -3,6 +3,7 @@
 #include "App/Tweaks/Executable/TweakExecutor.hpp"
 #include "App/Tweaks/Metadata/MetadataExporter.hpp"
 #include "App/Tweaks/Metadata/MetadataImporter.hpp"
+#include "Core/Facades/Container.hpp"
 #include "Red/TweakDB/Raws.hpp"
 
 App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesystem::path aGameDir,
@@ -20,7 +21,11 @@ App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesyste
 
 void App::TweakService::OnBootstrap()
 {
+    m_schemaRegistry = Core::MakeShared<TweakSchemaRegistry>();
+
     CreateTweaksDir();
+
+    CRTTISystem::Get()->AddRegisterCallback(&OnRTTIRegister);
 
     HookAfter<Raw::TryLoadTweakDB>([&](bool& aSuccess) {
         if (aSuccess)
@@ -135,8 +140,7 @@ bool App::TweakService::RegisterTweak(std::filesystem::path aPath)
 
     if (!std::filesystem::exists(aPath, error) || !std::filesystem::is_regular_file(aPath, error))
     {
-        LogError("Can't register non-existing tweak \"{}\".",
-                 std::filesystem::relative(aPath, m_gameDir).string());
+        LogError("Can't register non-existing tweak \"{}\".", std::filesystem::relative(aPath, m_gameDir).string());
         return false;
     }
 
@@ -210,4 +214,25 @@ Red::TweakDBReflection& App::TweakService::GetReflection()
 App::TweakChangelog& App::TweakService::GetChangelog()
 {
     return *m_changelog;
+}
+
+App::TweakSchemaRegistry& App::TweakService::GetSchemaRegistry()
+{
+    return *m_schemaRegistry;
+}
+
+void App::TweakService::LoadSchemaRegistrations() const
+{
+    if (m_schemaRegistry)
+    {
+        for (const auto schemas = TweakRecordSchemaRegistrar::LoadSchemas(); const auto& schema : *schemas)
+        {
+            m_schemaRegistry->RegisterSchema(schema);
+        }
+    }
+}
+
+void App::TweakService::OnRTTIRegister()
+{
+    Core::Resolve<TweakService>()->LoadSchemaRegistrations();
 }

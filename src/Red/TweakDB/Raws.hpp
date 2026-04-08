@@ -24,6 +24,6 @@ constexpr auto CreateTweakDBID = Core::RawFunc<
 
 constexpr auto InsertRecord = Core::RawFunc<
     /* addr = */ Red::AddressLib::TweakDB_InsertRecord,
-    /* type = */ void (*)(Red::TweakDB*, const Red::TweakDBID&, const Red::CClass*,
+    /* type = */ void (*)(Red::TweakDB*, Red::TweakDBID, const Red::CClass*,
                           const Red::Handle<Red::gamedataTweakDBRecord>&)>();
 } // namespace Raw

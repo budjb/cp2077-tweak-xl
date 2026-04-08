@@ -50,4 +50,6 @@
 #include "Red/Utils.hpp"
 #include "Red/Value.hpp"
 
+#include "Red/TweakDB/Schema.hpp"
+
 #include "Red/Addresses/Library.hpp"

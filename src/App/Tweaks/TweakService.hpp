@@ -10,6 +10,7 @@
 #include "Core/Runtime/HostImage.hpp"
 #include "Red/TweakDB/Manager.hpp"
 #include "Red/TweakDB/Reflection.hpp"
+#include "App/Tweaks/Schema/TweakSchemaRegistry.hpp"
 
 namespace App
 {
@@ -35,15 +36,20 @@ public:
     bool ImportMetadata();
     void ExportMetadata();
 
+    void LoadSchemaRegistrations() const;
+
     Red::TweakDBManager& GetManager();
     Red::TweakDBReflection& GetReflection();
     App::TweakChangelog& GetChangelog();
+    App::TweakSchemaRegistry& GetSchemaRegistry();
 
 protected:
     void OnBootstrap() override;
     void CreateTweaksDir();
     void EnsureRuntimeAccess();
     void ApplyPatches();
+
+    static void OnRTTIRegister();
 
     std::filesystem::path m_gameDir;
     std::filesystem::path m_tweaksDir;
@@ -52,6 +58,7 @@ protected:
     std::filesystem::path m_extraFlatsPath;
     const Core::SemvVer& m_productVer;
     Core::Vector<std::filesystem::path> m_importPaths;
+    Core::SharedPtr<App::TweakSchemaRegistry> m_schemaRegistry;
     Core::SharedPtr<Red::TweakDBReflection> m_reflection;
     Core::SharedPtr<Red::TweakDBManager> m_manager;
     Core::SharedPtr<App::TweakChangelog> m_changelog;

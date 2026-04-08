@@ -44,7 +44,7 @@ Red::Value<> Red::TweakDBManager::GetFlat(Red::TweakDBID aFlatId)
 
 Red::Value<> Red::TweakDBManager::GetDefault(const Red::CBaseRTTIType* aType)
 {
-    if (!m_reflection->IsFlatType(aType))
+    if (!Red::TweakDBReflection::IsFlatType(aType))
         return {};
 
     return m_buffer->GetValue(m_buffer->AllocateDefault(aType));
@@ -82,7 +82,7 @@ bool Red::TweakDBManager::IsRecordExists(Red::TweakDBID aRecordId)
 
 bool Red::TweakDBManager::SetFlat(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, Red::Instance aInstance)
 {
-    if (!aFlatId.IsValid() || !aInstance || !m_reflection->IsFlatType(aType))
+    if (!aFlatId.IsValid() || !aInstance || !Red::TweakDBReflection::IsFlatType(aType))
         return false;
 
     return AssignFlat(m_tweakDb->flats, aFlatId, aType, aInstance, m_tweakDb->mutex00);
@@ -265,7 +265,7 @@ bool Red::TweakDBManager::IsRecordExists(const Red::TweakDBManager::BatchPtr& aB
 bool Red::TweakDBManager::SetFlat(const Red::TweakDBManager::BatchPtr& aBatch, Red::TweakDBID aFlatId,
                                   const Red::CBaseRTTIType* aType, Red::Instance aInstance)
 {
-    if (!aFlatId.IsValid() || !aInstance || !m_reflection->IsFlatType(aType))
+    if (!aFlatId.IsValid() || !aInstance || !Red::TweakDBReflection::IsFlatType(aType))
         return false;
 
     return AssignFlat(aBatch, aFlatId, {aType, aInstance});
@@ -274,7 +274,7 @@ bool Red::TweakDBManager::SetFlat(const Red::TweakDBManager::BatchPtr& aBatch, R
 bool Red::TweakDBManager::SetFlat(const Red::TweakDBManager::BatchPtr& aBatch, Red::TweakDBID aFlatId,
                                   const Red::Value<>& aValue)
 {
-    if (!aFlatId.IsValid() || !aValue.instance || !m_reflection->IsFlatType(aValue.type))
+    if (!aFlatId.IsValid() || !aValue.instance || !Red::TweakDBReflection::IsFlatType(aValue.type))
         return false;
 
     return AssignFlat(aBatch, aFlatId, aValue);
@@ -679,7 +679,7 @@ std::string_view Red::TweakDBManager::GetName(Red::TweakDBID aId)
 
     std::unique_lock _(m_mutex);
 
-    auto debugName = m_reflection->ToString(aId);
+    auto debugName = Red::TweakDBReflection::ToString(aId);
     if (!debugName.empty())
     {
         auto it = m_knownNames.emplace(aId, debugName).first;

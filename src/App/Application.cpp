@@ -4,7 +4,6 @@
 #include "App/Project.hpp"
 #include "App/Stats/StatService.hpp"
 #include "App/Tweaks/TweakService.hpp"
-#include "App/Tweaks/Record/CustomRecordService.hpp"
 #include "Core/Foundation/RuntimeProvider.hpp"
 #include "Support/MinHook/MinHookProvider.hpp"
 #include "Support/RED4ext/RED4extProvider.hpp"
@@ -28,7 +27,6 @@ App::Application::Application(HMODULE aHandle, const RED4ext::v1::Sdk* aSdk)
     Register<App::TweakService>(Env::GameVer(), Env::GameDir(), Env::TweaksDir(),
                                 Env::InheritanceMapPath(), Env::ExtraFlatsPath(),
                                 Env::RedModSourcesDir());
-    Register<App::Record::CustomRecordService>();
     Register<App::StatService>();
 }
 

@@ -1,8 +1,8 @@
 #include "CustomTweakRecord.hpp"
+#include "App/Tweaks/TweakService.hpp"
 #include "Core/Facades/Container.hpp"
-#include "CustomRecordService.hpp"
 
-namespace App::Record
+namespace App::Schema
 {
 
 Red::CClass* CustomTweakRecord::GetNativeType()
@@ -23,9 +23,9 @@ uint32_t CustomTweakRecord::GetTweakBaseHash() const
         return 0;
     }
 
-    if (auto* schema = Core::Resolve<CustomRecordService>()->GetSchema(type->GetName()))
+    if (auto* schema = Core::Resolve<App::TweakService>()->GetSchemaRegistry().GetSchema(type->GetName()))
     {
-        return schema->GetTweakBaseHash();
+        return schema->GetTypeHash();
     }
 
     return 0;

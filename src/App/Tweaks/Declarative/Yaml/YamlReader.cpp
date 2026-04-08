@@ -275,9 +275,9 @@ void App::YamlReader::HandleFlatNode(App::TweakChangeset& aChangeset, const std:
     {
         flatType = aType;
 
-        if (m_reflection->IsArrayType(flatType))
+        if (Red::TweakDBReflection::IsArrayType(flatType))
         {
-            const auto elementType = ResolveFlatType(m_reflection->GetElementTypeName(flatType));
+            const auto elementType = ResolveFlatType(Red::TweakDBReflection::GetElementTypeName(flatType));
 
             if (HandleMutations(aChangeset, aName, aName, aNode, elementType))
             {
@@ -304,11 +304,11 @@ void App::YamlReader::HandleFlatNode(App::TweakChangeset& aChangeset, const std:
             return;
         }
 
-        flatType = m_reflection->GetFlatType(x.first);
+        flatType = Red::TweakDBReflection::GetFlatType(x.first);
 
-        if (m_reflection->IsArrayType(flatType))
+        if (Red::TweakDBReflection::IsArrayType(flatType))
         {
-            const auto elementType = ResolveFlatType(m_reflection->GetElementTypeName(flatType));
+            const auto elementType = ResolveFlatType(Red::TweakDBReflection::GetElementTypeName(flatType));
 
             if (HandleMutations(aChangeset, aName, aName, aNode, elementType))
             {
@@ -356,8 +356,8 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
 
     if (!recordInfo)
     {
-        if (m_reflection->IsRecordType(aRecordType))
-            LogError("{}: Cannot create record, the record type {} is abstract.", aRecordPath, m_reflection->GetRecordShortName(aRecordType->GetName()));
+        if (Red::TweakDBReflection::IsRecordType(aRecordType))
+            LogError("{}: Cannot create record, the record type {} is abstract.", aRecordPath, Red::TweakDBReflection::GetRecordShortName(aRecordType->GetName()));
         else
             LogError("{}: Cannot create record, {} is not a record type.", aRecordPath, aRecordType->GetName().ToString());
         return;
@@ -711,17 +711,17 @@ bool App::YamlReader::HandleMutations(TweakChangeset& aChangeset, const std::str
 
 const Red::CBaseRTTIType* App::YamlReader::ResolveFlatType(const YAML::Node& aNode)
 {
-    return m_reflection->GetFlatType(aNode.Scalar().c_str());
+    return Red::TweakDBReflection::GetFlatType(aNode.Scalar().c_str());
 }
 
 const Red::CBaseRTTIType* App::YamlReader::ResolveFlatType(Red::CName aName)
 {
-    return m_reflection->GetFlatType(aName);
+    return Red::TweakDBReflection::GetFlatType(aName);
 }
 
 const Red::CClass* App::YamlReader::ResolveRecordType(const YAML::Node& aNode)
 {
-    return m_reflection->GetRecordType(aNode.Scalar().c_str());
+    return Red::TweakDBReflection::GetRecordType(aNode.Scalar().c_str());
 }
 
 Red::TweakDBID App::YamlReader::ResolveTweakDBID(const YAML::Node& aNode)

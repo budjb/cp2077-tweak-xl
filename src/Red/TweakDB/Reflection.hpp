@@ -1,48 +1,47 @@
 #pragma once
 
-#include "Red/TweakDB/Alias.hpp"
-
 namespace Red
 {
+
 namespace ERTDBFlatType
 {
-enum : uint64_t
-{
-    Int = Red::FNV1a64("Int32"),
-    Float = Red::FNV1a64("Float"),
-    Bool = Red::FNV1a64("Bool"),
-    String = Red::FNV1a64("String"),
-    CName = Red::FNV1a64("CName"),
-    LocKey = Red::FNV1a64("gamedataLocKeyWrapper"),
-    ResRef = Red::FNV1a64("raRef:CResource"),
-    TweakDBID = Red::FNV1a64("TweakDBID"),
-    Quaternion = Red::FNV1a64("Quaternion"),
-    EulerAngles = Red::FNV1a64("EulerAngles"),
-    Vector3 = Red::FNV1a64("Vector3"),
-    Vector2 = Red::FNV1a64("Vector2"),
-    Color = Red::FNV1a64("Color"),
-    IntArray = Red::FNV1a64("array:Int32"),
-    FloatArray = Red::FNV1a64("array:Float"),
-    BoolArray = Red::FNV1a64("array:Bool"),
-    StringArray = Red::FNV1a64("array:String"),
-    CNameArray = Red::FNV1a64("array:CName"),
-    LocKeyArray = Red::FNV1a64("array:gamedataLocKeyWrapper"),
-    ResRefArray = Red::FNV1a64("array:raRef:CResource"),
-    TweakDBIDArray = Red::FNV1a64("array:TweakDBID"),
-    QuaternionArray = Red::FNV1a64("array:Quaternion"),
-    EulerAnglesArray = Red::FNV1a64("array:EulerAngles"),
-    Vector3Array = Red::FNV1a64("array:Vector3"),
-    Vector2Array = Red::FNV1a64("array:Vector2"),
-    ColorArray = Red::FNV1a64("array:Color"),
-};
-}
+    enum : uint64_t
+    {
+        Int = FNV1a64("Int32"),
+        Float = FNV1a64("Float"),
+        Bool = FNV1a64("Bool"),
+        String = FNV1a64("String"),
+        CName = FNV1a64("CName"),
+        LocKey = FNV1a64("gamedataLocKeyWrapper"),
+        ResRef = FNV1a64("raRef:CResource"),
+        TweakDBID = FNV1a64("TweakDBID"),
+        Quaternion = FNV1a64("Quaternion"),
+        EulerAngles = FNV1a64("EulerAngles"),
+        Vector3 = FNV1a64("Vector3"),
+        Vector2 = FNV1a64("Vector2"),
+        Color = FNV1a64("Color"),
+        IntArray = FNV1a64("array:Int32"),
+        FloatArray = FNV1a64("array:Float"),
+        BoolArray = FNV1a64("array:Bool"),
+        StringArray = FNV1a64("array:String"),
+        CNameArray = FNV1a64("array:CName"),
+        LocKeyArray = FNV1a64("array:gamedataLocKeyWrapper"),
+        ResRefArray = FNV1a64("array:raRef:CResource"),
+        TweakDBIDArray = FNV1a64("array:TweakDBID"),
+        QuaternionArray = FNV1a64("array:Quaternion"),
+        EulerAnglesArray = FNV1a64("array:EulerAngles"),
+        Vector3Array = FNV1a64("array:Vector3"),
+        Vector2Array = FNV1a64("array:Vector2"),
+        ColorArray = FNV1a64("array:Color"),
+    };
+} // namespace ERTDBFlatType
 
 struct TweakDBPropertyInfo
 {
-    Red::CName name;
-    const Red::CBaseRTTIType* type;
-    const Red::CBaseRTTIType* elementType;
-    const Red::CClass* foreignType;
+    CName name;
+    const CBaseRTTIType* type;
+    const CBaseRTTIType* elementType;
+    const CClass* foreignType;
     bool isArray;
     bool isForeignKey;
     std::string appendix; // The name used to build ID of the property
@@ -52,15 +51,15 @@ struct TweakDBPropertyInfo
 
 struct TweakDBRecordInfo
 {
-    Red::CName name;
-    const Red::CClass* type;
-    const Red::CClass* parent;
-    Core::Map<Red::CName, Core::SharedPtr<Red::TweakDBPropertyInfo>> props;
-    bool extraFlats;
+    CName name;
+    const CClass* type;
+    const CClass* parent;
     std::string shortName;
+    Core::Map<CName, Core::SharedPtr<TweakDBPropertyInfo>> props{};
+    bool extraFlats;
     uint32_t typeHash;
 
-    [[nodiscard]] const Red::TweakDBPropertyInfo* GetPropInfo(Red::CName aPropName) const
+    [[nodiscard]] const TweakDBPropertyInfo* GetPropInfo(const CName& aPropName) const
     {
         const auto& propIt = props.find(aPropName);
         return propIt != props.end() ? propIt->second.get() : nullptr;
@@ -71,97 +70,103 @@ class TweakDBReflection
 {
 public:
     TweakDBReflection();
-    explicit TweakDBReflection(Red::TweakDB* aTweakDb);
+    explicit TweakDBReflection(TweakDB* aTweakDb);
 
-    const Red::TweakDBRecordInfo* GetRecordInfo(Red::CName aTypeName);
-    const Red::TweakDBRecordInfo* GetRecordInfo(const Red::CClass* aType);
+    const TweakDBRecordInfo* GetRecordInfo(const CName& aTypeName);
+    const TweakDBRecordInfo* GetRecordInfo(const CClass* aType);
 
-    const Red::CBaseRTTIType* GetFlatType(Red::CName aTypeName);
-    const Red::CClass* GetRecordType(Red::CName aTypeName);
-    const Red::CClass* GetRecordType(const char* aTypeName);
+    static const CBaseRTTIType* GetFlatType(const CName& aTypeName);
+    static const CClass* GetRecordType(const CName& aTypeName);
+    static const CClass* GetRecordType(const char* aTypeName);
 
-    Red::CBaseRTTIType* GetArrayType(Red::CName aTypeName);
-    Red::CBaseRTTIType* GetArrayType(const Red::CBaseRTTIType* aType);
+    static CBaseRTTIType* GetArrayType(const CName& aTypeName);
+    static CBaseRTTIType* GetArrayType(const CBaseRTTIType* aType);
 
-    Red::CBaseRTTIType* GetElementType(Red::CName aTypeName);
-    Red::CBaseRTTIType* GetElementType(const Red::CBaseRTTIType* aType);
+    static CBaseRTTIType* GetElementType(const CName& aTypeName);
+    static CBaseRTTIType* GetElementType(const CBaseRTTIType* aType);
 
-    bool IsFlatType(Red::CName aTypeName);
-    bool IsFlatType(const Red::CBaseRTTIType* aType);
+    static bool IsFlatType(const CName& aTypeName);
+    static bool IsFlatType(const CBaseRTTIType* aType);
 
-    bool IsRecordType(Red::CName aTypeName);
-    bool IsRecordType(const Red::CClass* aType);
+    static bool IsRecordType(const CName& aTypeName);
+    static bool IsRecordType(const CClass* aType);
 
-    bool IsArrayType(Red::CName aTypeName);
-    bool IsArrayType(const Red::CBaseRTTIType* aType);
+    static bool IsArrayType(const CName& aTypeName);
+    static bool IsArrayType(const CBaseRTTIType* aType);
 
-    bool IsForeignKey(Red::CName aTypeName);
-    bool IsForeignKey(const Red::CBaseRTTIType* aType);
+    static bool IsForeignKey(const CName& aTypeName);
+    static bool IsForeignKey(const CBaseRTTIType* aType);
 
-    bool IsForeignKeyArray(Red::CName aTypeName);
-    bool IsForeignKeyArray(const Red::CBaseRTTIType* aType);
+    static bool IsForeignKeyArray(const CName& aTypeName);
+    static bool IsForeignKeyArray(const CBaseRTTIType* aType);
 
-    bool IsResRefToken(Red::CName aTypeName);
-    bool IsResRefToken(const Red::CBaseRTTIType* aType);
+    static bool IsResRefToken(const CName& aTypeName);
+    static bool IsResRefToken(const CBaseRTTIType* aType);
 
-    bool IsResRefTokenArray(Red::CName aTypeName);
-    bool IsResRefTokenArray(const Red::CBaseRTTIType* aType);
+    static bool IsResRefTokenArray(const CName& aTypeName);
+    static bool IsResRefTokenArray(const CBaseRTTIType* aType);
 
-    Red::CName GetArrayTypeName(Red::CName aTypeName);
-    Red::CName GetArrayTypeName(const Red::CBaseRTTIType* aType);
+    static CName GetArrayTypeName(const CName& aTypeName);
+    static CName GetArrayTypeName(const CBaseRTTIType* aType);
 
-    Red::CName GetElementTypeName(Red::CName aTypeName);
-    Red::CName GetElementTypeName(const Red::CBaseRTTIType* aType);
+    static CName GetElementTypeName(const CName& aTypeName);
+    static CName GetElementTypeName(const CBaseRTTIType* aType);
 
-    std::string GetRecordFullName(Red::CName aName);
-    std::string GetRecordFullName(const char* aName);
+    static std::string GetRecordFullName(const CName& aName);
+    static std::string GetRecordFullName(const char* aName);
 
-    std::string GetRecordShortName(Red::CName aName);
-    std::string GetRecordShortName(const char* aName);
+    static std::string GetRecordShortName(const CName& aName);
+    static std::string GetRecordShortName(const char* aName);
 
-    std::string GetRecordAliasName(Red::CName aName);
-    std::string GetRecordAliasName(const char* aName);
+    static std::string GetRecordAliasName(const CName& aName);
+    static std::string GetRecordAliasName(const char* aName);
 
-    Red::InstancePtr<> Construct(Red::CName aTypeName);
-    Red::InstancePtr<> Construct(const Red::CBaseRTTIType* aType);
+    static InstancePtr<> Construct(const CName& aTypeName);
+    static InstancePtr<> Construct(const CBaseRTTIType* aType);
 
-    bool IsOriginalRecord(Red::TweakDBID aRecordId);
-    bool IsOriginalBaseRecord(Red::TweakDBID aParentId);
-    Red::TweakDBID GetOriginalParent(Red::TweakDBID aRecordId);
-    const Core::Set<Red::TweakDBID>& GetOriginalDescendants(Red::TweakDBID aSourceId);
+    static bool IsOriginalRecord(TweakDBID aRecordId);
+    static bool IsOriginalBaseRecord(TweakDBID aParentId);
+    static TweakDBID GetOriginalParent(TweakDBID aRecordId);
 
-    void RegisterExtraFlat(Red::CName aRecordType, const std::string& aPropName, Red::CName aPropType,
-                           Red::CName aForeignType);
-    void RegisterDescendants(Red::TweakDBID aParentId, const Core::Set<Red::TweakDBID>& aDescendantIds);
+    static uint32_t GetRecordTypeHash(const CClass* aType);
+    static uint32_t GetRecordTypeHash(const CName& aName);
 
-    std::string ToString(Red::TweakDBID aID);
+    static const Core::Set<TweakDBID>& GetOriginalDescendants(TweakDBID aSourceId);
+    static void RegisterExtraFlat(const CName& aRecordType, const std::string& aPropName, const CName& aPropType,
+                                  const CName& aForeignType);
+    static void RegisterDescendants(TweakDBID aParentId, const Core::Set<TweakDBID>& aDescendantIds);
 
-    Red::TweakDB* GetTweakDB();
+    static std::string ToString(TweakDBID aID);
+
+    [[nodiscard]] TweakDB* GetTweakDB() const;
 
 private:
     struct ExtraFlat
     {
-        Red::CName typeName;
-        Red::CName foreignTypeName;
+        CName typeName;
+        CName foreignTypeName;
         std::string appendix;
     };
 
-    using ParentMap = Core::Map<Red::TweakDBID, Red::TweakDBID>;
-    using DescendantMap = Core::Map<Red::TweakDBID, Core::Set<Red::TweakDBID>>;
-    using ExtraFlatMap = Core::Map<Red::CName, Core::Vector<ExtraFlat>>;
-    using RecordInfoMap = Core::Map<Red::CName, Core::SharedPtr<Red::TweakDBRecordInfo>>;
+    using ParentMap = Core::Map<TweakDBID, TweakDBID>;
+    using DescendantMap = Core::Map<TweakDBID, Core::Set<TweakDBID>>;
+    using ExtraFlatMap = Core::Map<CName, Core::Vector<ExtraFlat>>;
+    using RecordInfoMap = Core::Map<CName, Core::SharedPtr<TweakDBRecordInfo>>;
 
-    Core::SharedPtr<Red::TweakDBRecordInfo> CollectRecordInfo(const Red::CClass* aType, Red::TweakDBID aSampleId = {});
-    Red::TweakDBID GetRecordSampleId(const Red::CClass* aType);
-    uint32_t GetRecordTypeHash(const Red::CClass* aType);
-    std::string ResolvePropertyName(Red::TweakDBID aSampleId, Red::CName aGetterName);
-    int32_t ResolveDefaultValue(const Red::CClass* aType, const std::string& aPropName);
+    Core::SharedPtr<TweakDBRecordInfo> CollectRecordInfo(const CClass* aType, TweakDBID aSampleId = {});
+    Core::SharedPtr<TweakDBRecordInfo> CollectNativeRecordInfo(const CClass* aType, TweakDBID aSampleId = {});
+    TweakDBID GetRecordSampleId(const CClass* aType) const; // TODO: remove
+    [[nodiscard]] std::string ResolvePropertyName(TweakDBID aSampleId,
+                                                  const CName& aGetterName) const;        // TODO: do I need this?
+    int32_t ResolveDefaultValue(const CClass* aType, const std::string& aPropName) const; // TODO: do I need this?
 
-    Red::TweakDB* m_tweakDb;
-    Red::CRTTISystem* m_rtti;
+    static CRTTISystem* GetRTTI();
+
+    TweakDB* m_tweakDb;
     RecordInfoMap m_resolved;
     std::shared_mutex m_mutex;
 
+    inline static CClass* s_customTweakRecordType;
     inline static ParentMap s_parentMap;
     inline static DescendantMap s_descendantMap;
     inline static ExtraFlatMap s_extraFlats;
