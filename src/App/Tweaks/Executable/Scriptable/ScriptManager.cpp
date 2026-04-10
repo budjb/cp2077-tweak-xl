@@ -19,7 +19,7 @@ void App::ScriptManager::SetFlat(Red::IScriptable*, Red::CStackFrame* aFrame, bo
     if (!s_manager || variant.IsEmpty())
         return;
 
-    ConvertScriptValueForFlatValue(variant, s_reflection);
+    ConvertScriptValueForFlatValue(variant);
 
     auto success = s_manager->SetFlat(flatID, variant.GetType(), variant.GetDataPtr());
 

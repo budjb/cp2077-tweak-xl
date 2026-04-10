@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Red/TweakDB/Alias.hpp"
-
 namespace Red
 {
 class TweakDBBuffer
@@ -11,45 +9,45 @@ public:
 
     struct BufferStats
     {
-        float initTime = 0.0; // ms
+        float initTime = 0.0;   // ms
         float updateTime = 0.0; // ms
-        size_t poolSize = 0; // bytes
+        size_t poolSize = 0;    // bytes
         size_t poolValues = 0;
         size_t knownTypes = 0;
         size_t flatEntries = 0;
     };
 
     TweakDBBuffer();
-    explicit TweakDBBuffer(Red::TweakDB* aTweakDb);
+    explicit TweakDBBuffer(TweakDB* aTweakDb);
 
-    int32_t AllocateValue(const Red::Value<>& aData);
-    int32_t AllocateValue(const Red::CBaseRTTIType* aType, Red::Instance aInstance);
-    int32_t AllocateDefault(const Red::CBaseRTTIType* aType);
+    int32_t AllocateValue(const Value<>& aData);
+    int32_t AllocateValue(const CBaseRTTIType* aType, Instance aInstance);
+    int32_t AllocateDefault(const CBaseRTTIType* aType);
 
-    Red::Value<> GetValue(int32_t aOffset);
-    Red::Instance GetValuePtr(int32_t aOffset);
+    Value<> GetValue(int32_t aOffset);
+    Instance GetValuePtr(int32_t aOffset);
     uint64_t GetValueHash(int32_t aOffset);
 
     [[nodiscard]] BufferStats GetStats() const;
 
     void Invalidate();
 
-    static uint64_t ComputeHash(const Red::CBaseRTTIType* aType, Red::Instance aInstance, uint32_t aSize = 0,
+    static uint64_t ComputeHash(const CBaseRTTIType* aType, Instance aInstance, uint32_t aSize = 0,
                                 uint64_t aSeed = 0xCBF29CE484222325);
 
 private:
     struct FlatTypeInfo
     {
-        Red::CBaseRTTIType* type;
+        CBaseRTTIType* type;
         uintptr_t offset;
     };
 
-    using FlatValueMap = Core::Map<uint64_t, int32_t>; // ValueHash -> BufferOffset
+    using FlatValueMap = Core::Map<uint64_t, int32_t>;       // ValueHash -> BufferOffset
     using FlatPoolMap = Core::Map<Red::CName, FlatValueMap>; // TypeName -> FlatPool
-    using FlatDefaultMap = Core::Map<Red::CName, int32_t>; // TypeName -> BufferOffset
-    using FlatTypeMap = Core::Map<uintptr_t, FlatTypeInfo>; // VFT -> FlatTypeInfo
+    using FlatDefaultMap = Core::Map<Red::CName, int32_t>;   // TypeName -> BufferOffset
+    using FlatTypeMap = Core::Map<uintptr_t, FlatTypeInfo>;  // VFT -> FlatTypeInfo
 
-    inline Red::Value<> ResolveOffset(int32_t aOffset);
+    inline Value<> ResolveOffset(int32_t aOffset);
 
     void CreatePools();
     void FillDefaults();
@@ -57,7 +55,7 @@ private:
     void SyncBufferBounds();
     void UpdateStats(float updateTime = 0);
 
-    Red::TweakDB* m_tweakDb;
+    TweakDB* m_tweakDb;
     FlatPoolMap m_pools;
     FlatDefaultMap m_defaults;
     FlatTypeMap m_types;
@@ -66,4 +64,4 @@ private:
     BufferStats m_stats;
     std::shared_mutex m_poolMutex;
 };
-}
+} // namespace Red

@@ -39,42 +39,37 @@ TweakDBReflection::TweakDBReflection(TweakDB* aTweakDb)
 {
 }
 
-const TweakDBRecordInfo* TweakDBReflection::GetRecordInfo(const CClass* aType)
+const TweakDBRecordSchema* TweakDBReflection::GetRecordSchema(const CClass* aType)
 {
     if (!IsRecordType(aType))
         return nullptr;
 
     {
         std::shared_lock lockR(m_mutex);
-        if (const auto iter = m_resolved.find(aType->GetName()); iter != m_resolved.end())
+        if (const auto iter = m_schemas.find(aType->name); iter != m_schemas.end())
             return iter->second.get();
     }
 
     return CollectRecordInfo(aType).get();
 }
 
-const TweakDBRecordInfo* TweakDBReflection::GetRecordInfo(const CName& aTypeName)
+const TweakDBRecordSchema* TweakDBReflection::GetRecordSchema(const CName& aTypeName)
 {
     {
         std::shared_lock lockR(m_mutex);
-        if (const auto iter = m_resolved.find(aTypeName); iter != m_resolved.end())
+        if (const auto iter = m_schemas.find(aTypeName); iter != m_schemas.end())
             return iter->second.get();
     }
 
     return CollectRecordInfo(GetRTTI()->GetClass(aTypeName)).get();
 }
 
-Core::SharedPtr<TweakDBRecordInfo> TweakDBReflection::CollectRecordInfo(const CClass* aType, const TweakDBID aSampleId)
+Core::SharedPtr<TweakDBRecordSchema> TweakDBReflection::CollectRecordInfo(const CClass* aType,
+                                                                          const TweakDBID aSampleId)
 {
     if (!IsRecordType(aType))
         return nullptr;
 
-    return CollectNativeRecordInfo(aType, aSampleId);
-}
-
-Core::SharedPtr<TweakDBRecordInfo> TweakDBReflection::CollectNativeRecordInfo(const CClass* aType,
-                                                                              const TweakDBID aSampleId)
-{
     auto sampleId = aSampleId;
     if (!sampleId.IsValid())
     {
@@ -84,43 +79,33 @@ Core::SharedPtr<TweakDBRecordInfo> TweakDBReflection::CollectNativeRecordInfo(co
             return nullptr;
     }
 
-    auto recordInfo = MakeInstance<TweakDBRecordInfo>();
-    recordInfo->name = aType->name;
-    recordInfo->type = aType;
-    recordInfo->typeHash = GetRecordTypeHash(aType);
-    recordInfo->shortName = GetRecordShortName(aType->name);
+    auto recordBuilder = TweakDBRecordSchema::Builder(aType);
+    if (aType->flags.isNative)
+        recordBuilder.SchemaType(ESchemaType::NATIVE);
 
-    if (const auto parentInfo = CollectRecordInfo(aType->parent, sampleId))
-    {
-        recordInfo->parent = aType->parent;
-        recordInfo->props.insert(parentInfo->props.begin(), parentInfo->props.end());
-        recordInfo->extraFlats = parentInfo->extraFlats;
-    }
+    if (const auto parentSchema = CollectRecordInfo(aType->parent, sampleId))
+        recordBuilder += *parentSchema;
 
     const auto baseOffset = aType->parent->size;
 
-    for (uint32_t funcIndex = 0u; funcIndex < aType->funcs.size; ++funcIndex)
+    for (uint32_t funcIndex = 0u, numProps = 0; funcIndex < aType->funcs.size; ++funcIndex, numProps++)
     {
-        const auto func = aType->funcs[funcIndex];
+        const auto* func = aType->funcs[funcIndex];
 
         auto propName = ResolvePropertyName(sampleId, func->shortName);
 
-        auto propInfo = MakeInstance<TweakDBPropertyInfo>();
-        propInfo->name = CName(propName.c_str());
-        propInfo->dataOffset = baseOffset + (recordInfo->props.size() * DataOffsetSize);
+        auto propSchema = TweakDBPropertySchema::Builder(propName);
+        propSchema.Offset(baseOffset + (numProps * DataOffsetSize));
 
         // Case: Foreign Key Array => TweakDBID[]
         if (!func->returnType)
         {
-            const auto arrayType = reinterpret_cast<CRTTIArrayType*>(func->params[0]->type);
-            const auto handleType = reinterpret_cast<CRTTIWeakHandleType*>(arrayType->innerType);
-            const auto recordType = reinterpret_cast<CClass*>(handleType->innerType);
+            const auto* arrayType = reinterpret_cast<CRTTIArrayType*>(func->params[0]->type);
+            const auto* handleType = reinterpret_cast<CRTTIWeakHandleType*>(arrayType->innerType);
+            const auto* recordType = reinterpret_cast<CClass*>(handleType->innerType);
 
-            propInfo->type = GetRTTI()->GetType(ERTDBFlatType::TweakDBIDArray);
-            propInfo->isArray = true;
-            propInfo->elementType = GetRTTI()->GetType(ERTDBFlatType::TweakDBID);
-            propInfo->isForeignKey = true;
-            propInfo->foreignType = recordType;
+            propSchema.FlatType(TDBFlatType::TweakDBIDArray);
+            propSchema.ForeignClass(ResolvableType(recordType));
 
             // Skip related functions:
             // func Get[Prop]Count()
@@ -136,12 +121,11 @@ Core::SharedPtr<TweakDBRecordInfo> TweakDBReflection::CollectNativeRecordInfo(co
             case ERTTIType::WeakHandle:
             {
                 // Case: Foreign Key => TweakDBID
-                const auto handleType = reinterpret_cast<CRTTIWeakHandleType*>(returnType);
-                const auto recordType = reinterpret_cast<CClass*>(handleType->innerType);
+                const auto* handleType = reinterpret_cast<CRTTIWeakHandleType*>(returnType);
+                const auto* recordType = reinterpret_cast<CClass*>(handleType->innerType);
 
-                propInfo->type = GetRTTI()->GetType(ERTDBFlatType::TweakDBID);
-                propInfo->isForeignKey = true;
-                propInfo->foreignType = recordType;
+                propSchema.FlatType(TDBFlatType::TweakDBID);
+                propSchema.ForeignClass(ResolvableType(recordType));
 
                 // Skip related function:
                 // func Get[Prop]Handle()
@@ -152,9 +136,7 @@ Core::SharedPtr<TweakDBRecordInfo> TweakDBReflection::CollectNativeRecordInfo(co
             {
                 if (IsResRefTokenArray(returnType))
                 {
-                    propInfo->type = GetRTTI()->GetType(ERTDBFlatType::ResRefArray);
-                    propInfo->isArray = true;
-                    propInfo->elementType = GetRTTI()->GetType(ERTDBFlatType::ResRef);
+                    propSchema.FlatType(TDBFlatType::ResRefArray);
 
                     // Skip related functions:
                     // func Get[Prop]Count()
@@ -166,9 +148,11 @@ Core::SharedPtr<TweakDBRecordInfo> TweakDBReflection::CollectNativeRecordInfo(co
                     const auto arrayType = reinterpret_cast<CRTTIArrayType*>(returnType);
                     const auto elementType = arrayType->innerType;
 
-                    propInfo->type = returnType;
-                    propInfo->isArray = true;
-                    propInfo->elementType = elementType;
+                    if (const auto* flatType = TDBFlatType::GetArrayType(elementType); flatType)
+                        propSchema.FlatType(*flatType);
+                    else
+                        // TODO: log warning
+                        continue;
 
                     // Skip related functions:
                     // func Get[Prop]Count()
@@ -188,7 +172,7 @@ Core::SharedPtr<TweakDBRecordInfo> TweakDBReflection::CollectNativeRecordInfo(co
             {
                 if (IsResRefToken(returnType))
                 {
-                    propInfo->type = GetRTTI()->GetType(ERTDBFlatType::ResRef);
+                    propSchema.FlatType(TDBFlatType::ResRef);
                 }
                 else
                 {
@@ -197,79 +181,64 @@ Core::SharedPtr<TweakDBRecordInfo> TweakDBReflection::CollectNativeRecordInfo(co
                     if (returnType->GetType() == ERTTIType::Name)
                     {
                         const auto propId = sampleId + PropSeparator + propName;
-                        const auto flat = m_tweakDb->GetFlatValue(propId);
-                        returnType = flat->GetValue().type;
+
+                        TDBFlatType* flatType = nullptr;
+
+                        if (auto* flat = m_tweakDb->GetFlatValue(propId))
+                            flatType = const_cast<TDBFlatType*>(TDBFlatType::Get(flat->GetValue().type));
+
+                        if (!flatType)
+                            // TODO: log warning
+                            continue;
                     }
-
-                    propInfo->type = returnType;
+                    else
+                    {
+                        if (const auto* flatType = TDBFlatType::Get(returnType); flatType)
+                            propSchema.FlatType(*flatType);
+                        else
+                            // TODO: log warning
+                            continue;
+                    }
                 }
             }
             }
         }
 
-        assert(propInfo->type);
-
-        propInfo->appendix = PropSeparator;
-        propInfo->appendix.append(propName);
-
-        recordInfo->props[propInfo->name] = propInfo;
+        recordBuilder.Property(propSchema.Build());
     }
 
     {
-        auto extraFlatsIt = s_extraFlats.find(aType->name);
-        if (extraFlatsIt != s_extraFlats.end())
+        if (auto extraFlatsIt = s_extraFlats.find(aType->name); extraFlatsIt != s_extraFlats.end())
         {
-            recordInfo->extraFlats = true;
-
-            for (const auto& [typeName, foreignTypeName, appendix] : extraFlatsIt.value())
+            for (const auto& extraFlat : extraFlatsIt.value())
             {
-                const auto propInfo = MakeInstance<TweakDBPropertyInfo>();
-                propInfo->name = CName(appendix.c_str() + 1);
-                propInfo->appendix = appendix;
-                propInfo->type = GetRTTI()->GetType(typeName);
-
-                if (propInfo->type->GetType() == ERTTIType::Array)
+                if (const auto propInfo = TweakDBPropertySchema::From(extraFlat); propInfo)
                 {
-                    const auto arrayType = reinterpret_cast<const CRTTIArrayType*>(propInfo->type);
-                    propInfo->elementType = arrayType->innerType;
-                    propInfo->isArray = true;
+                    recordBuilder.Property(propInfo);
                 }
-
-                if (!foreignTypeName.IsNone())
+                else
                 {
-                    propInfo->foreignType = GetRTTI()->GetClass(foreignTypeName);
-                    propInfo->isForeignKey = true;
+                    // TODO: log warning
                 }
-
-                propInfo->dataOffset = 0;
-                propInfo->defaultValue = -1;
-
-                recordInfo->props[propInfo->name] = propInfo;
             }
         }
     }
 
-    for (const auto& propInfo : recordInfo->props | std::views::values)
-    {
-        if (propInfo->dataOffset)
-        {
-            propInfo->defaultValue = ResolveDefaultValue(aType, propInfo->appendix);
-        }
-    }
+    const auto schema = recordBuilder.Build();
 
     {
         std::unique_lock lockRW(m_mutex);
-        m_resolved.insert({recordInfo->name, recordInfo});
+        m_schemas.insert({schema->GetFullName(), schema});
     }
 
-    return recordInfo;
+    return schema;
 }
 
-// TODO: remove
+// TODO: move
 
 TweakDBID TweakDBReflection::GetRecordSampleId(const CClass* aType) const
 {
-    std::shared_lock<SharedSpinLock> recordLockR(m_tweakDb->mutex01);
+    std::shared_lock recordLockR(m_tweakDb->mutex01);
     auto* records = m_tweakDb->recordsByType.Get(const_cast<CClass*>(aType));
 
     if (records == nullptr)
@@ -394,38 +363,7 @@ CBaseRTTIType* TweakDBReflection::GetElementType(const CBaseRTTIType* aType)
 
 bool TweakDBReflection::IsFlatType(const CName& aTypeName)
 {
-    switch (aTypeName)
-    {
-    case ERTDBFlatType::Int:
-    case ERTDBFlatType::Float:
-    case ERTDBFlatType::Bool:
-    case ERTDBFlatType::String:
-    case ERTDBFlatType::CName:
-    case ERTDBFlatType::LocKey:
-    case ERTDBFlatType::ResRef:
-    case ERTDBFlatType::TweakDBID:
-    case ERTDBFlatType::Quaternion:
-    case ERTDBFlatType::EulerAngles:
-    case ERTDBFlatType::Vector3:
-    case ERTDBFlatType::Vector2:
-    case ERTDBFlatType::Color:
-    case ERTDBFlatType::IntArray:
-    case ERTDBFlatType::FloatArray:
-    case ERTDBFlatType::BoolArray:
-    case ERTDBFlatType::StringArray:
-    case ERTDBFlatType::CNameArray:
-    case ERTDBFlatType::LocKeyArray:
-    case ERTDBFlatType::ResRefArray:
-    case ERTDBFlatType::TweakDBIDArray:
-    case ERTDBFlatType::QuaternionArray:
-    case ERTDBFlatType::EulerAnglesArray:
-    case ERTDBFlatType::Vector3Array:
-    case ERTDBFlatType::Vector2Array:
-    case ERTDBFlatType::ColorArray:
-        return true;
-    default:
-        return false;
-    }
+    return TDBFlatType::Get(aTypeName);
 }
 
 bool TweakDBReflection::IsFlatType(const CBaseRTTIType* aType)
@@ -438,6 +376,7 @@ bool TweakDBReflection::IsRecordType(const CName& aTypeName)
     return aTypeName && IsRecordType(GetRTTI()->GetClass(aTypeName));
 }
 
+// TODO: update this to account for custom records
 bool TweakDBReflection::IsRecordType(const CClass* aType)
 {
     static CBaseRTTIType* s_baseRecordType = GetRTTI()->GetClass(BaseRecordTypeName);
@@ -447,25 +386,9 @@ bool TweakDBReflection::IsRecordType(const CClass* aType)
 
 bool TweakDBReflection::IsArrayType(const CName& aTypeName)
 {
-    switch (aTypeName)
-    {
-    case ERTDBFlatType::IntArray:
-    case ERTDBFlatType::FloatArray:
-    case ERTDBFlatType::BoolArray:
-    case ERTDBFlatType::StringArray:
-    case ERTDBFlatType::CNameArray:
-    case ERTDBFlatType::LocKeyArray:
-    case ERTDBFlatType::ResRefArray:
-    case ERTDBFlatType::TweakDBIDArray:
-    case ERTDBFlatType::QuaternionArray:
-    case ERTDBFlatType::EulerAnglesArray:
-    case ERTDBFlatType::Vector3Array:
-    case ERTDBFlatType::Vector2Array:
-    case ERTDBFlatType::ColorArray:
-        return true;
-    default:
-        return false;
-    }
+    if (const auto* t = TDBFlatType::Get(aTypeName))
+        return t->IsArray();
+    return false;
 }
 
 bool TweakDBReflection::IsArrayType(const CBaseRTTIType* aType)
@@ -475,7 +398,7 @@ bool TweakDBReflection::IsArrayType(const CBaseRTTIType* aType)
 
 bool TweakDBReflection::IsForeignKey(const CName& aTypeName)
 {
-    return aTypeName == ERTDBFlatType::TweakDBID;
+    return aTypeName == TDBFlatType::TweakDBID;
 }
 
 bool TweakDBReflection::IsForeignKey(const CBaseRTTIType* aType)
@@ -485,7 +408,7 @@ bool TweakDBReflection::IsForeignKey(const CBaseRTTIType* aType)
 
 bool TweakDBReflection::IsForeignKeyArray(const CName& aTypeName)
 {
-    return aTypeName == ERTDBFlatType::TweakDBIDArray;
+    return aTypeName == TDBFlatType::TweakDBIDArray;
 }
 
 bool TweakDBReflection::IsForeignKeyArray(const CBaseRTTIType* aType)
@@ -493,6 +416,7 @@ bool TweakDBReflection::IsForeignKeyArray(const CBaseRTTIType* aType)
     return aType && IsForeignKeyArray(aType->GetName());
 }
 
+// TODO: why can't we add this to TDBFlatType?
 bool TweakDBReflection::IsResRefToken(const CName& aTypeName)
 {
     return aTypeName == ScriptResRefTypeName || aTypeName == ResRefTypeName;
@@ -503,6 +427,7 @@ bool TweakDBReflection::IsResRefToken(const CBaseRTTIType* aType)
     return aType && IsResRefToken(aType->GetName());
 }
 
+// TODO: why can't we add this to TDBFlatType?
 bool TweakDBReflection::IsResRefTokenArray(const CName& aTypeName)
 {
     return aTypeName == ScriptResRefArrayTypeName || aTypeName == ResRefArrayTypeName;
@@ -515,88 +440,30 @@ bool TweakDBReflection::IsResRefTokenArray(const CBaseRTTIType* aType)
 
 CName TweakDBReflection::GetArrayTypeName(const CName& aTypeName)
 {
-    switch (aTypeName)
-    {
-    case ERTDBFlatType::Int:
-        return ERTDBFlatType::IntArray;
-    case ERTDBFlatType::Float:
-        return ERTDBFlatType::FloatArray;
-    case ERTDBFlatType::Bool:
-        return ERTDBFlatType::BoolArray;
-    case ERTDBFlatType::String:
-        return ERTDBFlatType::StringArray;
-    case ERTDBFlatType::CName:
-        return ERTDBFlatType::CNameArray;
-    case ERTDBFlatType::LocKey:
-        return ERTDBFlatType::LocKeyArray;
-    case ERTDBFlatType::ResRef:
-        return ERTDBFlatType::ResRefArray;
-    case ERTDBFlatType::TweakDBID:
-        return ERTDBFlatType::TweakDBIDArray;
-    case ERTDBFlatType::Quaternion:
-        return ERTDBFlatType::QuaternionArray;
-    case ERTDBFlatType::EulerAngles:
-        return ERTDBFlatType::EulerAnglesArray;
-    case ERTDBFlatType::Vector3:
-        return ERTDBFlatType::Vector3Array;
-    case ERTDBFlatType::Vector2:
-        return ERTDBFlatType::Vector2Array;
-    case ERTDBFlatType::Color:
-        return ERTDBFlatType::ColorArray;
-    default:
-        return {};
-    }
+    if (const auto* type = TDBFlatType::GetArrayType(aTypeName))
+        return type->GetName();
+    return {};
 }
 
 CName TweakDBReflection::GetArrayTypeName(const CBaseRTTIType* aType)
 {
-    if (!aType)
-        return {};
-
-    return GetArrayTypeName(aType->GetName());
+    if (aType)
+        return GetArrayTypeName(aType->GetName());
+    return {};
 }
 
 CName TweakDBReflection::GetElementTypeName(const CName& aTypeName)
 {
-    switch (aTypeName)
-    {
-    case ERTDBFlatType::IntArray:
-        return ERTDBFlatType::Int;
-    case ERTDBFlatType::FloatArray:
-        return ERTDBFlatType::Float;
-    case ERTDBFlatType::BoolArray:
-        return ERTDBFlatType::Bool;
-    case ERTDBFlatType::StringArray:
-        return ERTDBFlatType::String;
-    case ERTDBFlatType::CNameArray:
-        return ERTDBFlatType::CName;
-    case ERTDBFlatType::TweakDBIDArray:
-        return ERTDBFlatType::TweakDBID;
-    case ERTDBFlatType::LocKeyArray:
-        return ERTDBFlatType::LocKey;
-    case ERTDBFlatType::ResRefArray:
-        return ERTDBFlatType::ResRef;
-    case ERTDBFlatType::QuaternionArray:
-        return ERTDBFlatType::Quaternion;
-    case ERTDBFlatType::EulerAnglesArray:
-        return ERTDBFlatType::EulerAngles;
-    case ERTDBFlatType::Vector3Array:
-        return ERTDBFlatType::Vector3;
-    case ERTDBFlatType::Vector2Array:
-        return ERTDBFlatType::Vector2;
-    case ERTDBFlatType::ColorArray:
-        return ERTDBFlatType::Color;
-    default:
-        return {};
-    }
+    if (const auto* type = TDBFlatType::GetElementType(aTypeName))
+        return type->GetName();
+    return {};
 }
 
 CName TweakDBReflection::GetElementTypeName(const CBaseRTTIType* aType)
 {
-    if (!aType)
-        return {};
-
-    return GetElementTypeName(aType->GetName());
+    if (aType)
+        return GetElementTypeName(aType->GetName());
+    return {};
 }
 
 std::string TweakDBReflection::GetRecordFullName(const CName& aName)
@@ -658,63 +525,10 @@ std::string TweakDBReflection::GetRecordAliasName(const char* aName)
 
 InstancePtr<> TweakDBReflection::Construct(const CName& aTypeName)
 {
-    switch (aTypeName)
-    {
-    case ERTDBFlatType::Int:
-        return MakeInstance<int>();
-    case ERTDBFlatType::Float:
-        return MakeInstance<float>();
-    case ERTDBFlatType::Bool:
-        return MakeInstance<bool>();
-    case ERTDBFlatType::String:
-        return MakeInstance<CString>();
-    case ERTDBFlatType::CName:
-        return MakeInstance<CName>();
-    case ERTDBFlatType::LocKey:
-        return MakeInstance<LocKeyWrapper>();
-    case ERTDBFlatType::ResRef:
-        return MakeInstance<ResourceAsyncReference<>>();
-    case ERTDBFlatType::TweakDBID:
-        return MakeInstance<TweakDBID>();
-    case ERTDBFlatType::Quaternion:
-        return MakeInstance<Quaternion>();
-    case ERTDBFlatType::EulerAngles:
-        return MakeInstance<EulerAngles>();
-    case ERTDBFlatType::Vector3:
-        return MakeInstance<Vector3>();
-    case ERTDBFlatType::Vector2:
-        return MakeInstance<Vector2>();
-    case ERTDBFlatType::Color:
-        return MakeInstance<Color>();
-    case ERTDBFlatType::IntArray:
-        return MakeInstance<DynArray<int>>();
-    case ERTDBFlatType::FloatArray:
-        return MakeInstance<DynArray<float>>();
-    case ERTDBFlatType::BoolArray:
-        return MakeInstance<DynArray<bool>>();
-    case ERTDBFlatType::StringArray:
-        return MakeInstance<DynArray<CString>>();
-    case ERTDBFlatType::CNameArray:
-        return MakeInstance<DynArray<CName>>();
-    case ERTDBFlatType::LocKeyArray:
-        return MakeInstance<DynArray<LocKeyWrapper>>();
-    case ERTDBFlatType::ResRefArray:
-        return MakeInstance<DynArray<ResourceAsyncReference<>>>();
-    case ERTDBFlatType::TweakDBIDArray:
-        return MakeInstance<DynArray<TweakDBID>>();
-    case ERTDBFlatType::QuaternionArray:
-        return MakeInstance<DynArray<Quaternion>>();
-    case ERTDBFlatType::EulerAnglesArray:
-        return MakeInstance<DynArray<EulerAngles>>();
-    case ERTDBFlatType::Vector3Array:
-        return MakeInstance<DynArray<Vector3>>();
-    case ERTDBFlatType::Vector2Array:
-        return MakeInstance<DynArray<Vector2>>();
-    case ERTDBFlatType::ColorArray:
-        return MakeInstance<DynArray<Color>>();
-    default:
-        return {};
-    }
+    if (const auto* type = TDBFlatType::Get(aTypeName))
+        return type->Construct();
+
+    return {};
 }
 
 InstancePtr<> TweakDBReflection::Construct(const CBaseRTTIType* aType)
@@ -728,7 +542,7 @@ InstancePtr<> TweakDBReflection::Construct(const CBaseRTTIType* aType)
 void TweakDBReflection::RegisterExtraFlat(const CName& aRecordType, const std::string& aPropName,
                                           const CName& aPropType, const CName& aForeignType)
 {
-    s_extraFlats[aRecordType].push_back({aPropType, aForeignType, NameSeparator + aPropName});
+    s_extraFlats[aRecordType].push_back({aPropType, aForeignType, aPropName});
 }
 
 void TweakDBReflection::RegisterDescendants(const TweakDBID aParentId, const Core::Set<TweakDBID>& aDescendantIds)

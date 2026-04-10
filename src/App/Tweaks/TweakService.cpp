@@ -25,7 +25,7 @@ void App::TweakService::OnBootstrap()
 
     CreateTweaksDir();
 
-    CRTTISystem::Get()->AddRegisterCallback(&OnRTTIRegister);
+    Red::CRTTISystem::Get()->AddRegisterCallback(&OnRTTIRegister);
 
     HookAfter<Raw::TryLoadTweakDB>([&](bool& aSuccess) {
         if (aSuccess)
@@ -225,7 +225,7 @@ void App::TweakService::LoadSchemaRegistrations() const
 {
     if (m_schemaRegistry)
     {
-        for (const auto schemas = TweakRecordSchemaRegistrar::LoadSchemas(); const auto& schema : *schemas)
+        for (const auto schemas = Red::TweakRecordSchemaRegistrar::LoadSchemas(); const auto& schema : *schemas)
         {
             m_schemaRegistry->RegisterSchema(schema);
         }

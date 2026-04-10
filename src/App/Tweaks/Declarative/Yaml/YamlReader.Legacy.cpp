@@ -10,13 +10,11 @@ constexpr auto LegacyMembersNodeKey = "members";
 constexpr auto LegacyFlatsNodeKey = "flats";
 constexpr auto LegacyTypeNodeKey = "type";
 constexpr auto LegacyValueNodeKey = "value";
-}
+} // namespace
 
 void App::YamlReader::ConvertLegacyNodes()
 {
-    const auto groupsNode = m_data[LegacyGroupsNodeKey];
-
-    if (groupsNode.IsMap())
+    if (const auto groupsNode = m_data[LegacyGroupsNodeKey]; groupsNode.IsMap())
     {
         for (const auto& groupIt : groupsNode)
         {
@@ -38,9 +36,8 @@ void App::YamlReader::ConvertLegacyNodes()
             for (const auto& memberIt : groupMembersNode)
             {
                 const auto memberKey = memberIt.first;
-                const auto memberNode = memberIt.second;
 
-                if (!memberKey.IsDefined() || !memberNode.IsMap())
+                if (const auto memberNode = memberIt.second; !memberKey.IsDefined() || !memberNode.IsMap())
                     continue;
 
                 const auto memberTypeNode = groupNode[LegacyTypeNodeKey];
@@ -58,9 +55,7 @@ void App::YamlReader::ConvertLegacyNodes()
         m_data.remove(LegacyGroupsNodeKey);
     }
 
-    const auto flatsNode = m_data[LegacyFlatsNodeKey];
-
-    if (flatsNode.IsMap())
+    if (const auto flatsNode = m_data[LegacyFlatsNodeKey]; flatsNode.IsMap())
     {
         for (const auto& flatIt : flatsNode)
         {

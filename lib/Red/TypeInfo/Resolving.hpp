@@ -19,115 +19,115 @@ struct TypeProxyMapping : public std::false_type {};
 
 namespace Detail
 {
-template<typename T>
-concept IsTypeNameConst = std::is_same_v<std::remove_cvref_t<T>, const char*> || std::is_convertible_v<T, std::string_view>;
+    template<typename T>
+    concept IsTypeNameConst = std::is_same_v<std::remove_cvref_t<T>, const char*> || std::is_convertible_v<T, std::string_view>;
 
-template<typename T>
-concept HasGeneratedTypeName = requires(T*)
-{
-    { T::NAME } -> IsTypeNameConst;
-    { T::ALIAS } -> IsTypeNameConst;
-};
-
-template<typename T>
-concept HasTypeNameMapping = TypeNameMapping<T>::value;
-
-template<typename G>
-concept HasTypePrefixMapping = TypePrefixMapping<G>::value;
-
-template<typename G>
-concept HasTypeProxyMapping = TypeProxyMapping<G>::value;
-
-template<typename T>
-concept HasTypeNameBuilder = requires(T*)
-{
-    { TypeInfoBuilder<Scope::For<T>()>::Name() } -> IsTypeNameConst;
-};
-
-template<typename T>
-consteval auto ResolveTypeNameBuilder()
-{
-    return TypeInfoBuilder<Scope::For<T>()>::Name();
-}
-
-template<size_t N>
-consteval auto MakeConstStr(const char* aName)
-{
-    constexpr auto len = N + 1;
-    std::array<char, len> result{};
-
-    for (auto i = 0; i < N; ++i)
-        result[i] = aName[i];
-
-    return result;
-}
-
-template<size_t N, size_t M>
-consteval auto ConcatConstStr(const char* aPrefix, const char* aName)
-{
-    constexpr auto len = N + M + 1;
-    std::array<char, len> result{};
-
-    for (auto i = 0; i < N; ++i)
-        result[i] = aPrefix[i];
-
-    for (auto i = 0; i < M; ++i)
-        result[i + N] = aName[i];
-
-    return result;
-}
-
-template<size_t N>
-consteval auto UpFirstConstStr(const char* aName)
-{
-    constexpr auto len = N + 1;
-    std::array<char, len> result{};
-
-    for (auto i = 0; i < N; ++i)
-        result[i] = aName[i];
-
-    if (result[0] >= 'a' && result[0] <= 'z')
+    template<typename T>
+    concept HasGeneratedTypeName = requires(T*)
     {
-        result[0] -= ('a' - 'A');
+        { T::NAME } -> IsTypeNameConst;
+        { T::ALIAS } -> IsTypeNameConst;
+    };
+
+    template<typename T>
+    concept HasTypeNameMapping = TypeNameMapping<T>::value;
+
+    template<typename G>
+    concept HasTypePrefixMapping = TypePrefixMapping<G>::value;
+
+    template<typename G>
+    concept HasTypeProxyMapping = TypeProxyMapping<G>::value;
+
+    template<typename T>
+    concept HasTypeNameBuilder = requires(T*)
+    {
+        { TypeInfoBuilder<Scope::For<T>()>::Name() } -> IsTypeNameConst;
+    };
+
+    template<typename T>
+    consteval auto ResolveTypeNameBuilder()
+    {
+        return TypeInfoBuilder<Scope::For<T>()>::Name();
     }
 
-    return result;
-}
-
-consteval auto RemoveMemberPrefix(std::string_view aName)
-{
-    if (aName.starts_with("m_"))
+    template<size_t N>
+    consteval auto MakeConstStr(const char* aName)
     {
-        aName.remove_prefix(2);
+        constexpr auto len = N + 1;
+        std::array<char, len> result{};
+
+        for (auto i = 0; i < N; ++i)
+            result[i] = aName[i];
+
+        return result;
     }
 
-    return aName;
-}
-
-constexpr auto ScopedEnumPrefix = "enum RED4ext::";
-constexpr auto ScopedEnumPrefixLength = std::char_traits<char>::length(ScopedEnumPrefix);
-
-consteval bool IsScopedEnumName(const std::string_view& aName)
-{
-    return aName.starts_with(ScopedEnumPrefix);
-}
-
-template<size_t N>
-consteval auto ExtractScopedEnumName(const char* aName)
-{
-    std::array<char, N - ScopedEnumPrefixLength + 1> result{};
-
-    for (auto i = ScopedEnumPrefixLength, j = 0ull; i < N; ++i)
+    template<size_t N, size_t M>
+    consteval auto ConcatConstStr(const char* aPrefix, const char* aName)
     {
-        if (aName[i] != ':')
+        constexpr auto len = N + M + 1;
+        std::array<char, len> result{};
+
+        for (auto i = 0; i < N; ++i)
+            result[i] = aPrefix[i];
+
+        for (auto i = 0; i < M; ++i)
+            result[i + N] = aName[i];
+
+        return result;
+    }
+
+    template<size_t N>
+    consteval auto UpFirstConstStr(const char* aName)
+    {
+        constexpr auto len = N + 1;
+        std::array<char, len> result{};
+
+        for (auto i = 0; i < N; ++i)
+            result[i] = aName[i];
+
+        if (result[0] >= 'a' && result[0] <= 'z')
         {
-            result[j] = aName[i];
-            ++j;
+            result[0] -= ('a' - 'A');
         }
+
+        return result;
     }
 
-    return result;
-}
+    consteval auto RemoveMemberPrefix(std::string_view aName)
+    {
+        if (aName.starts_with("m_"))
+        {
+            aName.remove_prefix(2);
+        }
+
+        return aName;
+    }
+
+    constexpr auto ScopedEnumPrefix = "enum RED4ext::";
+    constexpr auto ScopedEnumPrefixLength = std::char_traits<char>::length(ScopedEnumPrefix);
+
+    consteval bool IsScopedEnumName(const std::string_view& aName)
+    {
+        return aName.starts_with(ScopedEnumPrefix);
+    }
+
+    template<size_t N>
+    consteval auto ExtractScopedEnumName(const char* aName)
+    {
+        std::array<char, N - ScopedEnumPrefixLength + 1> result{};
+
+        for (auto i = ScopedEnumPrefixLength, j = 0ull; i < N; ++i)
+        {
+            if (aName[i] != ':')
+            {
+                result[j] = aName[i];
+                ++j;
+            }
+        }
+
+        return result;
+    }
 }
 
 template<typename T>
@@ -566,4 +566,115 @@ inline bool IsCompatible(CBaseRTTIType* aLhsType, CBaseRTTIType* aRhsType, void*
 
     return true;
 }
+
+class ResolvableType
+{
+public:
+    ResolvableType() = default;
+    explicit ResolvableType(const char* aName);
+    explicit ResolvableType(const std::string& aName);
+    explicit ResolvableType(const CBaseRTTIType* aType);
+    explicit ResolvableType(uint64_t aHash);
+
+    const CBaseRTTIType* GetType() const;
+    const CClass* GetClass() const;
+    const char* GetName() const;
+    uint64_t GetHash() const;
+
+    bool IsResolved() const;
+
+    operator const CClass*() const
+    {
+        return GetClass();
+    }
+
+    operator bool() const
+    {
+        return m_hash != 0 || m_name || m_type;
+    }
+
+private:
+    static inline Core::Map<uint64_t, CClass*> m_classCache;
+    static inline bool m_registered = true;
+
+    void Resolve() const;
+
+    mutable const char* m_name;
+    mutable uint64_t m_hash;
+    mutable const CBaseRTTIType* m_type;
+};
+
+inline ResolvableType::ResolvableType(const char* aName)
+    : m_name(aName)
+    , m_hash(CName{aName})
+    , m_type(nullptr)
+{
 }
+
+inline ResolvableType::ResolvableType(const std::string& aName)
+    : ResolvableType(aName.c_str())
+{
+}
+
+inline ResolvableType::ResolvableType(const CBaseRTTIType* aType)
+    : m_name(nullptr)
+    , m_hash(aType->GetName())
+    , m_type(aType)
+{
+}
+
+inline ResolvableType::ResolvableType(const uint64_t aHash)
+    : m_name(nullptr)
+    , m_hash(aHash)
+    , m_type(nullptr)
+{
+}
+
+inline const CBaseRTTIType* ResolvableType::GetType() const
+{
+    if (!IsResolved())
+        Resolve();
+    return m_type;
+}
+
+inline const CClass* ResolvableType::GetClass() const
+{
+    if (const auto type = GetType(); type->GetType() == ERTTIType::Class)
+        return static_cast<const CClass*>(type);
+    return nullptr;
+}
+
+inline const char* ResolvableType::GetName() const
+{
+    if (!IsResolved())
+        Resolve();
+    return m_name;
+}
+
+inline uint64_t ResolvableType::GetHash() const
+{
+    if (!IsResolved())
+        Resolve();
+    return m_hash;
+}
+
+inline bool ResolvableType::IsResolved() const
+{
+    return m_type != nullptr;
+}
+
+inline void ResolvableType::Resolve() const
+{
+    if (!m_registered)
+        return;
+
+    if (const auto type = CRTTISystem::Get()->GetType(m_hash))
+    {
+        m_type = type;
+        m_hash = type->GetName();
+        if (const auto str = CName(m_hash).ToString(); str && strlen(str))
+            m_name = const_cast<char*>(type->GetName().ToString());
+    }
+}
+
+} // namespace Red

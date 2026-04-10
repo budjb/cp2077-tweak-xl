@@ -17,7 +17,7 @@ uint64_t MakeKey(const std::string& aName)
     return Red::FNV1a64(aName.c_str());
 }
 
-uint64_t MakeKey(const char* aName, uint32_t aSize)
+uint64_t MakeKey(const char* aName, const uint32_t aSize)
 {
     return Red::FNV1a64(reinterpret_cast<const uint8_t*>(aName), aSize);
 }
@@ -92,8 +92,7 @@ std::string FormatString(const std::string& aInput, const InstanceData& aData)
         const auto attr = MakeKey(attrOpen + 2, attrClose - attrOpen - 2);
         const char* value = nullptr;
 
-        const auto it = aData.find(attr);
-        if (it != aData.end())
+        if (const auto it = aData.find(attr); it != aData.end())
         {
             if (it.value().IsScalar())
             {
@@ -140,16 +139,14 @@ void ProcessNode(YAML::Node& aNode, const InstanceData& aInstanceData)
     case YAML::NodeType::Scalar:
     {
         const auto& value = aNode.Scalar();
-        const auto markPos = value.find(AttrMark);
-        if (markPos != std::string::npos)
+        if (const auto markPos = value.find(AttrMark); markPos != std::string::npos)
         {
             YAML::Node expandedNode{YAML::NodeType::Undefined};
 
             if (markPos == 0)
             {
                 const auto attr = MakeKey(value.data() + 2, value.size() - 3);
-                auto it = aInstanceData.find(attr);
-                if (it != aInstanceData.end())
+                if (auto it = aInstanceData.find(attr); it != aInstanceData.end())
                 {
                     expandedNode = YAML::Clone(it->second);
                 }
@@ -187,11 +184,9 @@ void ProcessNode(YAML::Node& aNode, const InstanceData& aInstanceData)
 
             if (subNode.IsMap())
             {
-                auto instanceListNode = subNode[InstanceAttrKey];
-
-                if (instanceListNode.IsDefined())
+                if (auto instanceListNode = subNode[InstanceAttrKey]; instanceListNode.IsDefined())
                 {
-                    const_cast<YAML::Node&>(subNode).remove(InstanceAttrKey);
+                    subNode.remove(InstanceAttrKey);
 
                     if (instanceListNode.IsSequence())
                     {
@@ -205,16 +200,16 @@ void ProcessNode(YAML::Node& aNode, const InstanceData& aInstanceData)
                             }
                         }
 
-                        for (std::size_t j = 0; j < instanceListNode.size(); ++j)
+                        for (auto&& j : instanceListNode)
                         {
                             InstanceData instanceData{aInstanceData};
-                            PrepareInstanceData(instanceData, instanceListNode[j]);
+                            PrepareInstanceData(instanceData, j);
 
                             auto instanceNode = YAML::Clone(subNode);
                             ProcessNode(instanceNode, instanceData);
 
-                            auto valueNode = instanceNode[ValueAttrKey];
-                            if (valueNode.IsDefined() && !valueNode.IsMap())
+                            if (auto valueNode = instanceNode[ValueAttrKey];
+                                valueNode.IsDefined() && !valueNode.IsMap())
                             {
                                 if (valueNode.Tag() == "?")
                                 {
@@ -244,13 +239,15 @@ void ProcessNode(YAML::Node& aNode, const InstanceData& aInstanceData)
 
         if (expandedNode.IsDefined())
         {
-            const_cast<YAML::Node&>(aNode) = expandedNode;
+            aNode = expandedNode;
         }
         break;
     }
+    default:
+        break;
     }
 }
-}
+} // namespace
 
 void App::YamlReader::ProcessTemplates(YAML::Node& aRootNode)
 {
@@ -317,12 +314,12 @@ void App::YamlReader::ProcessTemplates(YAML::Node& aRootNode)
             continue;
         }
 
-        const_cast<YAML::Node&>(topNode).remove(InstanceAttrKey);
+        topNode.remove(InstanceAttrKey);
 
-        for (std::size_t i = 0; i < instanceListNode.size(); ++i)
+        for (const auto& i : instanceListNode)
         {
             InstanceData instanceData;
-            PrepareInstanceData(instanceData, instanceListNode[i]);
+            PrepareInstanceData(instanceData, i);
 
             auto instanceName = FormatString(topKey, instanceData);
             auto instanceNode = YAML::Clone(topNode);

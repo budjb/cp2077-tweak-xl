@@ -12,7 +12,7 @@ bool App::ScriptBatch::SetFlat(Red::TweakDBID aFlatID, Red::Variant& aVariant) c
 {
     if (m_batch && !aVariant.IsEmpty())
     {
-        ConvertScriptValueForFlatValue(aVariant, m_reflection);
+        ConvertScriptValueForFlatValue(aVariant);
         return m_manager->SetFlat(m_batch, aFlatID, aVariant.GetType(), aVariant.GetDataPtr());
     }
 
@@ -53,7 +53,7 @@ bool App::ScriptBatch::RegisterEnum(Red::TweakDBID aRecordID) const
 {
     if (m_batch && aRecordID)
     {
-        m_manager->RegisterEnum(m_batch, aRecordID);
+        m_manager->RegisterEnum(aRecordID);
         return true;
     }
 

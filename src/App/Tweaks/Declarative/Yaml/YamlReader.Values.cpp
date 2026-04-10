@@ -14,17 +14,17 @@ Red::InstancePtr<T> App::YamlReader::ConvertValue(const YAML::Node& aNode, bool)
 }
 
 template<>
-Red::InstancePtr<Red::CName> App::YamlReader::ConvertValue(const YAML::Node& aNode, bool aStrict)
+Red::InstancePtr<Red::CName> App::YamlReader::ConvertValue(const YAML::Node& aNode, const bool aStrict)
 {
     // Quoted format: n"Name"
-    constexpr const char* QuotedPrefix = "n\"";
-    constexpr const char QuotedSuffix = '"';
+    constexpr auto QuotedPrefix = "n\"";
+    constexpr char QuotedSuffix = '"';
     constexpr size_t QuotedSkip = std::char_traits<char>::length(QuotedPrefix);
     constexpr size_t QuotedDiff = QuotedSkip + sizeof(QuotedSuffix);
 
     // Wrapped format: CName("Name")
-    constexpr const char* WrappedPrefix = "CName(\"";
-    constexpr const char* WrappedSuffix = "\")";
+    constexpr auto WrappedPrefix = "CName(\"";
+    constexpr auto WrappedSuffix = "\")";
     constexpr size_t WrappedSkip = std::char_traits<char>::length(WrappedPrefix);
     constexpr size_t WrappedDiff = WrappedSkip + std::char_traits<char>::length(WrappedSuffix);
 
@@ -57,7 +57,7 @@ Red::InstancePtr<Red::CName> App::YamlReader::ConvertValue(const YAML::Node& aNo
 }
 
 template<>
-Red::InstancePtr<Red::TweakDBID> App::YamlReader::ConvertValue(const YAML::Node& aNode, bool aStrict)
+Red::InstancePtr<Red::TweakDBID> App::YamlReader::ConvertValue(const YAML::Node& aNode, const bool aStrict)
 {
     // Quoted format: t"Package.Item"
     constexpr const char* QuotedPrefix = "t\"";
@@ -66,14 +66,14 @@ Red::InstancePtr<Red::TweakDBID> App::YamlReader::ConvertValue(const YAML::Node&
     constexpr size_t QuotedDiff = QuotedSkip + sizeof(QuotedSuffix);
 
     // Wrapped format: TweakDBID("Package.Item")
-    constexpr const char* WrappedPrefix = "TweakDBID(\"";
-    constexpr const char* WrappedSuffix = "\")";
+    constexpr auto WrappedPrefix = "TweakDBID(\"";
+    constexpr auto WrappedSuffix = "\")";
     constexpr size_t WrappedSkip = std::char_traits<char>::length(WrappedPrefix);
     constexpr size_t WrappedDiff = WrappedSkip + std::char_traits<char>::length(WrappedSuffix);
 
     // Debug format: <TDBID:12345678:12>
-    constexpr const char* DebugPrefix = "<TDBID:";
-    constexpr const char DebugSuffix = '>';
+    constexpr auto DebugPrefix = "<TDBID:";
+    constexpr char DebugSuffix = '>';
     constexpr size_t DebugLength = std::char_traits<char>::length("<TDBID:12345678:12>");
     constexpr size_t DebugHashPos = std::char_traits<char>::length(DebugPrefix);
     constexpr size_t DebugHashSize = 8;
@@ -82,7 +82,6 @@ Red::InstancePtr<Red::TweakDBID> App::YamlReader::ConvertValue(const YAML::Node&
     static_assert(DebugLength == DebugHashPos + DebugHashSize + 1 + DebugLenSize + sizeof(DebugSuffix));
 
     // Special values
-    constexpr const char* EmptyValue = "None";
 
     if (aNode.IsScalar())
     {
@@ -93,14 +92,12 @@ Red::InstancePtr<Red::TweakDBID> App::YamlReader::ConvertValue(const YAML::Node&
 
         if (str.starts_with(QuotedPrefix) && str.ends_with(QuotedSuffix))
         {
-            return Red::MakeInstance<Red::TweakDBID>(
-                str.substr(QuotedSkip, str.length() - QuotedDiff));
+            return Red::MakeInstance<Red::TweakDBID>(str.substr(QuotedSkip, str.length() - QuotedDiff));
         }
 
         if (str.starts_with(WrappedPrefix) && str.ends_with(WrappedSuffix))
         {
-            return Red::MakeInstance<Red::TweakDBID>(
-                str.substr(WrappedSkip, str.length() - WrappedDiff));
+            return Red::MakeInstance<Red::TweakDBID>(str.substr(WrappedSkip, str.length() - WrappedDiff));
         }
 
         if (str.length() == DebugLength && str.starts_with(DebugPrefix) && str.ends_with(DebugSuffix))
@@ -113,7 +110,7 @@ Red::InstancePtr<Red::TweakDBID> App::YamlReader::ConvertValue(const YAML::Node&
 
         if (!aStrict)
         {
-            if (str == EmptyValue)
+            if (constexpr auto EmptyValue = "None"; str == EmptyValue)
                 return Red::MakeInstance<Red::TweakDBID>();
 
             return Red::MakeInstance<Red::TweakDBID>(str);
@@ -124,17 +121,17 @@ Red::InstancePtr<Red::TweakDBID> App::YamlReader::ConvertValue(const YAML::Node&
 }
 
 template<>
-Red::InstancePtr<Red::LocKeyWrapper> App::YamlReader::ConvertValue(const YAML::Node& aNode, bool aStrict)
+Red::InstancePtr<Red::LocKeyWrapper> App::YamlReader::ConvertValue(const YAML::Node& aNode, const bool aStrict)
 {
     // Quoted format: l"Secondary-Loc-Key"
-    constexpr const char* QuotedPrefix = "l\"";
-    constexpr const char QuotedSuffix = '"';
+    constexpr auto QuotedPrefix = "l\"";
+    constexpr char QuotedSuffix = '"';
     constexpr size_t QuotedSkip = std::char_traits<char>::length(QuotedPrefix);
     constexpr size_t QuotedDiff = QuotedSkip + sizeof(QuotedSuffix);
 
     // Wrapped format: LocKey("Secondary-Loc-Key") | LocKey(12345)
-    constexpr const char* WrappedPrefix = "LocKey(";
-    constexpr const char WrappedSuffix = ')';
+    constexpr auto WrappedPrefix = "LocKey(";
+    constexpr char WrappedSuffix = ')';
     constexpr size_t WrappedSkip = std::char_traits<char>::length(WrappedPrefix);
     constexpr size_t WrappedDiff = WrappedSkip + sizeof(WrappedSuffix);
 
@@ -152,20 +149,18 @@ Red::InstancePtr<Red::LocKeyWrapper> App::YamlReader::ConvertValue(const YAML::N
 
         if (str.starts_with(QuotedPrefix) && str.ends_with(QuotedSuffix))
         {
-            return Red::MakeInstance<Red::LocKeyWrapper>(
-                str.substr(QuotedSkip, str.length() - QuotedDiff).c_str());
+            return Red::MakeInstance<Red::LocKeyWrapper>(str.substr(QuotedSkip, str.length() - QuotedDiff).c_str());
         }
 
         if (str.starts_with(WrappedPrefix) && str.ends_with(WrappedSuffix))
         {
             const size_t quoted = str[WrappedSkip] == '"' ? 1 : 0;
-            auto value = str.substr(WrappedSkip + quoted, str.length() - WrappedDiff - (quoted << 1));
+            const auto value = str.substr(WrappedSkip + quoted, str.length() - WrappedDiff - (quoted << 1));
 
             if (quoted)
                 return Red::MakeInstance<Red::LocKeyWrapper>(value.c_str());
 
-            uint64_t key;
-            if (ParseInt(value, key))
+            if (uint64_t key; ParseInt(value, key))
                 return Red::MakeInstance<Red::LocKeyWrapper>(key);
 
             return nullptr;
@@ -173,10 +168,9 @@ Red::InstancePtr<Red::LocKeyWrapper> App::YamlReader::ConvertValue(const YAML::N
 
         if (str.starts_with(StringPrefix))
         {
-            auto value = str.substr(StringSkip, str.length() - StringDiff);
+            const auto value = str.substr(StringSkip, str.length() - StringDiff);
 
-            uint64_t key;
-            if (ParseInt(value, key))
+            if (uint64_t key; ParseInt(value, key))
                 return Red::MakeInstance<Red::LocKeyWrapper>(key);
 
             return Red::MakeInstance<Red::LocKeyWrapper>(value.c_str());
@@ -184,8 +178,7 @@ Red::InstancePtr<Red::LocKeyWrapper> App::YamlReader::ConvertValue(const YAML::N
 
         if (!aStrict)
         {
-            uint64_t key;
-            if (ParseInt(str, key))
+            if (uint64_t key; ParseInt(str, key))
                 return Red::MakeInstance<Red::LocKeyWrapper>(key);
 
             return Red::MakeInstance<Red::LocKeyWrapper>(str.c_str());
@@ -196,17 +189,18 @@ Red::InstancePtr<Red::LocKeyWrapper> App::YamlReader::ConvertValue(const YAML::N
 }
 
 template<>
-Red::InstancePtr<Red::ResourceAsyncReference<>> App::YamlReader::ConvertValue(const YAML::Node& aNode, bool aStrict)
+Red::InstancePtr<Red::ResourceAsyncReference<>> App::YamlReader::ConvertValue(const YAML::Node& aNode,
+                                                                              const bool aStrict)
 {
     // Quoted format: r"base\gameplay\resource.ext"
-    constexpr const char* QuotedPrefix = "r\"";
-    constexpr const char QuotedSuffix = '"';
+    constexpr auto QuotedPrefix = "r\"";
+    constexpr char QuotedSuffix = '"';
     constexpr size_t QuotedSkip = std::char_traits<char>::length(QuotedPrefix);
     constexpr size_t QuotedDiff = QuotedSkip + sizeof(QuotedSuffix);
 
     // Wrapped format: ResRef("base\gameplay\resource.ext") | ResRef(123456789)
-    constexpr const char* WrappedPrefix = "ResRef(";
-    constexpr const char WrappedSuffix = ')';
+    constexpr auto WrappedPrefix = "ResRef(";
+    constexpr char WrappedSuffix = ')';
     constexpr size_t WrappedSkip = std::char_traits<char>::length(WrappedPrefix);
     constexpr size_t WrappedDiff = WrappedSkip + sizeof(WrappedSuffix);
 
@@ -219,7 +213,7 @@ Red::InstancePtr<Red::ResourceAsyncReference<>> App::YamlReader::ConvertValue(co
 
         if (str.starts_with(QuotedPrefix) && str.ends_with(QuotedSuffix))
         {
-            auto value = str.substr(QuotedSkip, str.length() - QuotedDiff);
+            const auto value = str.substr(QuotedSkip, str.length() - QuotedDiff);
 
             return Red::MakeInstance<Red::ResourceAsyncReference<>>(value.c_str());
         }
@@ -227,13 +221,12 @@ Red::InstancePtr<Red::ResourceAsyncReference<>> App::YamlReader::ConvertValue(co
         if (str.starts_with(WrappedPrefix) && str.ends_with(WrappedSuffix))
         {
             const size_t quoted = str[WrappedSkip] == '"' ? 1 : 0;
-            auto value = str.substr(WrappedSkip + quoted, str.length() - WrappedDiff - (quoted << 1));
+            const auto value = str.substr(WrappedSkip + quoted, str.length() - WrappedDiff - (quoted << 1));
 
             if (quoted)
                 return Red::MakeInstance<Red::ResourceAsyncReference<>>(value.c_str());
 
-            uint64_t hash;
-            if (ParseInt(value, hash))
+            if (uint64_t hash; ParseInt(value, hash))
                 return Red::MakeInstance<Red::ResourceAsyncReference<>>(hash);
 
             return nullptr;
@@ -241,8 +234,7 @@ Red::InstancePtr<Red::ResourceAsyncReference<>> App::YamlReader::ConvertValue(co
 
         if (!aStrict)
         {
-            uint64_t hash;
-            if (ParseInt(str, hash))
+            if (uint64_t hash; ParseInt(str, hash))
                 return Red::MakeInstance<Red::ResourceAsyncReference<>>(hash);
 
             return Red::MakeInstance<Red::ResourceAsyncReference<>>(str.c_str());
@@ -253,7 +245,7 @@ Red::InstancePtr<Red::ResourceAsyncReference<>> App::YamlReader::ConvertValue(co
 }
 
 template<>
-Red::InstancePtr<Red::CString> App::YamlReader::ConvertValue(const YAML::Node& aNode, bool aStrict)
+Red::InstancePtr<Red::CString> App::YamlReader::ConvertValue(const YAML::Node& aNode, const bool aStrict)
 {
     if (!aNode.IsScalar())
         return nullptr;
@@ -267,8 +259,7 @@ Red::InstancePtr<Red::CString> App::YamlReader::ConvertValue(const YAML::Node& a
     }
     else
     {
-        const auto locKey = ConvertValue<Red::LocKeyWrapper>(aNode, true);
-        if (locKey)
+        if (const auto locKey = ConvertValue<Red::LocKeyWrapper>(aNode, true))
         {
             const auto locKeyStr = std::string(Red::LocKeyPrefix).append(std::to_string(locKey->primaryKey));
 
@@ -280,7 +271,7 @@ Red::InstancePtr<Red::CString> App::YamlReader::ConvertValue(const YAML::Node& a
 }
 
 template<>
-Red::InstancePtr<Red::Quaternion> App::YamlReader::ConvertValue(const YAML::Node& aNode, bool aStrict)
+Red::InstancePtr<Red::Quaternion> App::YamlReader::ConvertValue(const YAML::Node& aNode, const bool aStrict)
 {
     if (aNode.IsMap())
     {
@@ -300,7 +291,7 @@ Red::InstancePtr<Red::Quaternion> App::YamlReader::ConvertValue(const YAML::Node
 }
 
 template<>
-Red::InstancePtr<Red::EulerAngles> App::YamlReader::ConvertValue(const YAML::Node& aNode, bool aStrict)
+Red::InstancePtr<Red::EulerAngles> App::YamlReader::ConvertValue(const YAML::Node& aNode, const bool aStrict)
 {
     if (aNode.IsMap())
     {
@@ -319,7 +310,7 @@ Red::InstancePtr<Red::EulerAngles> App::YamlReader::ConvertValue(const YAML::Nod
 }
 
 template<>
-Red::InstancePtr<Red::Vector3> App::YamlReader::ConvertValue(const YAML::Node& aNode, bool aStrict)
+Red::InstancePtr<Red::Vector3> App::YamlReader::ConvertValue(const YAML::Node& aNode, const bool aStrict)
 {
     if (aNode.IsMap())
     {
@@ -338,7 +329,7 @@ Red::InstancePtr<Red::Vector3> App::YamlReader::ConvertValue(const YAML::Node& a
 }
 
 template<>
-Red::InstancePtr<Red::Vector2> App::YamlReader::ConvertValue(const YAML::Node& aNode, bool aStrict)
+Red::InstancePtr<Red::Vector2> App::YamlReader::ConvertValue(const YAML::Node& aNode, const bool aStrict)
 {
     if (aNode.IsMap())
     {
@@ -356,7 +347,7 @@ Red::InstancePtr<Red::Vector2> App::YamlReader::ConvertValue(const YAML::Node& a
 }
 
 template<>
-Red::InstancePtr<Red::Color> App::YamlReader::ConvertValue(const YAML::Node& aNode, bool aStrict)
+Red::InstancePtr<Red::Color> App::YamlReader::ConvertValue(const YAML::Node& aNode, const bool aStrict)
 {
     if (aNode.IsMap())
     {
@@ -405,14 +396,14 @@ Red::InstancePtr<Red::DynArray<E>> App::YamlReader::ConvertArray(const YAML::Nod
 }
 
 template<typename T>
-bool App::YamlReader::ConvertValue(const YAML::Node& aNode, Red::InstancePtr<>& aValue, bool aStrict)
+bool App::YamlReader::ConvertValue(const YAML::Node& aNode, Red::InstancePtr<>& aValue, const bool aStrict)
 {
     aValue = ConvertValue<T>(aNode, aStrict);
     return aValue != nullptr;
 }
 
 template<typename E>
-bool App::YamlReader::ConvertArray(const YAML::Node& aNode, Red::InstancePtr<>& aValue, bool aStrict)
+bool App::YamlReader::ConvertArray(const YAML::Node& aNode, Red::InstancePtr<>& aValue, const bool aStrict)
 {
     aValue = ConvertArray<E>(aNode, aStrict);
     return aValue != nullptr;
@@ -423,74 +414,76 @@ Red::InstancePtr<> App::YamlReader::MakeValue(const Red::CBaseRTTIType* aType, c
     return MakeValue(aType->GetName(), aNode);
 }
 
-Red::InstancePtr<> App::YamlReader::MakeValue(Red::CName aTypeName, const YAML::Node& aNode)
+Red::InstancePtr<> App::YamlReader::MakeValue(const Red::CName& aTypeName, const YAML::Node& aNode)
 {
     switch (aTypeName)
     {
-    case Red::ERTDBFlatType::Int:
+    case Red::TDBFlatType::Int:
         return ConvertValue<int>(aNode);
-    case Red::ERTDBFlatType::IntArray:
-        return ConvertArray<int>(aNode);
+    case Red::TDBFlatType::IntArray:
 
-    case Red::ERTDBFlatType::Float:
+        return ConvertArray<int>(aNode);
+    case Red::TDBFlatType::Float:
         return ConvertValue<float>(aNode);
-    case Red::ERTDBFlatType::FloatArray:
+    case Red::TDBFlatType::FloatArray:
         return ConvertArray<float>(aNode);
 
-    case Red::ERTDBFlatType::Bool:
+    case Red::TDBFlatType::Bool:
         return ConvertValue<bool>(aNode);
-    case Red::ERTDBFlatType::BoolArray:
+    case Red::TDBFlatType::BoolArray:
         return ConvertArray<bool>(aNode);
 
-    case Red::ERTDBFlatType::String:
+    case Red::TDBFlatType::String:
         return ConvertValue<Red::CString>(aNode);
-    case Red::ERTDBFlatType::StringArray:
+    case Red::TDBFlatType::StringArray:
         return ConvertArray<Red::CString>(aNode);
 
-    case Red::ERTDBFlatType::CName:
+    case Red::TDBFlatType::CName:
         return ConvertValue<Red::CName>(aNode);
-    case Red::ERTDBFlatType::CNameArray:
+    case Red::TDBFlatType::CNameArray:
         return ConvertArray<Red::CName>(aNode);
 
-    case Red::ERTDBFlatType::TweakDBID:
+    case Red::TDBFlatType::TweakDBID:
         return ConvertValue<Red::TweakDBID>(aNode);
-    case Red::ERTDBFlatType::TweakDBIDArray:
+    case Red::TDBFlatType::TweakDBIDArray:
         return ConvertArray<Red::TweakDBID>(aNode);
 
-    case Red::ERTDBFlatType::LocKey:
+    case Red::TDBFlatType::LocKey:
         return ConvertValue<Red::LocKeyWrapper>(aNode);
-    case Red::ERTDBFlatType::LocKeyArray:
+    case Red::TDBFlatType::LocKeyArray:
         return ConvertArray<Red::LocKeyWrapper>(aNode);
 
-    case Red::ERTDBFlatType::ResRef:
+    case Red::TDBFlatType::ResRef:
         return ConvertValue<Red::ResourceAsyncReference<>>(aNode);
-    case Red::ERTDBFlatType::ResRefArray:
+    case Red::TDBFlatType::ResRefArray:
         return ConvertArray<Red::ResourceAsyncReference<>>(aNode);
 
-    case Red::ERTDBFlatType::Quaternion:
+    case Red::TDBFlatType::Quaternion:
         return ConvertValue<Red::Quaternion>(aNode);
-    case Red::ERTDBFlatType::QuaternionArray:
+    case Red::TDBFlatType::QuaternionArray:
         return ConvertArray<Red::Quaternion>(aNode);
 
-    case Red::ERTDBFlatType::EulerAngles:
+    case Red::TDBFlatType::EulerAngles:
         return ConvertValue<Red::EulerAngles>(aNode);
-    case Red::ERTDBFlatType::EulerAnglesArray:
+    case Red::TDBFlatType::EulerAnglesArray:
         return ConvertArray<Red::EulerAngles>(aNode);
 
-    case Red::ERTDBFlatType::Vector3:
+    case Red::TDBFlatType::Vector3:
         return ConvertValue<Red::Vector3>(aNode);
-    case Red::ERTDBFlatType::Vector3Array:
+    case Red::TDBFlatType::Vector3Array:
         return ConvertArray<Red::Vector3>(aNode);
 
-    case Red::ERTDBFlatType::Vector2:
+    case Red::TDBFlatType::Vector2:
         return ConvertValue<Red::Vector2>(aNode);
-    case Red::ERTDBFlatType::Vector2Array:
+    case Red::TDBFlatType::Vector2Array:
         return ConvertArray<Red::Vector2>(aNode);
 
-    case Red::ERTDBFlatType::Color:
+    case Red::TDBFlatType::Color:
         return ConvertValue<Red::Color>(aNode);
-    case Red::ERTDBFlatType::ColorArray:
+    case Red::TDBFlatType::ColorArray:
         return ConvertArray<Red::Color>(aNode);
+    default:
+        break;
     }
 
     return nullptr;
@@ -505,47 +498,47 @@ std::pair<Red::CName, Red::InstancePtr<>> App::YamlReader::TryMakeValue(const YA
     case YAML::NodeType::Scalar:
     {
         if (ConvertValue<Red::CString>(aNode, value, true))
-            return { Red::ERTDBFlatType::String, value };
+            return {Red::TDBFlatType::String, value};
 
         if (ConvertValue<int>(aNode, value, true))
-            return { Red::ERTDBFlatType::Int, value };
+            return {Red::TDBFlatType::Int, value};
 
         if (ConvertValue<float>(aNode, value, true))
-            return { Red::ERTDBFlatType::Float, value };
+            return {Red::TDBFlatType::Float, value};
 
         if (ConvertValue<bool>(aNode, value, true))
-            return { Red::ERTDBFlatType::Bool, value };
+            return {Red::TDBFlatType::Bool, value};
 
         if (ConvertValue<Red::CName>(aNode, value, true))
-            return { Red::ERTDBFlatType::CName, value };
+            return {Red::TDBFlatType::CName, value};
 
         if (ConvertValue<Red::TweakDBID>(aNode, value, true))
-            return { Red::ERTDBFlatType::TweakDBID, value };
+            return {Red::TDBFlatType::TweakDBID, value};
 
         if (ConvertValue<Red::LocKeyWrapper>(aNode, value, true))
-            return { Red::ERTDBFlatType::LocKey, value };
+            return {Red::TDBFlatType::LocKey, value};
 
         if (ConvertValue<Red::ResourceAsyncReference<>>(aNode, value, true))
-            return { Red::ERTDBFlatType::ResRef, value };
+            return {Red::TDBFlatType::ResRef, value};
 
         break;
     }
     case YAML::NodeType::Map:
     {
         if (ConvertValue<Red::Quaternion>(aNode, value, true))
-            return { Red::ERTDBFlatType::Quaternion, value };
+            return {Red::TDBFlatType::Quaternion, value};
 
         if (ConvertValue<Red::EulerAngles>(aNode, value, true))
-            return { Red::ERTDBFlatType::EulerAngles, value };
+            return {Red::TDBFlatType::EulerAngles, value};
 
         if (ConvertValue<Red::Vector3>(aNode, value, true))
-            return { Red::ERTDBFlatType::Vector3, value };
+            return {Red::TDBFlatType::Vector3, value};
 
         if (ConvertValue<Red::Vector2>(aNode, value, true))
-            return { Red::ERTDBFlatType::Vector2, value };
+            return {Red::TDBFlatType::Vector2, value};
 
         if (ConvertValue<Red::Color>(aNode, value, true))
-            return { Red::ERTDBFlatType::Color, value };
+            return {Red::TDBFlatType::Color, value};
 
         break;
     }
@@ -554,14 +547,12 @@ std::pair<Red::CName, Red::InstancePtr<>> App::YamlReader::TryMakeValue(const YA
         // Try to resolve array type from first element...
         if (aNode.size() > 0)
         {
-            const auto item = TryMakeValue(aNode[0]);
-
-            if (item.second)
+            if (const auto [fst, snd] = TryMakeValue(aNode[0]); snd)
             {
                 constexpr auto ArrayPrefix = Red::GetTypePrefixStr<Red::DynArray>();
-                auto arrayTypeName = Red::CName(std::string(ArrayPrefix.data()).append(item.first.ToString()).c_str());
+                auto arrayTypeName = Red::CName(std::string(ArrayPrefix.data()).append(fst.ToString()).c_str());
 
-                return { arrayTypeName, MakeValue(arrayTypeName, aNode) };
+                return {arrayTypeName, MakeValue(arrayTypeName, aNode)};
             }
         }
         break;
@@ -571,5 +562,5 @@ std::pair<Red::CName, Red::InstancePtr<>> App::YamlReader::TryMakeValue(const YA
         break;
     }
 
-    return { {}, value };
+    return {{}, value};
 }

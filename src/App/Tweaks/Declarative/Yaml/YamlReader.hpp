@@ -39,11 +39,11 @@ private:
                          const YAML::Node& aNode, const Red::CBaseRTTIType* aElementType);
     void UpdateFlatOwner(TweakChangeset& aChangeset, const std::string& aName);
 
-    bool CheckConditions(const YAML::Node& aNode);
+    bool CheckConditions(const YAML::Node& aNode) const;
     static PropertyMode ResolvePropertyMode(const YAML::Node& aNode, PropertyMode aDefault = PropertyMode::Strict);
-    const Red::CBaseRTTIType* ResolveFlatType(const YAML::Node& aNode);
-    const Red::CBaseRTTIType* ResolveFlatType(Red::CName aName);
-    const Red::CClass* ResolveRecordType(const YAML::Node& aNode);
+    static const Red::CBaseRTTIType* ResolveFlatType(const YAML::Node& aNode);
+    static const Red::CBaseRTTIType* ResolveFlatType(const Red::CName& aName);
+    static const Red::CClass* ResolveRecordType(const YAML::Node& aNode);
     Red::TweakDBID ResolveTweakDBID(const YAML::Node& aNode);
 
     template<typename T>
@@ -58,14 +58,14 @@ private:
     template<typename E>
     bool ConvertArray(const YAML::Node& aNode, Red::InstancePtr<>& aValue, bool aStrict = false);
 
-    Red::InstancePtr<> MakeValue(Red::CName aTypeName, const YAML::Node& aNode);
+    Red::InstancePtr<> MakeValue(const Red::CName& aTypeName, const YAML::Node& aNode);
     Red::InstancePtr<> MakeValue(const Red::CBaseRTTIType* aType, const YAML::Node& aNode);
     std::pair<Red::CName, Red::InstancePtr<>> TryMakeValue(const YAML::Node& aNode);
 
-    void ProcessTemplates(YAML::Node& aRootNode);
+    static void ProcessTemplates(YAML::Node& aRootNode);
     void ConvertLegacyNodes();
 
     std::filesystem::path m_path;
     YAML::Node m_data;
 };
-}
+} // namespace App

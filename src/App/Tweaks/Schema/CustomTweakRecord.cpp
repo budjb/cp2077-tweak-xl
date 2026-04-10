@@ -25,7 +25,7 @@ uint32_t CustomTweakRecord::GetTweakBaseHash() const
 
     if (auto* schema = Core::Resolve<App::TweakService>()->GetSchemaRegistry().GetSchema(type->GetName()))
     {
-        return schema->GetTypeHash();
+        return schema->GetHash();
     }
 
     return 0;

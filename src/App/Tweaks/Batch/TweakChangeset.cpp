@@ -377,17 +377,17 @@ void App::TweakChangeset::Commit(const Core::SharedPtr<Red::TweakDBManager>& aMa
             continue;
         }
 
-        const auto recordInfo = aManager->GetReflection()->GetRecordInfo(recordEntry.type);
+        const auto recordInfo = aManager->GetReflection()->GetRecordSchema(recordEntry.type);
 
-        for (const auto& [_, propInfo] : recordInfo->props)
+        for (const auto& propInfo : recordInfo->GetProperties() | std::views::values)
         {
-            if (propInfo->isArray)
+            if (propInfo->GetType().IsArray())
             {
-                auto targetPropId = recordId + propInfo->appendix;
+                auto targetPropId = recordId + propInfo->GetForeignClass();
                 if (m_pendingFlats.contains(targetPropId))
                     continue;
 
-                auto sourcePropId = recordEntry.sourceId + propInfo->appendix;
+                auto sourcePropId = recordEntry.sourceId + propInfo->GetFlatSuffix();
                 if (!m_pendingMutations.contains(sourcePropId))
                     continue;
 
