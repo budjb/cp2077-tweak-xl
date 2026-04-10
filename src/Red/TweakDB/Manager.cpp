@@ -6,18 +6,6 @@ namespace
 constexpr auto OptimizedFlatChunkSize = 16000;
 }
 
-Red::TweakDBManager::TweakDBManager()
-    : TweakDBManager(Red::TweakDB::Get())
-{
-}
-
-Red::TweakDBManager::TweakDBManager(Red::TweakDB* aTweakDb)
-    : m_tweakDb(aTweakDb)
-    , m_buffer(Core::MakeShared<Red::TweakDBBuffer>(m_tweakDb))
-    , m_reflection(Core::MakeShared<Red::TweakDBReflection>(m_tweakDb))
-{
-}
-
 Red::TweakDBManager::TweakDBManager(Core::SharedPtr<Red::TweakDBReflection> aReflection)
     : m_tweakDb(aReflection->GetTweakDB())
     , m_buffer(Core::MakeShared<Red::TweakDBBuffer>(m_tweakDb))
@@ -491,15 +479,15 @@ void Red::TweakDBManager::InheritFlats(RED4ext::SortedUniqueArray<Red::TweakDBID
 {
     for (const auto& [_, propInfo] : aRecordInfo->props)
     {
-        if (!propInfo->dataOffset)
+        if (!propInfo->GetDataOffset())
             continue;
 
-        auto propFlat = Red::TweakDBID(aRecordId, propInfo->appendix);
-        auto propDefault = propInfo->defaultValue;
+        auto propFlat = Red::TweakDBID(aRecordId, propInfo->GetAppendix());
+        auto propDefault = propInfo->GetDefaultValue();
 
         if (propDefault < 0)
         {
-            propDefault = m_buffer->AllocateDefault(propInfo->type);
+            propDefault = m_buffer->AllocateDefault(propInfo->GetType());
         }
 
         propFlat.SetTDBOffset(propDefault);
@@ -514,7 +502,7 @@ void Red::TweakDBManager::InheritFlats(RED4ext::SortedUniqueArray<Red::TweakDBID
 
     for (const auto& [_, propInfo] : aRecordInfo->props)
     {
-        const auto baseId = aSourceId + propInfo->appendix;
+        const auto baseId = aSourceId + propInfo->GetAppendix();
         const auto* baseFlat = aFlats.Find(baseId);
 
         if (baseFlat == aFlats.End())
@@ -524,7 +512,7 @@ void Red::TweakDBManager::InheritFlats(RED4ext::SortedUniqueArray<Red::TweakDBID
                 continue;
         }
 
-        auto propFlat = aRecordId + propInfo->appendix;
+        auto propFlat = aRecordId + propInfo->GetAppendix();
         propFlat.SetTDBOffset(baseFlat->ToTDBOffset());
 
         aFlats.Emplace(propFlat);
@@ -576,18 +564,18 @@ void Red::TweakDBManager::InheritFlats(const Red::TweakDBManager::BatchPtr& aBat
 {
     for (const auto& [_, propInfo] : aRecordInfo->props)
     {
-        if (!propInfo->dataOffset)
+        if (!propInfo->GetDataOffset())
             continue;
 
-        auto propFlat = Red::TweakDBID(aRecordId, propInfo->appendix);
+        auto propFlat = Red::TweakDBID(aRecordId, propInfo->GetAppendix());
 
         if (!aBatch->flats.contains(propFlat))
         {
-            auto propDefault = propInfo->defaultValue;
+            auto propDefault = propInfo->GetDefaultValue();
 
             if (propDefault < 0)
             {
-                propDefault = m_buffer->AllocateDefault(propInfo->type);
+                propDefault = m_buffer->AllocateDefault(propInfo->GetType());
             }
 
             propFlat.SetTDBOffset(propDefault);
@@ -604,12 +592,12 @@ void Red::TweakDBManager::InheritFlats(const Red::TweakDBManager::BatchPtr& aBat
 
     for (const auto& [_, propInfo] : aRecordInfo->props)
     {
-        const auto baseId = aSourceId + propInfo->appendix;
+        const auto baseId = aSourceId + propInfo->GetAppendix();
         const auto baseFlat = aBatch->flats.find(baseId);
 
         if (baseFlat != aBatch->flats.end())
         {
-            auto propFlat = aRecordId + propInfo->appendix;
+            auto propFlat = aRecordId + propInfo->GetAppendix();
             propFlat.SetTDBOffset(baseFlat->ToTDBOffset());
 
             aBatch->flats.insert(propFlat);
@@ -619,7 +607,7 @@ void Red::TweakDBManager::InheritFlats(const Red::TweakDBManager::BatchPtr& aBat
             auto commitedFlat = m_tweakDb->flats.Find(baseId);
             if (commitedFlat != m_tweakDb->flats.End())
             {
-                auto propFlat = aRecordId + propInfo->appendix;
+                auto propFlat = aRecordId + propInfo->GetAppendix();
                 propFlat.SetTDBOffset(commitedFlat->ToTDBOffset());
 
                 aBatch->flats.insert(propFlat);
@@ -650,12 +638,12 @@ void Red::TweakDBManager::CreateExtraNames(Red::TweakDBID aId, const std::string
 
     for (const auto& [propKey, propInfo] : recordInfo->props)
     {
-        const auto propId = aId + propInfo->appendix;
-        const auto propName = aName + propInfo->appendix;
+        const auto propId = aId + propInfo->GetAppendix();
+        const auto propName = aName + propInfo->GetAppendix();
 
-        if (propInfo->dataOffset)
+        if (propInfo->GetDataOffset())
         {
-            Raw::CreateTweakDBID(&aId, &propId, propInfo->appendix.c_str());
+            Raw::CreateTweakDBID(&aId, &propId, propInfo->GetAppendix().c_str());
         }
         else
         {

@@ -409,9 +409,9 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
         YAML::Node overrideData;
 
         // Inline records
-        if (propInfo->isForeignKey)
+        if (propInfo->IsForeignKey())
         {
-            if (propInfo->isArray && originalData.IsSequence())
+            if (propInfo->IsArray() && originalData.IsSequence())
             {
                 auto inlineFailed = false;
 
@@ -422,7 +422,7 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
                     if (itemData.IsMap())
                     {
                         auto sourceId = Red::TweakDBID();
-                        auto foreignType = propInfo->foreignType;
+                        auto foreignType = propInfo->GetForeignType();
                         auto inlinePath = ComposePath(propPath, itemIndex);
 
                         if (!ResolveInlineNode(aChangeset, inlinePath, itemData, foreignType, sourceId))
@@ -451,7 +451,7 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
             else if (originalData.IsMap())
             {
                 auto sourceId = Red::TweakDBID();
-                auto foreignType = propInfo->foreignType;
+                auto foreignType = propInfo->GetForeignType();
 
                 if (!ResolveInlineNode(aChangeset, propPath, originalData, foreignType, sourceId))
                     continue;
@@ -459,7 +459,7 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
                 auto inlineName = ComposeInlineName(propName, foreignType, m_path);
 
                 // Special handling for UIIcon
-                if (propInfo->foreignType->GetName() == UIIconType)
+                if (propInfo->GetForeignType()->GetName() == UIIconType)
                 {
                     // Item records have both .iconPath and .icon properties, but last one is never used.
                     // So if parent record has .iconPath property then auto fill it with our inline icon name.
@@ -483,31 +483,31 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
         const auto& nodeData = !overrideData.IsNull() ? overrideData : originalData;
 
         // Array mutations
-        if (propInfo->isArray)
+        if (propInfo->IsArray())
         {
-            if (HandleMutations(aChangeset, propPath, propName, nodeData, propInfo->elementType))
+            if (HandleMutations(aChangeset, propPath, propName, nodeData, propInfo->GetElementType()))
             {
                 if (isOriginalBase)
                 {
-                    aChangeset.ReinheritFlat(propId, recordId, propInfo->appendix);
+                    aChangeset.ReinheritFlat(propId, recordId, propInfo->GetAppendix());
                 }
                 continue;
             }
         }
 
-        const auto propValue = MakeValue(propInfo->type, nodeData);
+        const auto propValue = MakeValue(propInfo->GetType(), nodeData);
 
         if (!propValue)
         {
-            LogError("{}.{}: Invalid value, expected \"{}\".", aRecordPath, nodeKey, propInfo->type->GetName().ToString());
+            LogError("{}.{}: Invalid value, expected \"{}\".", aRecordPath, nodeKey, propInfo->GetType()->GetName().ToString());
             continue;
         }
 
-        aChangeset.SetFlat(propId, propInfo->type, propValue);
+        aChangeset.SetFlat(propId, propInfo->GetType(), propValue);
 
         if (isOriginalBase)
         {
-            aChangeset.ReinheritFlat(propId, recordId, propInfo->appendix);
+            aChangeset.ReinheritFlat(propId, recordId, propInfo->GetAppendix());
         }
     }
 }

@@ -381,13 +381,13 @@ void App::TweakChangeset::Commit(const Core::SharedPtr<Red::TweakDBManager>& aMa
 
         for (const auto& [_, propInfo] : recordInfo->props)
         {
-            if (propInfo->isArray)
+            if (propInfo->IsArray())
             {
-                auto targetPropId = recordId + propInfo->appendix;
+                auto targetPropId = recordId + propInfo->GetAppendix();
                 if (m_pendingFlats.contains(targetPropId))
                     continue;
 
-                auto sourcePropId = recordEntry.sourceId + propInfo->appendix;
+                auto sourcePropId = recordEntry.sourceId + propInfo->GetAppendix();
                 if (!m_pendingMutations.contains(sourcePropId))
                     continue;
 

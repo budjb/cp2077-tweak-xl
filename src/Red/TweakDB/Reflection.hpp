@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Red/TweakDB/Alias.hpp"
+#include "Red/TweakDB/RecordInfo.hpp"
 
 namespace Red
 {
@@ -37,18 +38,6 @@ enum : uint64_t
 };
 }
 
-struct TweakDBPropertyInfo
-{
-    Red::CName name;
-    const Red::CBaseRTTIType* type;
-    const Red::CBaseRTTIType* elementType;
-    const Red::CClass* foreignType;
-    bool isArray;
-    bool isForeignKey;
-    std::string appendix; // The name used to build ID of the property
-    uintptr_t dataOffset; // Offset of the property in record instance
-    int32_t defaultValue; // Offset of the default value in the buffer
-};
 
 struct TweakDBRecordInfo
 {
@@ -70,70 +59,72 @@ struct TweakDBRecordInfo
 class TweakDBReflection
 {
 public:
-    TweakDBReflection();
+    static const Red::CBaseRTTIType* GetFlatType(Red::CName aTypeName);
+    static const Red::CClass* GetRecordType(Red::CName aTypeName);
+    static const Red::CClass* GetRecordType(const char* aTypeName);
+
+    static Red::CBaseRTTIType* GetArrayType(Red::CName aTypeName);
+    static Red::CBaseRTTIType* GetArrayType(const Red::CBaseRTTIType* aType);
+
+    static Red::CBaseRTTIType* GetElementType(Red::CName aTypeName);
+    static Red::CBaseRTTIType* GetElementType(const Red::CBaseRTTIType* aType);
+
+    static bool IsFlatType(Red::CName aTypeName);
+    static bool IsFlatType(const Red::CBaseRTTIType* aType);
+
+    static bool IsRecordType(Red::CName aTypeName);
+    static bool IsRecordType(const Red::CClass* aType);
+
+    static bool IsArrayType(Red::CName aTypeName);
+    static bool IsArrayType(const Red::CBaseRTTIType* aType);
+
+    static bool IsForeignKey(Red::CName aTypeName);
+    static bool IsForeignKey(const Red::CBaseRTTIType* aType);
+
+    static bool IsForeignKeyArray(Red::CName aTypeName);
+    static bool IsForeignKeyArray(const Red::CBaseRTTIType* aType);
+
+    static bool IsResRefToken(Red::CName aTypeName);
+    static bool IsResRefToken(const Red::CBaseRTTIType* aType);
+
+    static bool IsResRefTokenArray(Red::CName aTypeName);
+    static bool IsResRefTokenArray(const Red::CBaseRTTIType* aType);
+
+    static Red::CName GetArrayTypeName(Red::CName aTypeName);
+    static Red::CName GetArrayTypeName(const Red::CBaseRTTIType* aType);
+
+    static Red::CName GetElementTypeName(Red::CName aTypeName);
+    static Red::CName GetElementTypeName(const Red::CBaseRTTIType* aType);
+
+    static Red::CName GetRecordFullName(Red::CName aName);
+    static Red::CName GetRecordFullName(const char* aName);
+
+    static std::string GetRecordShortName(Red::CName aName);
+    static std::string GetRecordShortName(const char* aName);
+
+    static Red::InstancePtr<> Construct(Red::CName aTypeName);
+    static Red::InstancePtr<> Construct(const Red::CBaseRTTIType* aType);
+
+    static bool IsOriginalRecord(Red::TweakDBID aRecordId);
+    static bool IsOriginalBaseRecord(Red::TweakDBID aParentId);
+    static Red::TweakDBID GetOriginalParent(Red::TweakDBID aRecordId);
+    static const Core::Set<Red::TweakDBID>& GetOriginalDescendants(Red::TweakDBID aSourceId);
+
+    static void RegisterExtraFlat(Red::CName aRecordType, const std::string& aPropName, Red::CName aPropType,
+                           Red::CName aForeignType);
+    static void RegisterDescendants(Red::TweakDBID aParentId, const Core::Set<Red::TweakDBID>& aDescendantIds);
+
+    static std::string ToString(Red::TweakDBID aID);
+
+    static IRTTISystem* GetRTTI();
+
     explicit TweakDBReflection(Red::TweakDB* aTweakDb);
 
     const Red::TweakDBRecordInfo* GetRecordInfo(Red::CName aTypeName);
     const Red::TweakDBRecordInfo* GetRecordInfo(const Red::CClass* aType);
-
-    const Red::CBaseRTTIType* GetFlatType(Red::CName aTypeName);
-    const Red::CClass* GetRecordType(Red::CName aTypeName);
-    const Red::CClass* GetRecordType(const char* aTypeName);
-
-    Red::CBaseRTTIType* GetArrayType(Red::CName aTypeName);
-    Red::CBaseRTTIType* GetArrayType(const Red::CBaseRTTIType* aType);
-
-    Red::CBaseRTTIType* GetElementType(Red::CName aTypeName);
-    Red::CBaseRTTIType* GetElementType(const Red::CBaseRTTIType* aType);
-
-    bool IsFlatType(Red::CName aTypeName);
-    bool IsFlatType(const Red::CBaseRTTIType* aType);
-
-    bool IsRecordType(Red::CName aTypeName);
-    bool IsRecordType(const Red::CClass* aType);
-
-    bool IsArrayType(Red::CName aTypeName);
-    bool IsArrayType(const Red::CBaseRTTIType* aType);
-
-    bool IsForeignKey(Red::CName aTypeName);
-    bool IsForeignKey(const Red::CBaseRTTIType* aType);
-
-    bool IsForeignKeyArray(Red::CName aTypeName);
-    bool IsForeignKeyArray(const Red::CBaseRTTIType* aType);
-
-    bool IsResRefToken(Red::CName aTypeName);
-    bool IsResRefToken(const Red::CBaseRTTIType* aType);
-
-    bool IsResRefTokenArray(Red::CName aTypeName);
-    bool IsResRefTokenArray(const Red::CBaseRTTIType* aType);
-
-    Red::CName GetArrayTypeName(Red::CName aTypeName);
-    Red::CName GetArrayTypeName(const Red::CBaseRTTIType* aType);
-
-    Red::CName GetElementTypeName(Red::CName aTypeName);
-    Red::CName GetElementTypeName(const Red::CBaseRTTIType* aType);
-
-    Red::CName GetRecordFullName(Red::CName aName);
-    Red::CName GetRecordFullName(const char* aName);
-
-    std::string GetRecordShortName(Red::CName aName);
-    std::string GetRecordShortName(const char* aName);
-
-    Red::InstancePtr<> Construct(Red::CName aTypeName);
-    Red::InstancePtr<> Construct(const Red::CBaseRTTIType* aType);
-
-    bool IsOriginalRecord(Red::TweakDBID aRecordId);
-    bool IsOriginalBaseRecord(Red::TweakDBID aParentId);
-    Red::TweakDBID GetOriginalParent(Red::TweakDBID aRecordId);
-    const Core::Set<Red::TweakDBID>& GetOriginalDescendants(Red::TweakDBID aSourceId);
-
-    void RegisterExtraFlat(Red::CName aRecordType, const std::string& aPropName, Red::CName aPropType,
-                           Red::CName aForeignType);
-    void RegisterDescendants(Red::TweakDBID aParentId, const Core::Set<Red::TweakDBID>& aDescendantIds);
-
-    std::string ToString(Red::TweakDBID aID);
-
     Red::TweakDB* GetTweakDB();
+    bool RegisterRecordInfo(const TweakDBRecordInfo& aRecordInfo);
+    bool RegisterRecordInfo(TweakDBRecordInfo&& aRecordInfo);
 
 private:
     struct ExtraFlat
@@ -155,10 +146,10 @@ private:
     int32_t ResolveDefaultValue(const Red::CClass* aType, const std::string& aPropName);
 
     Red::TweakDB* m_tweakDb;
-    Red::CRTTISystem* m_rtti;
     RecordInfoMap m_resolved;
     std::shared_mutex m_mutex;
 
+    inline static IRTTISystem* s_rtti;
     inline static ParentMap s_parentMap;
     inline static DescendantMap s_descendantMap;
     inline static ExtraFlatMap s_extraFlats;
