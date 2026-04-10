@@ -24,7 +24,7 @@ TweakDBPropertySchema::Builder& TweakDBPropertySchema::Builder::Offset(const uin
     return *this;
 }
 
-TweakDBPropertySchema::Builder& TweakDBPropertySchema::Builder::ForeignClass(const ResolvableType& aClass)
+TweakDBPropertySchema::Builder& TweakDBPropertySchema::Builder::ForeignClass(const CClass* aClass)
 {
     this->m_foreignClass = aClass;
     return *this;
@@ -83,7 +83,7 @@ uintptr_t TweakDBPropertySchema::GetOffset() const
     return m_offset;
 }
 
-const ResolvableType& TweakDBPropertySchema::GetForeignClass() const
+const CClass* TweakDBPropertySchema::GetForeignClass() const
 {
     return m_foreignClass;
 }
@@ -105,8 +105,8 @@ int32_t TweakDBPropertySchema::GetDefaultValueOffset() const
 
 TweakDBPropertySchema::TweakDBPropertySchema(const std::string& aName, const TDBFlatType& aType,
                                              const uintptr_t aOffset, const PropertyStorage aPropertyStorage,
-                                             const Core::SharedPtr<void*>& aDefaultValue,
-                                             const ResolvableType& aForeignClass, const int32_t aDefaultValueOffset)
+                                             const Core::SharedPtr<void*>& aDefaultValue, const CClass* aForeignClass,
+                                             const int32_t aDefaultValueOffset)
     : name(aName | ToCName)
     , flatSuffix(std::move("." + aName))
     , functionName(aName | Capitalize | ToCName)
@@ -122,6 +122,8 @@ TweakDBPropertySchema::TweakDBPropertySchema(const std::string& aName, const TDB
 TweakDBPropertySchema::PropertyPtr TweakDBPropertySchema::From(const ExtraFlat& aExtraFlat)
 {
     const TDBFlatType* flatType = TDBFlatType::Get(aExtraFlat.flatType);
+
+    [[maybe_unused]] const char* name = aExtraFlat.flatType.ToString();
 
     if (!flatType)
     {
@@ -141,7 +143,7 @@ TweakDBPropertySchema::PropertyPtr TweakDBPropertySchema::From(const ExtraFlat& 
             return nullptr;
         }
 
-        propBuilder.ForeignClass(ResolvableType(aExtraFlat.foreignTypeName));
+        propBuilder.ForeignClass(CRTTISystem::Get()->GetClass(aExtraFlat.foreignTypeName));
     }
 
     return propBuilder.Build();
@@ -154,17 +156,17 @@ TweakDBPropertySchema::PropertyPtr TweakDBPropertySchema::From(const ExtraFlat& 
 #pragma region Builder
 
 TweakDBRecordSchema::Builder::Builder(const CClass* aType)
-    : m_class(ResolvableType(aType))
+    : m_class(aType)
 {
 }
 
 TweakDBRecordSchema::Builder::Builder(const CName& aName)
-    : m_class(ResolvableType(aName))
+    : Builder(CRTTISystem::Get()->GetClass(aName))
 {
 }
 
 TweakDBRecordSchema::Builder::Builder(const std::string& aName)
-    : m_class(ResolvableType(aName))
+    : Builder(CName(aName.c_str()))
 {
 }
 
@@ -176,14 +178,13 @@ TweakDBRecordSchema::Builder& TweakDBRecordSchema::Builder::SchemaType(const ESc
 
 TweakDBRecordSchema::Builder& TweakDBRecordSchema::Builder::Parent(const CClass* aParent)
 {
-    this->m_parentClass = ResolvableType(aParent);
+    this->m_parentClass = aParent;
     return *this;
 }
 
 TweakDBRecordSchema::Builder& TweakDBRecordSchema::Builder::Parent(const std::string& aParent)
 {
-    this->m_parentClass = ResolvableType(aParent);
-    return *this;
+    return Parent(CRTTISystem::Get()->GetClass(CName(aParent.c_str())));
 }
 
 TweakDBRecordSchema::Builder& TweakDBRecordSchema::Builder::Parent(const TweakDBRecordSchema& aParent)
@@ -215,11 +216,11 @@ TweakDBRecordSchema::Builder& TweakDBRecordSchema::Builder::operator+=(const Twe
 
 #pragma endregion
 
-TweakDBRecordSchema::TweakDBRecordSchema(const ResolvableType& aClass, const ResolvableType& aParentClass,
-                                         const ESchemaType& aType, const PropertiesList& aProperties)
-    : m_fullName(TweakDBReflection::GetRecordFullName(const_cast<ResolvableType&>(aClass).GetName()) | ToCName)
-    , m_aliasName(TweakDBReflection::GetRecordAliasName(const_cast<ResolvableType&>(aClass).GetName()) | ToCName)
-    , m_shortName(TweakDBReflection::GetRecordShortName(const_cast<ResolvableType&>(aClass).GetName()) | ToCName)
+TweakDBRecordSchema::TweakDBRecordSchema(const CClass* aClass, const CClass* aParentClass, const ESchemaType& aType,
+                                         const PropertiesList& aProperties)
+    : m_fullName(TweakDBReflection::GetRecordFullName(aClass->GetName()) | ToCName)
+    , m_aliasName(TweakDBReflection::GetRecordAliasName(aClass->GetName()) | ToCName)
+    , m_shortName(TweakDBReflection::GetRecordShortName(aClass->GetName()) | ToCName)
     , m_class(aClass)
     , m_parentClass(aParentClass)
     , m_hash(TweakDBReflection::GetRecordTypeHash(m_shortName))
@@ -228,7 +229,7 @@ TweakDBRecordSchema::TweakDBRecordSchema(const ResolvableType& aClass, const Res
 {
 }
 
-const ResolvableType& TweakDBRecordSchema::GetClass() const
+const CClass* TweakDBRecordSchema::GetClass() const
 {
     return m_class;
 }
@@ -248,7 +249,7 @@ const CName& TweakDBRecordSchema::GetShortName() const
     return m_shortName;
 }
 
-const ResolvableType& TweakDBRecordSchema::GetParentClass() const
+const CClass* TweakDBRecordSchema::GetParentClass() const
 {
     return m_parentClass;
 }

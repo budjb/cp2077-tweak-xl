@@ -461,6 +461,7 @@ bool Red::TweakDBManager::AssignFlat(SortedUniqueArray<TweakDBID>& aFlats, Tweak
             return true;
     }
 
+    LogInfo("Assigning flat with type {}.", aType->GetName().ToString());
     offset = m_buffer->AllocateValue(aType, aInstance);
 
     if (offset < 0)
@@ -489,7 +490,8 @@ void Red::TweakDBManager::InheritFlats(SortedUniqueArray<TweakDBID>& aFlats, con
 
         if (propInfo->GetPropertyStorage() == PropertyStorage::FLAT)
         {
-            propDefault = m_buffer->AllocateDefault(propInfo->GetType());
+            propDefault = m_buffer->AllocateDefault(propInfo->GetType().GetType());
+            LogInfo("Inheriting flat with type {} and offset {}.", propInfo->GetType().GetType()->GetName().ToString(), propDefault);
         }
 
         propFlat.SetTDBOffset(propDefault);
@@ -542,6 +544,7 @@ bool Red::TweakDBManager::AssignFlat(const BatchPtr& aBatch, TweakDBID aFlatId,
             return true;
     }
 
+    LogInfo("Assigning flat with type {}.", aValue.type->GetName().ToString());
     offset = m_buffer->AllocateValue(aValue);
 
     if (offset < 0)
@@ -575,7 +578,8 @@ void Red::TweakDBManager::InheritFlats(const BatchPtr& aBatch, const TweakDBID a
 
             if (propInfo->GetPropertyStorage() == PropertyStorage::FLAT)
             {
-                propDefault = m_buffer->AllocateDefault(propInfo->GetType());
+                propDefault = m_buffer->AllocateDefault(propInfo->GetType().GetType());
+                LogInfo("Inheriting flat with type {} and offset {}.", propInfo->GetType().GetType()->GetName().ToString(), propDefault);
             }
 
             propFlat.SetTDBOffset(propDefault);

@@ -37,6 +37,8 @@ void App::TweakService::OnBootstrap()
             m_executor = Core::MakeShared<App::TweakExecutor>(m_manager);
             m_changelog = Core::MakeShared<App::TweakChangelog>();
 
+            [[maybe_unused]] const auto wut = RED4ext::CRTTISystem::Get()->GetType("gamedataLocKeyWrapper");
+
             if (ImportMetadata())
             {
                 EnsureRuntimeAccess();

@@ -3,10 +3,11 @@
 #include "Red/TweakDB/Alias.hpp"
 #include "Red/TweakDB/Buffer.hpp"
 #include "Red/TweakDB/Reflection.hpp"
+#include "Core/Logging/LoggingAgent.hpp"
 
 namespace Red
 {
-class TweakDBManager
+class TweakDBManager : public Core::LoggingAgent
 {
 public:
     class Batch

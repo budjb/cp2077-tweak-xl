@@ -87,7 +87,7 @@ public:
 
         Builder& FlatType(const TDBFlatType& aFlatType);
         Builder& Offset(uintptr_t aOffset);
-        Builder& ForeignClass(const ResolvableType& aClass);
+        Builder& ForeignClass(const CClass* aClass);
         Builder& PropertyStorage(PropertyStorage aOwnership);
         Builder& DefaultValueOffset(int32_t aOffset);
         Builder& DefaultValue(void* aValue);
@@ -96,9 +96,9 @@ public:
 
     private:
         std::string m_name;
-        TDBFlatType* m_flatType = nullptr;
+        const TDBFlatType* m_flatType = nullptr;
         uintptr_t m_offset = 0;
-        ResolvableType m_foreignClass{CName{}};
+        const CClass* m_foreignClass = nullptr;
         Red::PropertyStorage m_propertyStorage = PropertyStorage::CLASS;
         int32_t m_defaultValueOffset = 0;
         Core::SharedPtr<void*> m_defaultValue;
@@ -114,24 +114,24 @@ public:
     [[nodiscard]] PropertyStorage GetPropertyStorage() const;
     [[nodiscard]] const Core::SharedPtr<void*>& GetDefaultValue() const;
     [[nodiscard]] int32_t GetDefaultValueOffset() const;
-    [[nodiscard]] const ResolvableType& GetForeignClass() const;
+    [[nodiscard]] const CClass* GetForeignClass() const;
 
 private:
     friend class Builder;
 
     TweakDBPropertySchema(const std::string& aName, const TDBFlatType& aType, uintptr_t aOffset,
                           PropertyStorage aPropertyStorage, const Core::SharedPtr<void*>& aDefaultValue,
-                          const ResolvableType& aForeignClass, int32_t aDefaultValueOffset);
+                          const CClass* aForeignClass, int32_t aDefaultValueOffset);
 
     const CName name;
     const std::string flatSuffix;
     const CName functionName;
-    const TDBFlatType& type;
+    const TDBFlatType type;
     const uintptr_t m_offset;
     const PropertyStorage m_propertyStorage;
     const Core::SharedPtr<void*> m_defaultValue;
 
-    mutable ResolvableType m_foreignClass;
+    const CClass* m_foreignClass = nullptr;
     int32_t m_defaultValueOffset = 0;
 };
 
@@ -171,8 +171,8 @@ public:
         Builder& operator+=(const TweakDBRecordSchema&);
 
     private:
-        ResolvableType m_class{};
-        ResolvableType m_parentClass{};
+        const CClass* m_class = nullptr;
+        const CClass* m_parentClass = nullptr;
         ESchemaType m_schemaType = ESchemaType::CUSTOM;
         PropertiesList m_properties;
     };
@@ -180,10 +180,10 @@ public:
     [[nodiscard]] const CName& GetFullName() const;
     [[nodiscard]] const CName& GetAliasName() const;
     [[nodiscard]] const CName& GetShortName() const;
-    [[nodiscard]] const ResolvableType& GetParentClass() const;
+    [[nodiscard]] const CClass* GetParentClass() const;
     [[nodiscard]] uint32_t GetHash() const;
     [[nodiscard]] ESchemaType GetSchemaType() const;
-    [[nodiscard]] const ResolvableType& GetClass() const;
+    [[nodiscard]] const CClass* GetClass() const;
     [[nodiscard]] PropertyPtr GetProperty(const char* aName) const;
     [[nodiscard]] PropertyPtr GetProperty(const CName& aName) const;
     [[nodiscard]] const PropertiesMap& GetProperties() const;
@@ -191,14 +191,14 @@ public:
 private:
     friend class Builder;
 
-    TweakDBRecordSchema(const ResolvableType& aClass, const ResolvableType& aParentClass, const ESchemaType& aType,
+    TweakDBRecordSchema(const CClass* aClass, const CClass* aParentClass, const ESchemaType& aType,
                         const PropertiesList& aProperties);
 
     const CName m_fullName;
     const CName m_aliasName;
     const CName m_shortName;
-    mutable ResolvableType m_class;
-    mutable ResolvableType m_parentClass;
+    mutable const CClass* m_class;
+    mutable const CClass* m_parentClass;
     const uint32_t m_hash;
     const ESchemaType m_schemaType;
     const PropertiesMap m_properties;

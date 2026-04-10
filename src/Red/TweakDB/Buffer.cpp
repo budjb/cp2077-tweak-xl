@@ -189,7 +189,7 @@ void Red::TweakDBBuffer::FillDefaults()
         {
             auto& pool = m_pools.at(*flatType);
 
-            const auto value = MakeValue(flatType->GetClass());
+            const auto value = MakeValue(flatType->GetType());
             const auto hash = ComputeHash(value->type, value->instance);
             const auto it = pool.find(hash);
 

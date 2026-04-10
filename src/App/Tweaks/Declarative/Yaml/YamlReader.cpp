@@ -391,7 +391,7 @@ void App::YamlReader::HandleRecordNode(TweakChangeset& aChangeset, PropertyMode 
                     if (auto itemData = originalData[itemIndex]; itemData.IsMap())
                     {
                         auto sourceId = Red::TweakDBID();
-                        auto foreignType = propInfo->GetForeignClass().GetClass();
+                        auto foreignType = propInfo->GetForeignClass();
                         auto inlinePath = ComposePath(propPath, itemIndex);
 
                         if (!ResolveInlineNode(aChangeset, inlinePath, itemData, foreignType, sourceId))
@@ -420,7 +420,7 @@ void App::YamlReader::HandleRecordNode(TweakChangeset& aChangeset, PropertyMode 
             else if (originalData.IsMap())
             {
                 auto sourceId = Red::TweakDBID();
-                auto foreignType = propInfo->GetForeignClass().GetClass();
+                auto foreignType = propInfo->GetForeignClass();
 
                 if (!ResolveInlineNode(aChangeset, propPath, originalData, foreignType, sourceId))
                     continue;
@@ -454,7 +454,8 @@ void App::YamlReader::HandleRecordNode(TweakChangeset& aChangeset, PropertyMode 
         // Array mutations
         if (propInfo->GetType().IsArray())
         {
-            if (HandleMutations(aChangeset, propPath, propName, nodeData, propInfo->GetType().GetElementType()->GetClass()))
+            if (HandleMutations(aChangeset, propPath, propName, nodeData,
+                                propInfo->GetType().GetElementType()->GetType()))
             {
                 if (isOriginalBase)
                 {
@@ -464,7 +465,7 @@ void App::YamlReader::HandleRecordNode(TweakChangeset& aChangeset, PropertyMode 
             }
         }
 
-        const auto propValue = MakeValue(propInfo->GetType().GetClass(), nodeData);
+        const auto propValue = MakeValue(propInfo->GetType().GetType(), nodeData);
 
         if (!propValue)
         {

@@ -105,7 +105,7 @@ Core::SharedPtr<TweakDBRecordSchema> TweakDBReflection::CollectRecordInfo(const 
             const auto* recordType = reinterpret_cast<CClass*>(handleType->innerType);
 
             propSchema.FlatType(TDBFlatType::TweakDBIDArray);
-            propSchema.ForeignClass(ResolvableType(recordType));
+            propSchema.ForeignClass(recordType);
 
             // Skip related functions:
             // func Get[Prop]Count()
@@ -125,7 +125,7 @@ Core::SharedPtr<TweakDBRecordSchema> TweakDBReflection::CollectRecordInfo(const 
                 const auto* recordType = reinterpret_cast<CClass*>(handleType->innerType);
 
                 propSchema.FlatType(TDBFlatType::TweakDBID);
-                propSchema.ForeignClass(ResolvableType(recordType));
+                propSchema.ForeignClass(recordType);
 
                 // Skip related function:
                 // func Get[Prop]Handle()
@@ -151,8 +151,11 @@ Core::SharedPtr<TweakDBRecordSchema> TweakDBReflection::CollectRecordInfo(const 
                     if (const auto* flatType = TDBFlatType::GetArrayType(elementType); flatType)
                         propSchema.FlatType(*flatType);
                     else
+                    {
+                        DebugBreak();
                         // TODO: log warning
                         continue;
+                    }
 
                     // Skip related functions:
                     // func Get[Prop]Count()
@@ -185,19 +188,30 @@ Core::SharedPtr<TweakDBRecordSchema> TweakDBReflection::CollectRecordInfo(const 
                         TDBFlatType* flatType = nullptr;
 
                         if (auto* flat = m_tweakDb->GetFlatValue(propId))
+                        {
+                            [[maybe_unused]] const auto* shit = flat->GetValue().type->GetName().ToString();
                             flatType = const_cast<TDBFlatType*>(TDBFlatType::Get(flat->GetValue().type));
+                        }
 
-                        if (!flatType)
+                        if (flatType)
+                            propSchema.FlatType(*flatType);
+                        else
+                        {
+                            DebugBreak();
                             // TODO: log warning
                             continue;
+                        }
                     }
                     else
                     {
                         if (const auto* flatType = TDBFlatType::Get(returnType); flatType)
                             propSchema.FlatType(*flatType);
                         else
+                        {
+                            DebugBreak();
                             // TODO: log warning
                             continue;
+                        }
                     }
                 }
             }
@@ -218,6 +232,7 @@ Core::SharedPtr<TweakDBRecordSchema> TweakDBReflection::CollectRecordInfo(const 
                 }
                 else
                 {
+                    DebugBreak();
                     // TODO: log warning
                 }
             }

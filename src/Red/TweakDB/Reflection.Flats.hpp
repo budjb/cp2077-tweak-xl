@@ -61,7 +61,7 @@ public:
 
     operator const Red::CBaseRTTIType*() const
     {
-        return GetClass();
+        return GetType();
     }
 
     constexpr bool operator==(const TDBFlatType& other) const
@@ -109,9 +109,9 @@ public:
         return m_elementType ? m_elementType : this;
     }
 
-    const CClass* GetClass() const
+    const CBaseRTTIType* GetType() const
     {
-        return CRTTISystem::Get()->GetClass(GetName());
+        return CRTTISystem::Get()->GetType(m_hash);
     }
 
     [[nodiscard]] static std::span<const TDBFlatType* const> GetTypes();
@@ -208,9 +208,9 @@ public:
     {
     }
 
-    const CName& flatType;
-    const CName& foreignTypeName;
-    const std::string& name;
+    const CName flatType;
+    const CName foreignTypeName;
+    const std::string name;
 };
 
 inline std::span<const TDBFlatType* const> TDBFlatType::GetTypeList()
