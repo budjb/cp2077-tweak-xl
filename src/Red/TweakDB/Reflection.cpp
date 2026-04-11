@@ -200,8 +200,6 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
         auto extraFlatsIt = s_extraFlats.find(aType->name);
         if (extraFlatsIt != s_extraFlats.end())
         {
-            recordInfo->SetExtraFlats();
-
             for (const auto& extraFlat : extraFlatsIt.value())
             {
                 auto propInfo = TweakDBPropertyInfo{};

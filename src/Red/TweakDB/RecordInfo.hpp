@@ -57,7 +57,6 @@ public:
     void SetName(const CName& aName);
     void SetType(const CClass* aType);
     void SetParent(const CClass* aParent);
-    void SetExtraFlats(bool aExtraFlats = true);
 
     bool AddProperty(const TweakDBPropertyInfo& aProperty);
     bool AddProperty(TweakDBPropertyInfo&& aProperty);
@@ -67,7 +66,6 @@ public:
     [[nodiscard]] const CName& GetShortName() const;
     [[nodiscard]] const CClass* GetType() const;
     [[nodiscard]] const CClass* GetParent() const;
-    [[nodiscard]] bool HasExtraFlats() const;
     [[nodiscard]] uint32_t GetTypeHash() const;
 
     [[nodiscard]] const TweakDBPropertyInfo* GetProperty(const CName& aPropName) const;
@@ -84,7 +82,6 @@ private:
     CName m_shortName{};
     const CClass* m_type = nullptr;
     const CClass* m_parent = nullptr;
-    bool m_extraFlats = false;
     uint32_t m_typeHash{};
 
     Core::Map<CName, Core::SharedPtr<const TweakDBPropertyInfo>> m_props{};

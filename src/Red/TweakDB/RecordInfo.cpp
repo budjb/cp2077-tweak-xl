@@ -167,11 +167,6 @@ void TweakDBRecordInfo::SetParent(const CClass* aParent)
     m_parent = aParent;
 }
 
-void TweakDBRecordInfo::SetExtraFlats(bool aExtraFlats)
-{
-    m_extraFlats = aExtraFlats;
-}
-
 bool TweakDBRecordInfo::AddProperty(const TweakDBPropertyInfo& aProperty)
 {
     if (!aProperty.IsValid())
@@ -217,11 +212,6 @@ const CClass* TweakDBRecordInfo::GetParent() const
     return m_parent;
 }
 
-bool TweakDBRecordInfo::HasExtraFlats() const
-{
-    return m_extraFlats;
-}
-
 uint32_t TweakDBRecordInfo::GetTypeHash() const
 {
     return m_typeHash;
@@ -263,7 +253,6 @@ TweakDBRecordInfo& TweakDBRecordInfo::operator+=(const TweakDBRecordInfo& aOther
     assert(m_type->parent == aOther.m_type);
 
     m_parent = aOther.m_type;
-    m_extraFlats |= aOther.m_extraFlats;
     m_props.insert(aOther.m_props.begin(), aOther.m_props.end());
 
     return *this;
