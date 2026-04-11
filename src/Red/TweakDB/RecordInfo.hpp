@@ -33,8 +33,6 @@ public:
     [[nodiscard]] uintptr_t GetDataOffset() const;
     [[nodiscard]] int32_t GetDefaultValue() const;
 
-    [[nodiscard]] bool Finalize();
-    [[nodiscard]] bool IsFinalized() const;
     [[nodiscard]] bool IsValid() const;
 
 private:
@@ -47,9 +45,50 @@ private:
     std::string m_appendix{}; // The name used to build ID of the property
     uintptr_t m_dataOffset{}; // Offset of the property in record instance
     int32_t m_defaultValue{}; // Offset of the default value in the buffer
-    bool m_finalized = false;
 };
 
-#define RECORD_INFO_SCALAR_VALID() !m_isArray&& m_isForeignKey
+class TweakDBRecordInfo
+{
+public:
+    TweakDBRecordInfo() = default;
+    TweakDBRecordInfo(const TweakDBRecordInfo&) = default;
+    TweakDBRecordInfo(TweakDBRecordInfo&&) = default;
+
+    void SetName(const char* aName);
+    void SetName(const CName& aName);
+    void SetType(const CClass* aType);
+    void SetParent(const CClass* aParent);
+    void SetExtraFlats(bool aExtraFlats = true);
+    void SetShortName(const std::string& aShortName);
+    void SetTypeHash(uint32_t aTypeHash);
+
+    bool AddProperty(const TweakDBPropertyInfo& aProperty);
+    bool AddProperty(TweakDBPropertyInfo&& aProperty);
+
+    [[nodiscard]] const CName& GetName() const;
+    [[nodiscard]] const CClass* GetType() const;
+    [[nodiscard]] const CClass* GetParent() const;
+    [[nodiscard]] bool HasExtraFlats() const;
+    [[nodiscard]] const std::string& GetShortName() const;
+    [[nodiscard]] uint32_t GetTypeHash() const;
+
+    [[nodiscard]] const TweakDBPropertyInfo* GetProperty(const CName& aPropName) const;
+    [[nodiscard]] const Core::Map<CName, Core::SharedPtr<const TweakDBPropertyInfo>>& GetProperties() const;
+
+    [[nodiscard]] bool IsValid() const;
+
+    TweakDBRecordInfo& operator+=(const TweakDBRecordInfo* aOther);
+    TweakDBRecordInfo& operator+=(const TweakDBRecordInfo& aOther);
+
+private:
+    CName m_name{};
+    const CClass* m_type = nullptr;
+    const CClass* m_parent = nullptr;
+    bool m_extraFlats = false;
+    std::string m_shortName{};
+    uint32_t m_typeHash{};
+
+    Core::Map<CName, Core::SharedPtr<const TweakDBPropertyInfo>> m_props{};
+};
 
 } // namespace Red

@@ -38,24 +38,6 @@ enum : uint64_t
 };
 }
 
-
-struct TweakDBRecordInfo
-{
-    Red::CName name;
-    const Red::CClass* type;
-    const Red::CClass* parent;
-    Core::Map<Red::CName, Core::SharedPtr<Red::TweakDBPropertyInfo>> props;
-    bool extraFlats;
-    std::string shortName;
-    uint32_t typeHash;
-
-    [[nodiscard]] const Red::TweakDBPropertyInfo* GetPropInfo(Red::CName aPropName) const
-    {
-        const auto& propIt = props.find(aPropName);
-        return propIt != props.end() ? propIt->second.get() : nullptr;
-    }
-};
-
 class TweakDBReflection
 {
 public:
@@ -137,9 +119,9 @@ private:
     using ParentMap = Core::Map<Red::TweakDBID, Red::TweakDBID>;
     using DescendantMap = Core::Map<Red::TweakDBID, Core::Set<Red::TweakDBID>>;
     using ExtraFlatMap = Core::Map<Red::CName, Core::Vector<ExtraFlat>>;
-    using RecordInfoMap = Core::Map<Red::CName, Core::SharedPtr<Red::TweakDBRecordInfo>>;
+    using RecordInfoMap = Core::Map<Red::CName, Core::SharedPtr<const TweakDBRecordInfo>>;
 
-    Core::SharedPtr<Red::TweakDBRecordInfo> CollectRecordInfo(const Red::CClass* aType, Red::TweakDBID aSampleId = {});
+    Core::SharedPtr<const TweakDBRecordInfo> CollectRecordInfo(const Red::CClass* aType, Red::TweakDBID aSampleId = {});
     Red::TweakDBID GetRecordSampleId(const Red::CClass* aType);
     uint32_t GetRecordTypeHash(const Red::CClass* aType);
     std::string ResolvePropertyName(Red::TweakDBID aSampleId, Red::CName aGetterName);
