@@ -82,9 +82,9 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
 
         auto propName = ResolvePropertyName(sampleId, func->shortName);
 
-        auto propInfo = TweakDBPropertyInfo{};
-        propInfo.SetName(Red::CName(propName.c_str()));
-        propInfo.SetDataOffset(baseOffset + (recordInfo->GetProperties().size() * DataOffsetSize));
+        auto propInfo = Red::MakeInstance<TweakDBPropertyInfo>();
+        propInfo->SetName(Red::CName(propName.c_str()));
+        propInfo->SetDataOffset(baseOffset + (recordInfo->GetProperties().size() * DataOffsetSize));
 
         // Case: Foreign Key Array => TweakDBID[]
         if (!func->returnType)
@@ -93,11 +93,11 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
             const auto handleType = reinterpret_cast<Red::CRTTIWeakHandleType*>(arrayType->innerType);
             const auto recordType = reinterpret_cast<Red::CClass*>(handleType->innerType);
 
-            propInfo.SetType(GetRTTI()->GetType(Red::ERTDBFlatType::TweakDBIDArray));
-            propInfo.SetArray();
-            propInfo.SetElementType(GetRTTI()->GetType(Red::ERTDBFlatType::TweakDBID));
-            propInfo.SetForeignKey();
-            propInfo.SetForeignType(recordType);
+            propInfo->SetType(GetRTTI()->GetType(Red::ERTDBFlatType::TweakDBIDArray));
+            propInfo->SetArray();
+            propInfo->SetElementType(GetRTTI()->GetType(Red::ERTDBFlatType::TweakDBID));
+            propInfo->SetForeignKey();
+            propInfo->SetForeignType(recordType);
 
             // Skip related functions:
             // func Get[Prop]Count()
@@ -118,9 +118,9 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
                 const auto handleType = reinterpret_cast<Red::CRTTIWeakHandleType*>(returnType);
                 const auto recordType = reinterpret_cast<Red::CClass*>(handleType->innerType);
 
-                propInfo.SetType(GetRTTI()->GetType(Red::ERTDBFlatType::TweakDBID));
-                propInfo.SetForeignKey();
-                propInfo.SetForeignType(recordType);
+                propInfo->SetType(GetRTTI()->GetType(Red::ERTDBFlatType::TweakDBID));
+                propInfo->SetForeignKey();
+                propInfo->SetForeignType(recordType);
 
                 // Skip related function:
                 // func Get[Prop]Handle()
@@ -131,9 +131,9 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
             {
                 if (IsResRefTokenArray(returnType))
                 {
-                    propInfo.SetType(GetRTTI()->GetType(Red::ERTDBFlatType::ResRefArray));
-                    propInfo.SetArray();
-                    propInfo.SetElementType(GetRTTI()->GetType(Red::ERTDBFlatType::ResRef));
+                    propInfo->SetType(GetRTTI()->GetType(Red::ERTDBFlatType::ResRefArray));
+                    propInfo->SetArray();
+                    propInfo->SetElementType(GetRTTI()->GetType(Red::ERTDBFlatType::ResRef));
 
                     // Skip related functions:
                     // func Get[Prop]Count()
@@ -145,9 +145,9 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
                     const auto arrayType = reinterpret_cast<Red::CRTTIArrayType*>(returnType);
                     const auto elementType = reinterpret_cast<Red::CBaseRTTIType*>(arrayType->innerType);
 
-                    propInfo.SetType(returnType);
-                    propInfo.SetArray(true);
-                    propInfo.SetElementType(elementType);
+                    propInfo->SetType(returnType);
+                    propInfo->SetArray();
+                    propInfo->SetElementType(elementType);
 
                     // Skip related functions:
                     // func Get[Prop]Count()
@@ -167,7 +167,7 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
             {
                 if (IsResRefToken(returnType))
                 {
-                    propInfo.SetType(GetRTTI()->GetType(Red::ERTDBFlatType::ResRef));
+                    propInfo->SetType(GetRTTI()->GetType(Red::ERTDBFlatType::ResRef));
                 }
                 else
                 {
@@ -180,18 +180,18 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
                         returnType = flat->GetValue().type;
                     }
 
-                    propInfo.SetType(returnType);
+                    propInfo->SetType(returnType);
                 }
             }
             }
         }
 
-        if (propInfo.GetDataOffset())
+        if (propInfo->GetDataOffset())
         {
-            propInfo.SetDefaultValue(ResolveDefaultValue(aType, propInfo.GetAppendix()));
+            propInfo->SetDefaultValue(ResolveDefaultValue(aType, propInfo->GetAppendix()));
         }
 
-        assert(propInfo.IsValid());
+        assert(propInfo->IsValid());
 
         recordInfo->AddProperty(propInfo);
     }
@@ -202,27 +202,27 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
         {
             for (const auto& extraFlat : extraFlatsIt.value())
             {
-                auto propInfo = TweakDBPropertyInfo{};
-                propInfo.SetName(CName(extraFlat.appendix.c_str() + 1));
-                propInfo.SetType(GetRTTI()->GetType(extraFlat.typeName));
+                auto propInfo = Red::MakeInstance<TweakDBPropertyInfo>();
+                propInfo->SetName(CName(extraFlat.appendix.c_str() + 1));
+                propInfo->SetType(GetRTTI()->GetType(extraFlat.typeName));
 
-                if (propInfo.GetType()->GetType() == Red::ERTTIType::Array)
+                if (propInfo->GetType()->GetType() == Red::ERTTIType::Array)
                 {
-                    const auto arrayType = reinterpret_cast<const Red::CRTTIArrayType*>(propInfo.GetType());
-                    propInfo.SetElementType(arrayType->innerType);
-                    propInfo.SetArray();
+                    const auto arrayType = reinterpret_cast<const Red::CRTTIArrayType*>(propInfo->GetType());
+                    propInfo->SetElementType(arrayType->innerType);
+                    propInfo->SetArray();
                 }
 
                 if (!extraFlat.foreignTypeName.IsNone())
                 {
-                    propInfo.SetForeignType(GetRTTI()->GetClass(extraFlat.foreignTypeName));
-                    propInfo.SetForeignKey();
+                    propInfo->SetForeignType(GetRTTI()->GetClass(extraFlat.foreignTypeName));
+                    propInfo->SetForeignKey();
                 }
 
-                propInfo.SetDataOffset(0);
-                propInfo.SetDefaultValue(-1);
+                propInfo->SetDataOffset(0);
+                propInfo->SetDefaultValue(-1);
 
-                assert(propInfo.IsValid());
+                assert(propInfo->IsValid());
 
                 recordInfo->AddProperty(propInfo);
             }
@@ -231,10 +231,7 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
 
     assert(recordInfo->IsValid());
 
-    {
-        std::unique_lock lockRW(m_mutex);
-        m_resolved.insert({ recordInfo->GetName(), recordInfo });
-    }
+    RegisterRecordInfo(recordInfo);
 
     return recordInfo;
 }
@@ -262,6 +259,18 @@ uint32_t Red::TweakDBReflection::GetRecordTypeHash(const CName& aName)
 
 uint32_t Red::TweakDBReflection::GetRecordTypeHash(const char* aName)
 {
+    auto m_tweakDb = TweakDB::Get();
+    auto cls = CRTTISystem::Get()->GetClass(GetRecordFullName<CName>(aName));
+    std::shared_lock<Red::SharedSpinLock> recordLockR(m_tweakDb->mutex01);
+    auto* records = m_tweakDb->recordsByType.Get(const_cast<Red::CClass*>(cls));
+
+    if (records == nullptr)
+        return 0;
+
+    uint32_t existingHash =  records->Begin()->GetPtr<Red::TweakDBRecord>()->GetTweakBaseHash();
+
+    assert(Murmur3_32(reinterpret_cast<const uint8_t*>(aName), strlen(aName)) == existingHash);
+
     return Murmur3_32(reinterpret_cast<const uint8_t*>(aName), strlen(aName));
 }
 
@@ -633,14 +642,8 @@ Red::IRTTISystem* Red::TweakDBReflection::GetRTTI()
     return s_rtti;
 }
 
-bool Red::TweakDBReflection::RegisterRecordInfo(const TweakDBRecordInfo& aRecordInfo)
+bool Red::TweakDBReflection::RegisterRecordInfo(Core::SharedPtr<TweakDBRecordInfo> aRecordInfo)
 {
     std::unique_lock  lockRW(m_mutex);
-    return m_resolved.insert({ aRecordInfo.GetName(), Core::MakeShared<Red::TweakDBRecordInfo>(aRecordInfo) }).second;
-}
-
-bool Red::TweakDBReflection::RegisterRecordInfo(TweakDBRecordInfo&& aRecordInfo)
-{
-    std::unique_lock lockRW(m_mutex);
-    return m_resolved.insert({ aRecordInfo.GetName(), Core::MakeShared<Red::TweakDBRecordInfo>(std::move(aRecordInfo)) }).second;
+    return m_resolved.insert({aRecordInfo->GetName(), aRecordInfo}).second;
 }

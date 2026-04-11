@@ -22,13 +22,13 @@ public:
     void SetDataOffset(uintptr_t aDataOffset);
     void SetDefaultValue(int32_t aDefaultValue);
 
-    [[nodiscard]] const CName& GetName() const;
+    [[nodiscard]] CName GetName() const;
     [[nodiscard]] const CBaseRTTIType* GetType() const;
     [[nodiscard]] const CBaseRTTIType* GetElementType() const;
     [[nodiscard]] const CClass* GetForeignType() const;
     [[nodiscard]] bool IsArray() const;
     [[nodiscard]] bool IsForeignKey() const;
-    [[nodiscard]] const std::string& GetAppendix() const;
+    [[nodiscard]] std::string GetAppendix() const;
     [[nodiscard]] uintptr_t GetDataOffset() const;
     [[nodiscard]] int32_t GetDefaultValue() const;
 
@@ -58,17 +58,16 @@ public:
     void SetType(const CClass* aType);
     void SetParent(const CClass* aParent);
 
-    bool AddProperty(const TweakDBPropertyInfo& aProperty);
-    bool AddProperty(TweakDBPropertyInfo&& aProperty);
+    bool AddProperty(Core::SharedPtr<TweakDBPropertyInfo> aProperty);
 
-    [[nodiscard]] const CName& GetName() const;
-    [[nodiscard]] const CName& GetAliasName() const;
-    [[nodiscard]] const CName& GetShortName() const;
+    [[nodiscard]] CName GetName() const;
+    [[nodiscard]] CName GetAliasName() const;
+    [[nodiscard]] CName GetShortName() const;
     [[nodiscard]] const CClass* GetType() const;
     [[nodiscard]] const CClass* GetParent() const;
     [[nodiscard]] uint32_t GetTypeHash() const;
 
-    [[nodiscard]] const TweakDBPropertyInfo* GetProperty(const CName& aPropName) const;
+    [[nodiscard]] Core::SharedPtr<const TweakDBPropertyInfo> GetProperty(const CName& aPropName) const;
     [[nodiscard]] const Core::Map<CName, Core::SharedPtr<const TweakDBPropertyInfo>>& GetProperties() const;
 
     [[nodiscard]] bool IsValid() const;

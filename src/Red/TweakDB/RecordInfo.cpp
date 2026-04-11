@@ -53,7 +53,7 @@ void TweakDBPropertyInfo::SetDefaultValue(int32_t aDefaultValue)
     m_defaultValue = aDefaultValue;
 }
 
-const CName& TweakDBPropertyInfo::GetName() const
+CName TweakDBPropertyInfo::GetName() const
 {
     return m_name;
 }
@@ -83,7 +83,7 @@ bool TweakDBPropertyInfo::IsForeignKey() const
     return m_isForeignKey;
 }
 
-const std::string& TweakDBPropertyInfo::GetAppendix() const
+std::string TweakDBPropertyInfo::GetAppendix() const
 {
     return m_appendix;
 }
@@ -167,37 +167,27 @@ void TweakDBRecordInfo::SetParent(const CClass* aParent)
     m_parent = aParent;
 }
 
-bool TweakDBRecordInfo::AddProperty(const TweakDBPropertyInfo& aProperty)
+bool TweakDBRecordInfo::AddProperty(Core::SharedPtr<TweakDBPropertyInfo> aProperty)
 {
-    if (!aProperty.IsValid())
+    if (!aProperty->IsValid())
     {
         return false;
     }
 
-    return m_props.insert({aProperty.GetName(), Core::MakeShared<TweakDBPropertyInfo>(aProperty)}).second;
+    return m_props.insert({aProperty->GetName(), aProperty}).second;
 }
 
-bool TweakDBRecordInfo::AddProperty(TweakDBPropertyInfo&& aProperty)
-{
-    if (!aProperty.IsValid())
-    {
-        return false;
-    }
-
-    return m_props.insert({aProperty.GetName(), Core::MakeShared<TweakDBPropertyInfo>(std::move(aProperty))}).second;
-}
-
-const CName& TweakDBRecordInfo::GetName() const
+CName TweakDBRecordInfo::GetName() const
 {
     return m_name;
 }
 
-const CName& TweakDBRecordInfo::GetAliasName() const
+CName TweakDBRecordInfo::GetAliasName() const
 {
     return m_aliasName;
 }
 
-const CName& TweakDBRecordInfo::GetShortName() const
+CName TweakDBRecordInfo::GetShortName() const
 {
     return m_shortName;
 }
@@ -217,10 +207,10 @@ uint32_t TweakDBRecordInfo::GetTypeHash() const
     return m_typeHash;
 }
 
-const TweakDBPropertyInfo* TweakDBRecordInfo::GetProperty(const CName& aPropName) const
+Core::SharedPtr<const TweakDBPropertyInfo> TweakDBRecordInfo::GetProperty(const CName& aPropName) const
 {
     const auto& propIt = m_props.find(aPropName);
-    return propIt != m_props.end() ? propIt->second.get() : nullptr;
+    return propIt != m_props.end() ? propIt->second : nullptr;
 }
 
 const Core::Map<CName, Core::SharedPtr<const TweakDBPropertyInfo>>& TweakDBRecordInfo::GetProperties() const
@@ -230,7 +220,7 @@ const Core::Map<CName, Core::SharedPtr<const TweakDBPropertyInfo>>& TweakDBRecor
 
 bool TweakDBRecordInfo::IsValid() const
 {
-    if (m_name.IsNone() || m_aliasName.IsNone() || m_shortName.IsNone() || !m_type || !m_typeHash)
+    if (m_name.IsNone() || m_aliasName.IsNone() || m_shortName.IsNone() || !m_type)
     {
         return false;
     }
@@ -252,7 +242,7 @@ TweakDBRecordInfo& TweakDBRecordInfo::operator+=(const TweakDBRecordInfo& aOther
 {
     assert(m_type->parent == aOther.m_type);
 
-    m_parent = aOther.m_type;
+    m_parent = m_type->parent;
     m_props.insert(aOther.m_props.begin(), aOther.m_props.end());
 
     return *this;

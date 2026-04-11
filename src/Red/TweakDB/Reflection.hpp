@@ -126,8 +126,7 @@ public:
     const Red::TweakDBRecordInfo* GetRecordInfo(Red::CName aTypeName);
     const Red::TweakDBRecordInfo* GetRecordInfo(const Red::CClass* aType);
     Red::TweakDB* GetTweakDB();
-    bool RegisterRecordInfo(const TweakDBRecordInfo& aRecordInfo);
-    bool RegisterRecordInfo(TweakDBRecordInfo&& aRecordInfo);
+    bool RegisterRecordInfo(Core::SharedPtr<TweakDBRecordInfo> aRecordInfo);
 
 private:
     struct ExtraFlat
