@@ -19,7 +19,6 @@ public:
     void SetForeignType(const CClass* aForeignType);
     void SetArray(bool aIsArray = true);
     void SetForeignKey(bool aIsForeignKey = true);
-    void SetAppendix(const std::string& aAppendix);
     void SetDataOffset(uintptr_t aDataOffset);
     void SetDefaultValue(int32_t aDefaultValue);
 
@@ -59,17 +58,16 @@ public:
     void SetType(const CClass* aType);
     void SetParent(const CClass* aParent);
     void SetExtraFlats(bool aExtraFlats = true);
-    void SetShortName(const std::string& aShortName);
-    void SetTypeHash(uint32_t aTypeHash);
 
     bool AddProperty(const TweakDBPropertyInfo& aProperty);
     bool AddProperty(TweakDBPropertyInfo&& aProperty);
 
     [[nodiscard]] const CName& GetName() const;
+    [[nodiscard]] const CName& GetAliasName() const;
+    [[nodiscard]] const CName& GetShortName() const;
     [[nodiscard]] const CClass* GetType() const;
     [[nodiscard]] const CClass* GetParent() const;
     [[nodiscard]] bool HasExtraFlats() const;
-    [[nodiscard]] const std::string& GetShortName() const;
     [[nodiscard]] uint32_t GetTypeHash() const;
 
     [[nodiscard]] const TweakDBPropertyInfo* GetProperty(const CName& aPropName) const;
@@ -82,10 +80,11 @@ public:
 
 private:
     CName m_name{};
+    CName m_aliasName{};
+    CName m_shortName{};
     const CClass* m_type = nullptr;
     const CClass* m_parent = nullptr;
     bool m_extraFlats = false;
-    std::string m_shortName{};
     uint32_t m_typeHash{};
 
     Core::Map<CName, Core::SharedPtr<const TweakDBPropertyInfo>> m_props{};

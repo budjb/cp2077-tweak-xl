@@ -5,38 +5,46 @@
 
 namespace Red
 {
+constexpr auto RecordTypePrefix = "gamedata";
+constexpr auto RecordTypePrefixLength = std::char_traits<char>::length(RecordTypePrefix);
+constexpr auto RecordTypeSuffix = "_Record";
+constexpr auto RecordTypeSuffixLength = std::char_traits<char>::length(RecordTypeSuffix);
+
+template<typename T>
+concept CStringConstructible = !std::is_pointer_v<T> && std::is_constructible_v<T, const char*>;
+
 namespace ERTDBFlatType
 {
-enum : uint64_t
-{
-    Int = Red::FNV1a64("Int32"),
-    Float = Red::FNV1a64("Float"),
-    Bool = Red::FNV1a64("Bool"),
-    String = Red::FNV1a64("String"),
-    CName = Red::FNV1a64("CName"),
-    LocKey = Red::FNV1a64("gamedataLocKeyWrapper"),
-    ResRef = Red::FNV1a64("raRef:CResource"),
-    TweakDBID = Red::FNV1a64("TweakDBID"),
-    Quaternion = Red::FNV1a64("Quaternion"),
-    EulerAngles = Red::FNV1a64("EulerAngles"),
-    Vector3 = Red::FNV1a64("Vector3"),
-    Vector2 = Red::FNV1a64("Vector2"),
-    Color = Red::FNV1a64("Color"),
-    IntArray = Red::FNV1a64("array:Int32"),
-    FloatArray = Red::FNV1a64("array:Float"),
-    BoolArray = Red::FNV1a64("array:Bool"),
-    StringArray = Red::FNV1a64("array:String"),
-    CNameArray = Red::FNV1a64("array:CName"),
-    LocKeyArray = Red::FNV1a64("array:gamedataLocKeyWrapper"),
-    ResRefArray = Red::FNV1a64("array:raRef:CResource"),
-    TweakDBIDArray = Red::FNV1a64("array:TweakDBID"),
-    QuaternionArray = Red::FNV1a64("array:Quaternion"),
-    EulerAnglesArray = Red::FNV1a64("array:EulerAngles"),
-    Vector3Array = Red::FNV1a64("array:Vector3"),
-    Vector2Array = Red::FNV1a64("array:Vector2"),
-    ColorArray = Red::FNV1a64("array:Color"),
-};
-}
+    enum : uint64_t
+    {
+        Int = Red::FNV1a64("Int32"),
+        Float = Red::FNV1a64("Float"),
+        Bool = Red::FNV1a64("Bool"),
+        String = Red::FNV1a64("String"),
+        CName = Red::FNV1a64("CName"),
+        LocKey = Red::FNV1a64("gamedataLocKeyWrapper"),
+        ResRef = Red::FNV1a64("raRef:CResource"),
+        TweakDBID = Red::FNV1a64("TweakDBID"),
+        Quaternion = Red::FNV1a64("Quaternion"),
+        EulerAngles = Red::FNV1a64("EulerAngles"),
+        Vector3 = Red::FNV1a64("Vector3"),
+        Vector2 = Red::FNV1a64("Vector2"),
+        Color = Red::FNV1a64("Color"),
+        IntArray = Red::FNV1a64("array:Int32"),
+        FloatArray = Red::FNV1a64("array:Float"),
+        BoolArray = Red::FNV1a64("array:Bool"),
+        StringArray = Red::FNV1a64("array:String"),
+        CNameArray = Red::FNV1a64("array:CName"),
+        LocKeyArray = Red::FNV1a64("array:gamedataLocKeyWrapper"),
+        ResRefArray = Red::FNV1a64("array:raRef:CResource"),
+        TweakDBIDArray = Red::FNV1a64("array:TweakDBID"),
+        QuaternionArray = Red::FNV1a64("array:Quaternion"),
+        EulerAnglesArray = Red::FNV1a64("array:EulerAngles"),
+        Vector3Array = Red::FNV1a64("array:Vector3"),
+        Vector2Array = Red::FNV1a64("array:Vector2"),
+        ColorArray = Red::FNV1a64("array:Color"),
+    };
+} // namespace ERTDBFlatType
 
 class TweakDBReflection
 {
@@ -78,11 +86,24 @@ public:
     static Red::CName GetElementTypeName(Red::CName aTypeName);
     static Red::CName GetElementTypeName(const Red::CBaseRTTIType* aType);
 
-    static Red::CName GetRecordFullName(Red::CName aName);
-    static Red::CName GetRecordFullName(const char* aName);
+    template<CStringConstructible T>
+    static T GetRecordFullName(const CName& aName);
+    template<CStringConstructible T>
+    static T GetRecordFullName(const char* aName);
 
-    static std::string GetRecordShortName(Red::CName aName);
-    static std::string GetRecordShortName(const char* aName);
+    template<CStringConstructible T>
+    static T GetRecordAliasName(const CName& aName);
+    template<CStringConstructible T>
+    static T GetRecordAliasName(const char* aName);
+
+    template<CStringConstructible T>
+    static T GetRecordShortName(const CName& aName);
+    template<CStringConstructible T>
+    static T GetRecordShortName(const char* aName);
+
+    static uint32_t GetRecordTypeHash(const CClass* aType);
+    static uint32_t GetRecordTypeHash(const CName& aName);
+    static uint32_t GetRecordTypeHash(const char* aName);
 
     static Red::InstancePtr<> Construct(Red::CName aTypeName);
     static Red::InstancePtr<> Construct(const Red::CBaseRTTIType* aType);
@@ -93,7 +114,7 @@ public:
     static const Core::Set<Red::TweakDBID>& GetOriginalDescendants(Red::TweakDBID aSourceId);
 
     static void RegisterExtraFlat(Red::CName aRecordType, const std::string& aPropName, Red::CName aPropType,
-                           Red::CName aForeignType);
+                                  Red::CName aForeignType);
     static void RegisterDescendants(Red::TweakDBID aParentId, const Core::Set<Red::TweakDBID>& aDescendantIds);
 
     static std::string ToString(Red::TweakDBID aID);
@@ -123,7 +144,6 @@ private:
 
     Core::SharedPtr<const TweakDBRecordInfo> CollectRecordInfo(const Red::CClass* aType, Red::TweakDBID aSampleId = {});
     Red::TweakDBID GetRecordSampleId(const Red::CClass* aType);
-    uint32_t GetRecordTypeHash(const Red::CClass* aType);
     std::string ResolvePropertyName(Red::TweakDBID aSampleId, Red::CName aGetterName);
     int32_t ResolveDefaultValue(const Red::CClass* aType, const std::string& aPropName);
 
@@ -136,4 +156,78 @@ private:
     inline static DescendantMap s_descendantMap;
     inline static ExtraFlatMap s_extraFlats;
 };
+
+template<CStringConstructible T>
+T TweakDBReflection::GetRecordFullName(const CName& aName)
+{
+    return GetRecordFullName<T>(aName.ToString());
 }
+
+template<CStringConstructible T>
+T TweakDBReflection::GetRecordFullName(const char* aName)
+{
+    std::string finalName = aName;
+
+    if (finalName.empty())
+        return {};
+
+    if (!finalName.starts_with(RecordTypePrefix))
+        finalName.insert(0, RecordTypePrefix);
+
+    if (!finalName.ends_with(RecordTypeSuffix))
+        finalName.append(RecordTypeSuffix);
+
+    if constexpr (std::is_same_v<std::decay_t<T>, CName>)
+        return CNamePool::Add(finalName.c_str());
+    return T(finalName.c_str());
+}
+
+template<CStringConstructible T>
+T TweakDBReflection::GetRecordAliasName(const CName& aName)
+{
+    return GetRecordAliasName<T>(aName.ToString());
+}
+
+template<CStringConstructible T>
+T TweakDBReflection::GetRecordAliasName(const char* aName)
+{
+    std::string finalName = aName;
+
+    if (finalName.starts_with(RecordTypePrefix))
+    {
+        finalName.erase(0, RecordTypePrefixLength);
+    }
+
+    if (!finalName.ends_with(RecordTypeSuffix))
+    {
+        finalName.append(RecordTypeSuffix);
+    }
+
+    if constexpr (std::is_same_v<std::decay_t<T>, CName>)
+        return CNamePool::Add(finalName.c_str());
+    return T(finalName.c_str());
+}
+
+template<CStringConstructible T>
+T TweakDBReflection::GetRecordShortName(const CName& aName)
+{
+    return GetRecordShortName<T>(aName.ToString());
+}
+
+template<CStringConstructible T>
+T TweakDBReflection::GetRecordShortName(const char* aName)
+{
+    std::string finalName = aName;
+
+    if (finalName.starts_with(RecordTypePrefix))
+        finalName.erase(0, RecordTypePrefixLength);
+
+    if (finalName.ends_with(RecordTypeSuffix))
+        finalName.erase(finalName.end() - RecordTypeSuffixLength, finalName.end());
+
+    if constexpr (std::is_same_v<std::decay_t<T>, CName>)
+        return CNamePool::Add(finalName.c_str());
+    return T(finalName.c_str());
+}
+
+} // namespace Red

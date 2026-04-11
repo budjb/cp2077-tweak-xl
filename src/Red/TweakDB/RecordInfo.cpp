@@ -4,15 +4,18 @@
 
 namespace Red
 {
+static constexpr std::string_view NameSeparator = ".";
 
 void TweakDBPropertyInfo::SetName(const char* aName)
 {
-    SetName(CNamePool::Add(aName));
+    m_name = CNamePool::Add(aName);
+    m_appendix = std::string(NameSeparator) + aName;
 }
 
 void TweakDBPropertyInfo::SetName(const CName& aName)
 {
     m_name = aName;
+    m_appendix = std::string(NameSeparator) + aName.ToString();
 }
 
 void TweakDBPropertyInfo::SetType(const CBaseRTTIType* aType)
@@ -38,11 +41,6 @@ void TweakDBPropertyInfo::SetArray(bool aIsArray)
 void TweakDBPropertyInfo::SetForeignKey(bool aIsForeignKey)
 {
     m_isForeignKey = aIsForeignKey;
-}
-
-void TweakDBPropertyInfo::SetAppendix(const std::string& aAppendix)
-{
-    m_appendix = aAppendix;
 }
 
 void TweakDBPropertyInfo::SetDataOffset(uintptr_t aDataOffset)
@@ -148,12 +146,15 @@ bool TweakDBPropertyInfo::IsValid() const
 
 void TweakDBRecordInfo::SetName(const char* aName)
 {
-    SetName(CNamePool::Add(aName));
+    m_name = TweakDBReflection::GetRecordFullName<CName>(aName);
+    m_aliasName = TweakDBReflection::GetRecordAliasName<CName>(aName);
+    m_shortName = TweakDBReflection::GetRecordShortName<CName>(aName);
+    m_typeHash = TweakDBReflection::GetRecordTypeHash(m_shortName);
 }
 
 void TweakDBRecordInfo::SetName(const CName& aName)
 {
-    m_name = aName;
+    SetName(aName.ToString());
 }
 
 void TweakDBRecordInfo::SetType(const CClass* aType)
@@ -169,16 +170,6 @@ void TweakDBRecordInfo::SetParent(const CClass* aParent)
 void TweakDBRecordInfo::SetExtraFlats(bool aExtraFlats)
 {
     m_extraFlats = aExtraFlats;
-}
-
-void TweakDBRecordInfo::SetShortName(const std::string& aShortName)
-{
-    m_shortName = aShortName;
-}
-
-void TweakDBRecordInfo::SetTypeHash(const uint32_t aTypeHash)
-{
-    m_typeHash = aTypeHash;
 }
 
 bool TweakDBRecordInfo::AddProperty(const TweakDBPropertyInfo& aProperty)
@@ -206,6 +197,16 @@ const CName& TweakDBRecordInfo::GetName() const
     return m_name;
 }
 
+const CName& TweakDBRecordInfo::GetAliasName() const
+{
+    return m_aliasName;
+}
+
+const CName& TweakDBRecordInfo::GetShortName() const
+{
+    return m_shortName;
+}
+
 const CClass* TweakDBRecordInfo::GetType() const
 {
     return m_type;
@@ -226,11 +227,6 @@ uint32_t TweakDBRecordInfo::GetTypeHash() const
     return m_typeHash;
 }
 
-const std::string& TweakDBRecordInfo::GetShortName() const
-{
-    return m_shortName;
-}
-
 const TweakDBPropertyInfo* TweakDBRecordInfo::GetProperty(const CName& aPropName) const
 {
     const auto& propIt = m_props.find(aPropName);
@@ -244,7 +240,7 @@ const Core::Map<CName, Core::SharedPtr<const TweakDBPropertyInfo>>& TweakDBRecor
 
 bool TweakDBRecordInfo::IsValid() const
 {
-    if (m_name.IsNone() || !m_type || m_shortName.empty())
+    if (m_name.IsNone() || m_aliasName.IsNone() || m_shortName.IsNone() || !m_type || !m_typeHash)
     {
         return false;
     }

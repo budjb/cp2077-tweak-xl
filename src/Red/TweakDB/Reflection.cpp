@@ -4,11 +4,6 @@
 
 namespace
 {
-constexpr auto RecordTypePrefix = "gamedata";
-constexpr auto RecordTypePrefixLength = std::char_traits<char>::length(RecordTypePrefix);
-constexpr auto RecordTypeSuffix = "_Record";
-constexpr auto RecordTypeSuffixLength = std::char_traits<char>::length(RecordTypeSuffix);
-
 constexpr auto BaseRecordTypeName = Red::GetTypeName<Red::TweakDBRecord>();
 
 constexpr auto ResRefTypeName = Red::GetTypeName<Red::RaRef<Red::CResource>>();
@@ -72,8 +67,6 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
     auto recordInfo = Red::MakeInstance<Red::TweakDBRecordInfo>();
     recordInfo->SetName(aType->name);
     recordInfo->SetType(aType);
-    recordInfo->SetTypeHash(GetRecordTypeHash(aType));
-    recordInfo->SetShortName(GetRecordShortName(aType->name));
 
     const auto parentInfo = CollectRecordInfo(aType->parent, sampleId);
     if (parentInfo)
@@ -193,8 +186,6 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
             }
         }
 
-        propInfo.SetAppendix(std::string(PropSeparator).append(propName));
-
         if (propInfo.GetDataOffset())
         {
             propInfo.SetDefaultValue(ResolveDefaultValue(aType, propInfo.GetAppendix()));
@@ -215,7 +206,6 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
             {
                 auto propInfo = TweakDBPropertyInfo{};
                 propInfo.SetName(CName(extraFlat.appendix.c_str() + 1));
-                propInfo.SetAppendix(extraFlat.appendix);
                 propInfo.SetType(GetRTTI()->GetType(extraFlat.typeName));
 
                 if (propInfo.GetType()->GetType() == Red::ERTTIType::Array)
@@ -262,15 +252,19 @@ Red::TweakDBID Red::TweakDBReflection::GetRecordSampleId(const Red::CClass* aTyp
     return records->Begin()->GetPtr<Red::TweakDBRecord>()->recordID;
 }
 
-uint32_t Red::TweakDBReflection::GetRecordTypeHash(const Red::CClass* aType)
+uint32_t Red::TweakDBReflection::GetRecordTypeHash(const CClass* aType)
 {
-    std::shared_lock<Red::SharedSpinLock> recordLockR(m_tweakDb->mutex01);
-    auto* records = m_tweakDb->recordsByType.Get(const_cast<Red::CClass*>(aType));
+    return GetRecordTypeHash(aType->GetName());
+}
 
-    if (records == nullptr)
-        return 0;
+uint32_t Red::TweakDBReflection::GetRecordTypeHash(const CName& aName)
+{
+    return GetRecordTypeHash(aName.ToString());
+}
 
-    return records->Begin()->GetPtr<Red::TweakDBRecord>()->GetTweakBaseHash();
+uint32_t Red::TweakDBReflection::GetRecordTypeHash(const char* aName)
+{
+    return Murmur3_32(reinterpret_cast<const uint8_t*>(aName), strlen(aName));
 }
 
 std::string Red::TweakDBReflection::ResolvePropertyName(Red::TweakDBID aSampleId, Red::CName aGetterName)
@@ -293,7 +287,7 @@ int32_t Red::TweakDBReflection::ResolveDefaultValue(const Red::CClass* aType, co
 {
     std::string defaultFlatName = TweakSource::SchemaPackage;
     defaultFlatName.append(NameSeparator);
-    defaultFlatName.append(GetRecordShortName(aType->GetName()));
+    defaultFlatName.append(GetRecordShortName<std::string>(aType->GetName()));
 
     if (!aPropName.starts_with(NameSeparator))
     {
@@ -331,7 +325,7 @@ const Red::CClass* Red::TweakDBReflection::GetRecordType(Red::CName aTypeName)
 
 const Red::CClass* Red::TweakDBReflection::GetRecordType(const char* aTypeName)
 {
-    auto aFullName = GetRecordFullName(aTypeName);
+    auto aFullName = GetRecordFullName<CName>(aTypeName);
 
     Red::CClass* type = GetRTTI()->GetClass(aFullName);
 
@@ -541,45 +535,6 @@ Red::CName Red::TweakDBReflection::GetElementTypeName(const Red::CBaseRTTIType* 
         return {};
 
     return GetElementTypeName(aType->GetName());
-}
-
-Red::CName Red::TweakDBReflection::GetRecordFullName(Red::CName aName)
-{
-    return GetRecordFullName(aName.ToString());
-}
-
-Red::CName Red::TweakDBReflection::GetRecordFullName(const char* aName)
-{
-    std::string finalName = aName;
-
-    if (finalName.empty())
-        return {};
-
-    if (!finalName.starts_with(RecordTypePrefix))
-        finalName.insert(0, RecordTypePrefix);
-
-    if (!finalName.ends_with(RecordTypeSuffix))
-        finalName.append(RecordTypeSuffix);
-
-    return finalName.c_str();
-}
-
-std::string Red::TweakDBReflection::GetRecordShortName(Red::CName aName)
-{
-    return GetRecordShortName(aName.ToString());
-}
-
-std::string Red::TweakDBReflection::GetRecordShortName(const char* aName)
-{
-    std::string finalName = aName;
-
-    if (finalName.starts_with(RecordTypePrefix))
-        finalName.erase(0, RecordTypePrefixLength);
-
-    if (finalName.ends_with(RecordTypeSuffix))
-        finalName.erase(finalName.end() - RecordTypeSuffixLength, finalName.end());
-
-    return finalName;
 }
 
 Red::InstancePtr<> Red::TweakDBReflection::Construct(Red::CName aTypeName)
