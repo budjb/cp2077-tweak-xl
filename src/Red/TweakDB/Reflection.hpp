@@ -101,9 +101,7 @@ public:
     template<CStringConstructible T>
     static T GetRecordShortName(const char* aName);
 
-    static uint32_t GetRecordTypeHash(const CClass* aType);
-    static uint32_t GetRecordTypeHash(const CName& aName);
-    static uint32_t GetRecordTypeHash(const char* aName);
+    static uint32_t GetRecordTypeHash(const std::string& aName);
 
     static Red::InstancePtr<> Construct(Red::CName aTypeName);
     static Red::InstancePtr<> Construct(const Red::CBaseRTTIType* aType);
@@ -127,7 +125,8 @@ public:
     const TweakDBRecordInfo* GetRecordInfo(const Red::CClass* aType);
     const TweakDBRecordInfo* FindRecordInfo(Red::CName aTypeName) const;
     const TweakDBRecordInfo* FindRecordInfo(const Red::CClass* aType) const;
-    Red::TweakDB* GetTweakDB();Core::SharedPtr<const Red::TweakDBRecordInfo> RegisterRecordInfo(Core::SharedPtr<TweakDBRecordInfo> aRecordInfo);
+    Red::TweakDB* GetTweakDB();
+    Core::SharedPtr<const Red::TweakDBRecordInfo> RegisterRecordInfo(Core::SharedPtr<TweakDBRecordInfo> aRecordInfo);
 
 private:
     struct ExtraFlat
