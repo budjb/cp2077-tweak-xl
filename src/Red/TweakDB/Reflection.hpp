@@ -123,10 +123,11 @@ public:
 
     explicit TweakDBReflection(Red::TweakDB* aTweakDb);
 
-    const Red::TweakDBRecordInfo* GetRecordInfo(Red::CName aTypeName);
-    const Red::TweakDBRecordInfo* GetRecordInfo(const Red::CClass* aType);
-    Red::TweakDB* GetTweakDB();
-    bool RegisterRecordInfo(Core::SharedPtr<TweakDBRecordInfo> aRecordInfo);
+    const TweakDBRecordInfo* GetRecordInfo(Red::CName aTypeName);
+    const TweakDBRecordInfo* GetRecordInfo(const Red::CClass* aType);
+    const TweakDBRecordInfo* FindRecordInfo(Red::CName aTypeName) const;
+    const TweakDBRecordInfo* FindRecordInfo(const Red::CClass* aType) const;
+    Red::TweakDB* GetTweakDB();Core::SharedPtr<const Red::TweakDBRecordInfo> RegisterRecordInfo(Core::SharedPtr<TweakDBRecordInfo> aRecordInfo);
 
 private:
     struct ExtraFlat
@@ -141,14 +142,14 @@ private:
     using ExtraFlatMap = Core::Map<Red::CName, Core::Vector<ExtraFlat>>;
     using RecordInfoMap = Core::Map<Red::CName, Core::SharedPtr<const TweakDBRecordInfo>>;
 
-    Core::SharedPtr<const TweakDBRecordInfo> CollectRecordInfo(const Red::CClass* aType, Red::TweakDBID aSampleId = {});
+    const Red::TweakDBRecordInfo* CollectRecordInfo(const Red::CClass* aType, Red::TweakDBID aSampleId = {});
     Red::TweakDBID GetRecordSampleId(const Red::CClass* aType);
     std::string ResolvePropertyName(Red::TweakDBID aSampleId, Red::CName aGetterName);
     int32_t ResolveDefaultValue(const Red::CClass* aType, const std::string& aPropName);
 
     Red::TweakDB* m_tweakDb;
     RecordInfoMap m_resolved;
-    std::shared_mutex m_mutex;
+    mutable std::shared_mutex m_mutex;
 
     inline static IRTTISystem* s_rtti;
     inline static ParentMap s_parentMap;

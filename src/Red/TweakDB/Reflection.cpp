@@ -15,7 +15,7 @@ constexpr auto ScriptResRefArrayTypeName = Red::GetTypeName<Red::DynArray<Red::R
 constexpr auto NameSeparator = Red::TweakGrammar::Name::Separator;
 constexpr auto PropSeparator = std::string_view(NameSeparator);
 constexpr auto DataOffsetSize = 12;
-}
+} // namespace
 
 Red::TweakDBReflection::TweakDBReflection(Red::TweakDB* aTweakDb)
     : m_tweakDb(aTweakDb)
@@ -24,36 +24,40 @@ Red::TweakDBReflection::TweakDBReflection(Red::TweakDB* aTweakDb)
 
 const Red::TweakDBRecordInfo* Red::TweakDBReflection::GetRecordInfo(const Red::CClass* aType)
 {
-    if (!IsRecordType(aType))
-        return nullptr;
-
-    {
-        std::shared_lock lockR(m_mutex);
-        auto iter = m_resolved.find(aType->GetName());
-        if (iter != m_resolved.end())
-            return iter->second.get();
-    }
-
-    return CollectRecordInfo(aType).get();
+    return CollectRecordInfo(aType);
 }
 
 const Red::TweakDBRecordInfo* Red::TweakDBReflection::GetRecordInfo(Red::CName aTypeName)
 {
-    {
-        std::shared_lock lockR(m_mutex);
-        auto iter = m_resolved.find(aTypeName);
-        if (iter != m_resolved.end())
-            return iter->second.get();
-    }
-
-    return CollectRecordInfo(GetRTTI()->GetClass(aTypeName)).get();
+    if (const auto* type = GetRTTI()->GetClass(aTypeName))
+        return GetRecordInfo(type);
+    return nullptr;
 }
 
-Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInfo(
-    const Red::CClass* aType, Red::TweakDBID aSampleId)
+const Red::TweakDBRecordInfo* Red::TweakDBReflection::FindRecordInfo(const Red::CClass* aType) const
+{
+    std::shared_lock lockR(m_mutex);
+    auto iter = m_resolved.find(aType->GetName());
+    if (iter != m_resolved.end())
+        return iter->second.get();
+    return nullptr;
+}
+
+const Red::TweakDBRecordInfo* Red::TweakDBReflection::FindRecordInfo(Red::CName aTypeName) const
+{
+    if (const auto* type = GetRTTI()->GetClass(aTypeName))
+        return FindRecordInfo(type);
+    return nullptr;
+}
+
+const Red::TweakDBRecordInfo* Red::TweakDBReflection::CollectRecordInfo(const Red::CClass* aType,
+                                                                        Red::TweakDBID aSampleId)
 {
     if (!IsRecordType(aType))
         return nullptr;
+
+    if (const auto* existing = FindRecordInfo(aType))
+        return existing;
 
     auto sampleId = aSampleId;
     if (!sampleId.IsValid())
@@ -83,7 +87,8 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
         auto propName = ResolvePropertyName(sampleId, func->shortName);
 
         auto propInfo = Red::MakeInstance<TweakDBPropertyInfo>();
-        propInfo->SetName(Red::CName(propName.c_str()));
+        propInfo->SetName(propName);
+
         propInfo->SetDataOffset(baseOffset + (recordInfo->GetProperties().size() * DataOffsetSize));
 
         // Case: Foreign Key Array => TweakDBID[]
@@ -192,8 +197,7 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
         }
 
         assert(propInfo->IsValid());
-
-        recordInfo->AddProperty(propInfo);
+        assert(recordInfo->AddProperty(propInfo));
     }
 
     {
@@ -203,7 +207,7 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
             for (const auto& extraFlat : extraFlatsIt.value())
             {
                 auto propInfo = Red::MakeInstance<TweakDBPropertyInfo>();
-                propInfo->SetName(CName(extraFlat.appendix.c_str() + 1));
+                propInfo->SetName(extraFlat.appendix.c_str() + 1);
                 propInfo->SetType(GetRTTI()->GetType(extraFlat.typeName));
 
                 if (propInfo->GetType()->GetType() == Red::ERTTIType::Array)
@@ -223,17 +227,18 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRec
                 propInfo->SetDefaultValue(-1);
 
                 assert(propInfo->IsValid());
-
-                recordInfo->AddProperty(propInfo);
+                assert(recordInfo->AddProperty(propInfo));
             }
         }
     }
 
     assert(recordInfo->IsValid());
 
-    RegisterRecordInfo(recordInfo);
+    const Core::SharedPtr<const TweakDBRecordInfo> record = RegisterRecordInfo(recordInfo);
 
-    return recordInfo;
+    assert(record);
+
+    return record.get();
 }
 
 Red::TweakDBID Red::TweakDBReflection::GetRecordSampleId(const Red::CClass* aType)
@@ -267,7 +272,7 @@ uint32_t Red::TweakDBReflection::GetRecordTypeHash(const char* aName)
     if (records == nullptr)
         return 0;
 
-    uint32_t existingHash =  records->Begin()->GetPtr<Red::TweakDBRecord>()->GetTweakBaseHash();
+    uint32_t existingHash = records->Begin()->GetPtr<Red::TweakDBRecord>()->GetTweakBaseHash();
 
     assert(Murmur3_32(reinterpret_cast<const uint8_t*>(aName), strlen(aName)) == existingHash);
 
@@ -490,20 +495,34 @@ Red::CName Red::TweakDBReflection::GetArrayTypeName(Red::CName aTypeName)
 {
     switch (aTypeName)
     {
-    case Red::ERTDBFlatType::Int: return Red::ERTDBFlatType::IntArray;
-    case Red::ERTDBFlatType::Float: return Red::ERTDBFlatType::FloatArray;
-    case Red::ERTDBFlatType::Bool: return Red::ERTDBFlatType::BoolArray;
-    case Red::ERTDBFlatType::String: return Red::ERTDBFlatType::StringArray;
-    case Red::ERTDBFlatType::CName: return Red::ERTDBFlatType::CNameArray;
-    case Red::ERTDBFlatType::LocKey: return Red::ERTDBFlatType::LocKeyArray;
-    case Red::ERTDBFlatType::ResRef: return Red::ERTDBFlatType::ResRefArray;
-    case Red::ERTDBFlatType::TweakDBID: return Red::ERTDBFlatType::TweakDBIDArray;
-    case Red::ERTDBFlatType::Quaternion: return Red::ERTDBFlatType::QuaternionArray;
-    case Red::ERTDBFlatType::EulerAngles: return Red::ERTDBFlatType::EulerAnglesArray;
-    case Red::ERTDBFlatType::Vector3: return Red::ERTDBFlatType::Vector3Array;
-    case Red::ERTDBFlatType::Vector2: return Red::ERTDBFlatType::Vector2Array;
-    case Red::ERTDBFlatType::Color: return Red::ERTDBFlatType::ColorArray;
-    default: return {};
+    case Red::ERTDBFlatType::Int:
+        return Red::ERTDBFlatType::IntArray;
+    case Red::ERTDBFlatType::Float:
+        return Red::ERTDBFlatType::FloatArray;
+    case Red::ERTDBFlatType::Bool:
+        return Red::ERTDBFlatType::BoolArray;
+    case Red::ERTDBFlatType::String:
+        return Red::ERTDBFlatType::StringArray;
+    case Red::ERTDBFlatType::CName:
+        return Red::ERTDBFlatType::CNameArray;
+    case Red::ERTDBFlatType::LocKey:
+        return Red::ERTDBFlatType::LocKeyArray;
+    case Red::ERTDBFlatType::ResRef:
+        return Red::ERTDBFlatType::ResRefArray;
+    case Red::ERTDBFlatType::TweakDBID:
+        return Red::ERTDBFlatType::TweakDBIDArray;
+    case Red::ERTDBFlatType::Quaternion:
+        return Red::ERTDBFlatType::QuaternionArray;
+    case Red::ERTDBFlatType::EulerAngles:
+        return Red::ERTDBFlatType::EulerAnglesArray;
+    case Red::ERTDBFlatType::Vector3:
+        return Red::ERTDBFlatType::Vector3Array;
+    case Red::ERTDBFlatType::Vector2:
+        return Red::ERTDBFlatType::Vector2Array;
+    case Red::ERTDBFlatType::Color:
+        return Red::ERTDBFlatType::ColorArray;
+    default:
+        return {};
     }
 }
 
@@ -519,20 +538,34 @@ Red::CName Red::TweakDBReflection::GetElementTypeName(Red::CName aTypeName)
 {
     switch (aTypeName)
     {
-    case Red::ERTDBFlatType::IntArray: return Red::ERTDBFlatType::Int;
-    case Red::ERTDBFlatType::FloatArray: return Red::ERTDBFlatType::Float;
-    case Red::ERTDBFlatType::BoolArray: return Red::ERTDBFlatType::Bool;
-    case Red::ERTDBFlatType::StringArray: return Red::ERTDBFlatType::String;
-    case Red::ERTDBFlatType::CNameArray: return Red::ERTDBFlatType::CName;
-    case Red::ERTDBFlatType::TweakDBIDArray: return Red::ERTDBFlatType::TweakDBID;
-    case Red::ERTDBFlatType::LocKeyArray: return Red::ERTDBFlatType::LocKey;
-    case Red::ERTDBFlatType::ResRefArray: return Red::ERTDBFlatType::ResRef;
-    case Red::ERTDBFlatType::QuaternionArray: return Red::ERTDBFlatType::Quaternion;
-    case Red::ERTDBFlatType::EulerAnglesArray: return Red::ERTDBFlatType::EulerAngles;
-    case Red::ERTDBFlatType::Vector3Array: return Red::ERTDBFlatType::Vector3;
-    case Red::ERTDBFlatType::Vector2Array: return Red::ERTDBFlatType::Vector2;
-    case Red::ERTDBFlatType::ColorArray: return Red::ERTDBFlatType::Color;
-    default: return {};
+    case Red::ERTDBFlatType::IntArray:
+        return Red::ERTDBFlatType::Int;
+    case Red::ERTDBFlatType::FloatArray:
+        return Red::ERTDBFlatType::Float;
+    case Red::ERTDBFlatType::BoolArray:
+        return Red::ERTDBFlatType::Bool;
+    case Red::ERTDBFlatType::StringArray:
+        return Red::ERTDBFlatType::String;
+    case Red::ERTDBFlatType::CNameArray:
+        return Red::ERTDBFlatType::CName;
+    case Red::ERTDBFlatType::TweakDBIDArray:
+        return Red::ERTDBFlatType::TweakDBID;
+    case Red::ERTDBFlatType::LocKeyArray:
+        return Red::ERTDBFlatType::LocKey;
+    case Red::ERTDBFlatType::ResRefArray:
+        return Red::ERTDBFlatType::ResRef;
+    case Red::ERTDBFlatType::QuaternionArray:
+        return Red::ERTDBFlatType::Quaternion;
+    case Red::ERTDBFlatType::EulerAnglesArray:
+        return Red::ERTDBFlatType::EulerAngles;
+    case Red::ERTDBFlatType::Vector3Array:
+        return Red::ERTDBFlatType::Vector3;
+    case Red::ERTDBFlatType::Vector2Array:
+        return Red::ERTDBFlatType::Vector2;
+    case Red::ERTDBFlatType::ColorArray:
+        return Red::ERTDBFlatType::Color;
+    default:
+        return {};
     }
 }
 
@@ -548,33 +581,60 @@ Red::InstancePtr<> Red::TweakDBReflection::Construct(Red::CName aTypeName)
 {
     switch (aTypeName)
     {
-    case Red::ERTDBFlatType::Int: return Red::MakeInstance<int>();
-    case Red::ERTDBFlatType::Float: return Red::MakeInstance<float>();
-    case Red::ERTDBFlatType::Bool: return Red::MakeInstance<bool>();
-    case Red::ERTDBFlatType::String: return Red::MakeInstance<Red::CString>();
-    case Red::ERTDBFlatType::CName: return Red::MakeInstance<Red::CName>();
-    case Red::ERTDBFlatType::LocKey: return Red::MakeInstance<Red::LocKeyWrapper>();
-    case Red::ERTDBFlatType::ResRef: return Red::MakeInstance<Red::ResourceAsyncReference<>>();
-    case Red::ERTDBFlatType::TweakDBID: return Red::MakeInstance<Red::TweakDBID>();
-    case Red::ERTDBFlatType::Quaternion: return Red::MakeInstance<Red::Quaternion>();
-    case Red::ERTDBFlatType::EulerAngles: return Red::MakeInstance<Red::EulerAngles>();
-    case Red::ERTDBFlatType::Vector3: return Red::MakeInstance<Red::Vector3>();
-    case Red::ERTDBFlatType::Vector2: return Red::MakeInstance<Red::Vector2>();
-    case Red::ERTDBFlatType::Color: return Red::MakeInstance<Red::Color>();
-    case Red::ERTDBFlatType::IntArray: return Red::MakeInstance<Red::DynArray<int>>();
-    case Red::ERTDBFlatType::FloatArray: return Red::MakeInstance<Red::DynArray<float>>();
-    case Red::ERTDBFlatType::BoolArray: return Red::MakeInstance<Red::DynArray<bool>>();
-    case Red::ERTDBFlatType::StringArray: return Red::MakeInstance<Red::DynArray<Red::CString>>();
-    case Red::ERTDBFlatType::CNameArray: return Red::MakeInstance<Red::DynArray<Red::CName>>();
-    case Red::ERTDBFlatType::LocKeyArray: return Red::MakeInstance<Red::DynArray<Red::LocKeyWrapper>>();
-    case Red::ERTDBFlatType::ResRefArray: return Red::MakeInstance<Red::DynArray<Red::ResourceAsyncReference<>>>();
-    case Red::ERTDBFlatType::TweakDBIDArray: return Red::MakeInstance<Red::DynArray<Red::TweakDBID>>();
-    case Red::ERTDBFlatType::QuaternionArray: return Red::MakeInstance<Red::DynArray<Red::Quaternion>>();
-    case Red::ERTDBFlatType::EulerAnglesArray: return Red::MakeInstance<Red::DynArray<Red::EulerAngles>>();
-    case Red::ERTDBFlatType::Vector3Array: return Red::MakeInstance<Red::DynArray<Red::Vector3>>();
-    case Red::ERTDBFlatType::Vector2Array: return Red::MakeInstance<Red::DynArray<Red::Vector2>>();
-    case Red::ERTDBFlatType::ColorArray: return Red::MakeInstance<Red::DynArray<Red::Color>>();
-    default: return {};
+    case Red::ERTDBFlatType::Int:
+        return Red::MakeInstance<int>();
+    case Red::ERTDBFlatType::Float:
+        return Red::MakeInstance<float>();
+    case Red::ERTDBFlatType::Bool:
+        return Red::MakeInstance<bool>();
+    case Red::ERTDBFlatType::String:
+        return Red::MakeInstance<Red::CString>();
+    case Red::ERTDBFlatType::CName:
+        return Red::MakeInstance<Red::CName>();
+    case Red::ERTDBFlatType::LocKey:
+        return Red::MakeInstance<Red::LocKeyWrapper>();
+    case Red::ERTDBFlatType::ResRef:
+        return Red::MakeInstance<Red::ResourceAsyncReference<>>();
+    case Red::ERTDBFlatType::TweakDBID:
+        return Red::MakeInstance<Red::TweakDBID>();
+    case Red::ERTDBFlatType::Quaternion:
+        return Red::MakeInstance<Red::Quaternion>();
+    case Red::ERTDBFlatType::EulerAngles:
+        return Red::MakeInstance<Red::EulerAngles>();
+    case Red::ERTDBFlatType::Vector3:
+        return Red::MakeInstance<Red::Vector3>();
+    case Red::ERTDBFlatType::Vector2:
+        return Red::MakeInstance<Red::Vector2>();
+    case Red::ERTDBFlatType::Color:
+        return Red::MakeInstance<Red::Color>();
+    case Red::ERTDBFlatType::IntArray:
+        return Red::MakeInstance<Red::DynArray<int>>();
+    case Red::ERTDBFlatType::FloatArray:
+        return Red::MakeInstance<Red::DynArray<float>>();
+    case Red::ERTDBFlatType::BoolArray:
+        return Red::MakeInstance<Red::DynArray<bool>>();
+    case Red::ERTDBFlatType::StringArray:
+        return Red::MakeInstance<Red::DynArray<Red::CString>>();
+    case Red::ERTDBFlatType::CNameArray:
+        return Red::MakeInstance<Red::DynArray<Red::CName>>();
+    case Red::ERTDBFlatType::LocKeyArray:
+        return Red::MakeInstance<Red::DynArray<Red::LocKeyWrapper>>();
+    case Red::ERTDBFlatType::ResRefArray:
+        return Red::MakeInstance<Red::DynArray<Red::ResourceAsyncReference<>>>();
+    case Red::ERTDBFlatType::TweakDBIDArray:
+        return Red::MakeInstance<Red::DynArray<Red::TweakDBID>>();
+    case Red::ERTDBFlatType::QuaternionArray:
+        return Red::MakeInstance<Red::DynArray<Red::Quaternion>>();
+    case Red::ERTDBFlatType::EulerAnglesArray:
+        return Red::MakeInstance<Red::DynArray<Red::EulerAngles>>();
+    case Red::ERTDBFlatType::Vector3Array:
+        return Red::MakeInstance<Red::DynArray<Red::Vector3>>();
+    case Red::ERTDBFlatType::Vector2Array:
+        return Red::MakeInstance<Red::DynArray<Red::Vector2>>();
+    case Red::ERTDBFlatType::ColorArray:
+        return Red::MakeInstance<Red::DynArray<Red::Color>>();
+    default:
+        return {};
     }
 }
 
@@ -593,7 +653,7 @@ void Red::TweakDBReflection::RegisterExtraFlat(Red::CName aRecordType, const std
 }
 
 void Red::TweakDBReflection::RegisterDescendants(Red::TweakDBID aParentId,
-                                                const Core::Set<Red::TweakDBID>& aDescendantIds)
+                                                 const Core::Set<Red::TweakDBID>& aDescendantIds)
 {
     s_descendantMap[aParentId].insert(aDescendantIds.begin(), aDescendantIds.end());
 
@@ -638,12 +698,18 @@ Red::TweakDB* Red::TweakDBReflection::GetTweakDB()
 Red::IRTTISystem* Red::TweakDBReflection::GetRTTI()
 {
     if (!s_rtti)
-        s_rtti = CRTTISystem::Get();;
+        s_rtti = CRTTISystem::Get();
+    ;
     return s_rtti;
 }
 
-bool Red::TweakDBReflection::RegisterRecordInfo(Core::SharedPtr<TweakDBRecordInfo> aRecordInfo)
+Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::RegisterRecordInfo(
+    Core::SharedPtr<TweakDBRecordInfo> aRecordInfo)
 {
-    std::unique_lock  lockRW(m_mutex);
-    return m_resolved.insert({aRecordInfo->GetName(), aRecordInfo}).second;
+    std::unique_lock lockRW(m_mutex);
+    if (auto [it, success] = m_resolved.insert({aRecordInfo->GetName(), aRecordInfo}); success)
+    {
+        return it->second;
+    }
+    return nullptr;
 }
