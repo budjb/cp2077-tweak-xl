@@ -660,7 +660,7 @@ std::string Red::TweakDBReflection::ToString(Red::TweakDBID aID)
     return {str.c_str(), str.Length()};
 }
 
-Red::TweakDB* Red::TweakDBReflection::GetTweakDB()
+Red::TweakDB* Red::TweakDBReflection::GetTweakDB() const
 {
     return m_tweakDb;
 }
