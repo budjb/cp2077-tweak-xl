@@ -1,30 +1,38 @@
 #include "CustomTweakRecord.hpp"
 
-namespace App {
+#include "Red/TweakDB/Reflection.hpp"
 
-
-Red::CClass* CustomTweakRecord::GetNativeType()
+namespace
 {
-    if (nativeType)
-    {
-        return nativeType;
-    }
-    return Red::CRTTISystem::Get()->GetClass(NAME);
+using namespace Red;
+
+constexpr ClassLocator<App::CustomTweakRecord> s_customTweakRecordType;
+
+uint32_t GetTweakBaseHash(const App::CustomTweakRecord* aRecord)
+{
+    return TweakDBReflection::GetRecordTypeHash(TweakDBReflection::GetRecordShortName<std::string>(
+        const_cast<App::CustomTweakRecord*>(aRecord)->GetType()->GetName()));
+}
+
+} // namespace
+
+namespace App
+{
+
+using namespace Red;
+
+CClass* CustomTweakRecord::GetNativeType()
+{
+    return s_customTweakRecordType;
 }
 
 uint32_t CustomTweakRecord::GetTweakBaseHash() const
 {
-    if (const auto* type = const_cast<CustomTweakRecord*>(this)->GetType(); !type)
+    if (!m_tweakBaseHash)
     {
-        return 0;
+        m_tweakBaseHash = ::GetTweakBaseHash(this);
     }
-
-    // if (auto* schema = Core::Resolve<App::TweakService>()->GetSchemaRegistry().GetSchema(type->GetName()))
-    // {
-    //     return schema->GetHash();
-    // }
-
-    return 0;
+    return m_tweakBaseHash;
 }
 
-} // App
+} // namespace App
