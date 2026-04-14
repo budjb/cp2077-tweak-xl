@@ -49,42 +49,42 @@ concept CStringConstructible =
 class TweakDBReflection
 {
 public:
-    static const Red::CBaseRTTIType* GetFlatType(Red::CName aTypeName);
+    static const Red::rtti::IType* GetFlatType(Red::CName aTypeName);
     static const Red::CClass* GetRecordType(Red::CName aTypeName);
     static const Red::CClass* GetRecordType(const char* aTypeName);
 
-    static Red::CBaseRTTIType* GetArrayType(Red::CName aTypeName);
-    static Red::CBaseRTTIType* GetArrayType(const Red::CBaseRTTIType* aType);
+    static Red::rtti::IType* GetArrayType(Red::CName aTypeName);
+    static Red::rtti::IType* GetArrayType(const Red::rtti::IType* aType);
 
-    static Red::CBaseRTTIType* GetElementType(Red::CName aTypeName);
-    static Red::CBaseRTTIType* GetElementType(const Red::CBaseRTTIType* aType);
+    static Red::rtti::IType* GetElementType(Red::CName aTypeName);
+    static Red::rtti::IType* GetElementType(const Red::rtti::IType* aType);
 
     static bool IsFlatType(Red::CName aTypeName);
-    static bool IsFlatType(const Red::CBaseRTTIType* aType);
+    static bool IsFlatType(const Red::rtti::IType* aType);
 
     static bool IsRecordType(Red::CName aTypeName);
     static bool IsRecordType(const Red::CClass* aType);
 
     static bool IsArrayType(Red::CName aTypeName);
-    static bool IsArrayType(const Red::CBaseRTTIType* aType);
+    static bool IsArrayType(const Red::rtti::IType* aType);
 
     static bool IsForeignKey(Red::CName aTypeName);
-    static bool IsForeignKey(const Red::CBaseRTTIType* aType);
+    static bool IsForeignKey(const Red::rtti::IType* aType);
 
     static bool IsForeignKeyArray(Red::CName aTypeName);
-    static bool IsForeignKeyArray(const Red::CBaseRTTIType* aType);
+    static bool IsForeignKeyArray(const Red::rtti::IType* aType);
 
     static bool IsResRefToken(Red::CName aTypeName);
-    static bool IsResRefToken(const Red::CBaseRTTIType* aType);
+    static bool IsResRefToken(const Red::rtti::IType* aType);
 
     static bool IsResRefTokenArray(Red::CName aTypeName);
-    static bool IsResRefTokenArray(const Red::CBaseRTTIType* aType);
+    static bool IsResRefTokenArray(const Red::rtti::IType* aType);
 
     static Red::CName GetArrayTypeName(Red::CName aTypeName);
-    static Red::CName GetArrayTypeName(const Red::CBaseRTTIType* aType);
+    static Red::CName GetArrayTypeName(const Red::rtti::IType* aType);
 
     static Red::CName GetElementTypeName(Red::CName aTypeName);
-    static Red::CName GetElementTypeName(const Red::CBaseRTTIType* aType);
+    static Red::CName GetElementTypeName(const Red::rtti::IType* aType);
 
     template<CStringConstructible T>
     static T GetRecordFullName(Red::CName aName);
@@ -104,7 +104,7 @@ public:
     static TweakDBRecordHash GetRecordTypeHash(const std::string& aName);
 
     static InstancePtr<> Construct(Red::CName aTypeName);
-    static InstancePtr<> Construct(const Red::CBaseRTTIType* aType);
+    static InstancePtr<> Construct(const Red::rtti::IType* aType);
 
     static bool IsOriginalRecord(Red::TweakDBID aRecordId);
     static bool IsOriginalBaseRecord(Red::TweakDBID aParentId);
@@ -118,6 +118,9 @@ public:
     static std::string ToString(Red::TweakDBID aID);
 
     static IRTTISystem* GetRTTI();
+
+    static TweakDBID BuildTweakDBID(const std::string& aRecordID, const std::string& aPropertyName);
+    static TweakDBID BuildRootTweakDBID(const std::string& aName, const std::string& aPropertyName);
 
     explicit TweakDBReflection(Red::TweakDB* aTweakDb);
 

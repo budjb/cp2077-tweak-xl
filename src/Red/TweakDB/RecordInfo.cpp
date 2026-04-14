@@ -2,6 +2,21 @@
 
 #include "Red/TweakDB/Reflection.hpp"
 
+namespace
+{
+
+std::string Capitalize(const std::string& aStr)
+{
+    if (aStr.empty())
+        return aStr;
+
+    std::string result = aStr;
+    result[0] = static_cast<char>(std::toupper(result[0]));
+    return result;
+}
+
+} // namespace
+
 namespace Red
 {
 
@@ -16,6 +31,9 @@ void TweakDBPropertyInfo::SetName(const std::string& aName)
 {
     m_name = CNamePool::Add(aName.c_str());
     m_appendix = std::string(NameSeparator).append(aName);
+
+    const std::string functionName = Capitalize(aName);
+    m_functionName = CNamePool::Add(functionName.c_str());
 }
 
 void TweakDBPropertyInfo::SetType(const rtti::IType* aType)
@@ -68,6 +86,11 @@ CName TweakDBPropertyInfo::GetName() const
     return m_name;
 }
 
+CName TweakDBPropertyInfo::GetFunctionName() const
+{
+    return m_functionName;
+}
+
 const rtti::IType* TweakDBPropertyInfo::GetType() const
 {
     return m_type;
@@ -110,8 +133,8 @@ std::optional<int32_t> TweakDBPropertyInfo::GetDefaultValue() const
 
 bool TweakDBPropertyInfo::IsValid() const
 {
-    if (m_name.IsNone() || !m_type || !TweakDBReflection::IsFlatType(m_type) || m_appendix.length() < 2 ||
-        !m_appendix.starts_with(NameSeparator))
+    if (m_name.IsNone() || m_functionName.IsNone() || !m_type || !TweakDBReflection::IsFlatType(m_type) ||
+        m_appendix.length() < 2 || !m_appendix.starts_with(NameSeparator))
     {
         return false;
     }

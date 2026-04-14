@@ -24,6 +24,7 @@ public:
     void SetDefaultValue(std::optional<int32_t> aDefaultValue);
 
     [[nodiscard]] CName GetName() const;
+    [[nodiscard]] CName GetFunctionName() const;
     [[nodiscard]] const rtti::IType* GetType() const;
     [[nodiscard]] const rtti::IType* GetElementType() const;
     [[nodiscard]] const CClass* GetForeignType() const;
@@ -37,6 +38,7 @@ public:
 
 private:
     CName m_name;
+    CName m_functionName;
     const rtti::IType* m_type{nullptr};
     const rtti::IType* m_elementType{nullptr};
     const CClass* m_foreignType{nullptr};

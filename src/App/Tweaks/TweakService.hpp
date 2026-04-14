@@ -61,5 +61,10 @@ protected:
     Core::SharedPtr<App::TweakImporter> m_importer;
     Core::SharedPtr<App::TweakExecutor> m_executor;
     Core::SharedPtr<App::TweakContext> m_context;
+
+#ifndef NDEBUG
+    void RegisterTestCustomRecord() const;
+#endif
+
 };
 } // namespace App

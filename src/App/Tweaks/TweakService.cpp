@@ -32,6 +32,10 @@ void App::TweakService::OnBootstrap()
             m_executor = Core::MakeShared<App::TweakExecutor>(m_manager);
             m_changelog = Core::MakeShared<App::TweakChangelog>();
 
+#ifndef NDEBUG
+            RegisterTestCustomRecord();
+#endif
+
             if (ImportMetadata())
             {
                 EnsureRuntimeAccess();
@@ -216,3 +220,71 @@ App::TweakChangelog& App::TweakService::GetChangelog()
 {
     return *m_changelog;
 }
+
+void HandleCustomTweakDBRecordFunction(Red::IScriptable* aInstance, Red::CStackFrame* aStackFrame, void* aOut, int64_t aType)
+{
+
+}
+
+#ifndef NDEBUG
+
+void App::TweakService::RegisterTestCustomRecord() const
+{
+    constexpr Red::ClassLocator<Red::TweakDBRecord> tweakDBRecord{};
+    constexpr Red::TypeLocator<Red::CName("CName")> cnameType{};
+
+    const auto recordInfo = Core::MakeShared<Red::TweakDBRecordInfo>();
+    recordInfo->SetName("TweakXLTest");
+    recordInfo->SetParent(tweakDBRecord);
+    recordInfo->SetCustom();
+
+    {
+        const auto propertyInfo = Core::MakeShared<Red::TweakDBPropertyInfo>();
+        propertyInfo->SetName("foo");
+        propertyInfo->SetType(cnameType);
+        assert(propertyInfo->IsValid());
+        recordInfo->AddProperty(propertyInfo);
+    }
+
+    {
+        const auto propertyInfo = Core::MakeShared<Red::TweakDBPropertyInfo>();
+        propertyInfo->SetName("bar");
+        propertyInfo->SetType(cnameType);
+        assert(propertyInfo->IsValid());
+        recordInfo->AddProperty(propertyInfo);
+    }
+
+    auto* rtti = Red::CRTTISystem::Get();
+
+    rtti->CreateScriptedClass(recordInfo->GetName(), {.isImportOnly = true},
+                              const_cast<Red::CClass*>(recordInfo->GetParent()));
+
+    auto* recordType = rtti->GetClass(recordInfo->GetName());
+
+    assert(recordType);
+
+    // TODO: type registration and extension belongs elsewhere
+    recordInfo->SetType(recordType);
+
+    rtti->RegisterScriptName(recordInfo->GetName(), recordInfo->GetAliasName());
+
+    Red::CNamePool::Add("bud");
+
+    for (const auto propertyInfo : recordInfo->GetProperties() | std::views::values)
+    {
+        auto* function = Red::CClassFunction::Create(recordType, propertyInfo->GetFunctionName().ToString(), propertyInfo->GetFunctionName().ToString(), &HandleCustomTweakDBRecordFunction);
+        function->SetReturnType(propertyInfo->GetType()->GetName());
+
+        // TODO: default flat values belongs elsewhere
+        // TODO: need to add default values to TweakDBPropertyInfo
+        auto ptr = m_manager->GetReflection()->Construct(cnameType);
+
+        auto instance = Red::MakeInstance<Red::CName>("bud");
+        cnameType->Assign(ptr.get(), instance.get());
+
+        const Red::TweakDBID id = m_manager->GetReflection()->BuildRootTweakDBID(recordInfo->GetShortName(), propertyInfo->GetName().ToString());
+        assert(m_manager->SetFlat(id, cnameType, ptr.get()));
+    }
+}
+
+#endif

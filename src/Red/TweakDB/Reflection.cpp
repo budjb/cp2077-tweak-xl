@@ -281,20 +281,9 @@ std::string Red::TweakDBReflection::ResolvePropertyName(Red::TweakDBID aSampleId
     return propName;
 }
 
-int32_t Red::TweakDBReflection::ResolveDefaultValue(const Red::CClass* aType, const std::string& aPropName)
+int32_t Red::TweakDBReflection::ResolveDefaultValue(const CClass* aType, const std::string& aPropertyName)
 {
-    std::string defaultFlatName = TweakSource::SchemaPackage;
-    defaultFlatName.append(NameSeparator);
-    defaultFlatName.append(GetRecordShortName<std::string>(aType->GetName()));
-
-    if (!aPropName.starts_with(NameSeparator))
-    {
-        defaultFlatName.append(NameSeparator);
-    }
-
-    defaultFlatName.append(aPropName);
-
-    const auto defaultFlatId = Red::TweakDBID(defaultFlatName);
+    const auto defaultFlatId = BuildRootTweakDBID(GetRecordShortName<std::string>(aType->GetName()), aPropertyName);
 
     std::shared_lock<Red::SharedSpinLock> flatLockR(m_tweakDb->mutex00);
 
@@ -651,4 +640,22 @@ Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::RegisterRe
         return record;
     }
     return nullptr;
+}
+
+Red::TweakDBID Red::TweakDBReflection::BuildTweakDBID(const std::string& aRecordID, const std::string& aPropertyName)
+{
+    std::string result = aRecordID;
+    result.append(NameSeparator);
+    result.append(aPropertyName);
+    return TweakDBID(result);
+}
+
+Red::TweakDBID Red::TweakDBReflection::BuildRootTweakDBID(const std::string& aName, const std::string& aPropertyName)
+{
+    std::string result = TweakSource::SchemaPackage;
+    result.append(NameSeparator);
+    result.append(aName);
+    result.append(NameSeparator);
+    result.append(aPropertyName);
+    return TweakDBID(result);
 }
