@@ -45,6 +45,12 @@ void App::TweakService::OnBootstrap()
         EnsureRuntimeAccess();
         CheckForIssues();
     });
+
+    HookWrap<Raw::CreateRecord>([&](const CreateRecordFunction aOriginal, Red::TweakDB* aTweakDB,
+                                    const uint32_t aTypeHash, const Red::TweakDBID aTweakDBID) {
+        if (!m_manager || !m_manager->CreateCustomRecord(aTweakDBID, aTypeHash))
+            aOriginal(aTweakDB, aTypeHash, aTweakDBID);
+    });
 }
 
 void App::TweakService::LoadTweaks(bool aCheckForIssues)
@@ -135,8 +141,7 @@ bool App::TweakService::RegisterTweak(std::filesystem::path aPath)
 
     if (!std::filesystem::exists(aPath, error) || !std::filesystem::is_regular_file(aPath, error))
     {
-        LogError("Can't register non-existing tweak \"{}\".",
-                 std::filesystem::relative(aPath, m_gameDir).string());
+        LogError("Can't register non-existing tweak \"{}\".", std::filesystem::relative(aPath, m_gameDir).string());
         return false;
     }
 

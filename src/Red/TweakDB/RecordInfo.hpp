@@ -13,19 +13,19 @@ public:
 
     void SetName(const char* aName);
     void SetName(const std::string& aName);
-    void SetType(const CBaseRTTIType* aType);
-    void SetElementType(const CBaseRTTIType* aElementType);
+    void SetType(const rtti::IType* aType);
+    void SetElementType(const rtti::IType* aElementType);
     void SetForeignType(const CClass* aForeignType);
-    void SetArray(bool aIsArray = true);
-    void SetForeignKey(bool aIsForeignKey = true);
+    void SetArray(bool aArray = true);
+    void SetForeignKey(bool aForeignKey = true);
     void SetDataOffset(uintptr_t aDataOffset);
     void SetDataOffset(std::optional<uintptr_t> aDataOffset);
     void SetDefaultValue(int32_t aDefaultValue);
     void SetDefaultValue(std::optional<int32_t> aDefaultValue);
 
     [[nodiscard]] CName GetName() const;
-    [[nodiscard]] const CBaseRTTIType* GetType() const;
-    [[nodiscard]] const CBaseRTTIType* GetElementType() const;
+    [[nodiscard]] const rtti::IType* GetType() const;
+    [[nodiscard]] const rtti::IType* GetElementType() const;
     [[nodiscard]] const CClass* GetForeignType() const;
     [[nodiscard]] bool IsArray() const;
     [[nodiscard]] bool IsForeignKey() const;
@@ -37,8 +37,8 @@ public:
 
 private:
     CName m_name;
-    const CBaseRTTIType* m_type{nullptr};
-    const CBaseRTTIType* m_elementType{nullptr};
+    const rtti::IType* m_type{nullptr};
+    const rtti::IType* m_elementType{nullptr};
     const CClass* m_foreignType{nullptr};
     bool m_isArray{false};
     bool m_isForeignKey{false};
@@ -56,6 +56,7 @@ public:
     void SetName(CName aName);
     void SetType(const CClass* aType);
     void SetParent(const CClass* aParent);
+    void SetCustom(bool aCustom = true);
 
     Core::SharedPtr<const TweakDBPropertyInfo> AddProperty(Core::SharedPtr<TweakDBPropertyInfo> aProperty);
 
@@ -65,6 +66,7 @@ public:
     [[nodiscard]] const CClass* GetType() const;
     [[nodiscard]] const CClass* GetParent() const;
     [[nodiscard]] TweakDBRecordHash GetTypeHash() const;
+    [[nodiscard]] bool IsCustom() const;
 
     [[nodiscard]] Core::SharedPtr<const TweakDBPropertyInfo> GetProperty(CName aPropName) const;
     [[nodiscard]] const Core::Map<CName, Core::SharedPtr<const TweakDBPropertyInfo>>& GetProperties() const;
@@ -81,6 +83,7 @@ private:
     const CClass* m_type{nullptr};
     const CClass* m_parent{nullptr};
     TweakDBRecordHash m_typeHash{};
+    bool m_isCustom{false};
 
     Core::Map<CName, Core::SharedPtr<const TweakDBPropertyInfo>> m_props;
 };

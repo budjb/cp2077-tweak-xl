@@ -1,4 +1,6 @@
 #include "Manager.hpp"
+
+#include "App/Tweaks/Record/CustomTweakDBRecord.hpp"
 #include "Red/TweakDB/Raws.hpp"
 
 namespace
@@ -79,6 +81,20 @@ bool Red::TweakDBManager::SetFlat(Red::TweakDBID aFlatId, const Red::CBaseRTTITy
 bool Red::TweakDBManager::SetFlat(Red::TweakDBID aFlatId, const Red::Value<>& aData)
 {
     return SetFlat(aFlatId, aData.type, aData.instance);
+}
+
+bool Red::TweakDBManager::CreateCustomRecord(TweakDBID aRecordId, const uint32_t aHash) const
+{
+    if (const auto* recordInfo = m_reflection->FindCustomRecordInfo(aHash))
+    {
+        if (const auto* cls = CRTTISystem::Get()->GetClass(recordInfo->GetName()))
+        {
+            const auto instance = Red::MakeHandle<App::CustomTweakDBRecord>(*recordInfo, aRecordId);
+            Raw::InsertRecord(m_tweakDb, aRecordId, cls, instance);
+            return true;
+        }
+    }
+    return false;
 }
 
 bool Red::TweakDBManager::CreateRecord(Red::TweakDBID aRecordId, const Red::CClass* aType)

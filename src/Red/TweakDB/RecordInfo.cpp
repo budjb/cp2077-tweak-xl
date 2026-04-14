@@ -18,12 +18,12 @@ void TweakDBPropertyInfo::SetName(const std::string& aName)
     m_appendix = std::string(NameSeparator).append(aName);
 }
 
-void TweakDBPropertyInfo::SetType(const CBaseRTTIType* aType)
+void TweakDBPropertyInfo::SetType(const rtti::IType* aType)
 {
     m_type = aType;
 }
 
-void TweakDBPropertyInfo::SetElementType(const CBaseRTTIType* aElementType)
+void TweakDBPropertyInfo::SetElementType(const rtti::IType* aElementType)
 {
     m_elementType = aElementType;
 }
@@ -33,14 +33,14 @@ void TweakDBPropertyInfo::SetForeignType(const CClass* aForeignType)
     m_foreignType = aForeignType;
 }
 
-void TweakDBPropertyInfo::SetArray(bool aIsArray)
+void TweakDBPropertyInfo::SetArray(const bool aArray)
 {
-    m_isArray = aIsArray;
+    m_isArray = aArray;
 }
 
-void TweakDBPropertyInfo::SetForeignKey(bool aIsForeignKey)
+void TweakDBPropertyInfo::SetForeignKey(const bool aForeignKey)
 {
-    m_isForeignKey = aIsForeignKey;
+    m_isForeignKey = aForeignKey;
 }
 
 void TweakDBPropertyInfo::SetDataOffset(uintptr_t aDataOffset)
@@ -68,12 +68,12 @@ CName TweakDBPropertyInfo::GetName() const
     return m_name;
 }
 
-const CBaseRTTIType* TweakDBPropertyInfo::GetType() const
+const rtti::IType* TweakDBPropertyInfo::GetType() const
 {
     return m_type;
 }
 
-const CBaseRTTIType* TweakDBPropertyInfo::GetElementType() const
+const rtti::IType* TweakDBPropertyInfo::GetElementType() const
 {
     return m_elementType;
 }
@@ -178,6 +178,11 @@ void TweakDBRecordInfo::SetParent(const CClass* aParent)
     m_parent = aParent;
 }
 
+void TweakDBRecordInfo::SetCustom(const bool aCustom)
+{
+    m_isCustom = aCustom;
+}
+
 Core::SharedPtr<const TweakDBPropertyInfo> TweakDBRecordInfo::AddProperty(
     Core::SharedPtr<TweakDBPropertyInfo> aProperty)
 {
@@ -218,6 +223,11 @@ const CClass* TweakDBRecordInfo::GetParent() const
 TweakDBRecordHash TweakDBRecordInfo::GetTypeHash() const
 {
     return m_typeHash;
+}
+
+bool TweakDBRecordInfo::IsCustom() const
+{
+    return m_isCustom;
 }
 
 Core::SharedPtr<const TweakDBPropertyInfo> TweakDBRecordInfo::GetProperty(CName aPropName) const

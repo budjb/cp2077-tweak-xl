@@ -34,6 +34,7 @@ public:
     bool SetFlat(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, Red::Instance aInstance);
     bool SetFlat(Red::TweakDBID aFlatId, const Red::Value<>& aData);
     bool CreateRecord(Red::TweakDBID aRecordId, const Red::CClass* aType);
+    bool CreateCustomRecord(Red::TweakDBID aRecordId, uint32_t aHash) const;
     bool CloneRecord(Red::TweakDBID aRecordId, Red::TweakDBID aSourceId);
     bool InheritProps(Red::TweakDBID aRecordId, Red::TweakDBID aSourceId);
     bool UpdateRecord(Red::TweakDBID aRecordId);
