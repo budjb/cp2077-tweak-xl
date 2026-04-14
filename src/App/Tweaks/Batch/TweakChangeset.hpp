@@ -6,6 +6,65 @@
 
 namespace App
 {
+
+class CClassProxy
+{
+public:
+    CClassProxy() = default;
+
+    explicit CClassProxy(const Red::CClass* aType)
+        : name(aType->GetName().ToString())
+        , cname(aType->GetName())
+        , type(aType)
+        , parent(aType->parent ? aType->parent->GetName() : Red::CName())
+    {
+    }
+
+    explicit CClassProxy(const std::string& aName)
+        : name(aName)
+        , cname(aName.c_str())
+    {
+
+    }
+
+    std::string name{};
+    Red::CName cname{};
+    const Red::CClass* type = nullptr;
+    Red::CName parent{};
+
+    CClassProxy& operator=(const Red::CClass* aRhs) noexcept
+    {
+        *this = CClassProxy(aRhs);
+        return *this;
+    }
+
+    CClassProxy& operator=(const std::string& aRhs) noexcept
+    {
+        *this = CClassProxy(aRhs);
+        return *this;
+    }
+
+    operator Red::CName() const
+    {
+        return cname;
+    }
+
+    operator const std::string&() const
+    {
+        return name;
+    }
+
+    operator const Red::CClass*() const
+    {
+        return type;
+    }
+
+    operator bool() const
+    {
+        return !cname.IsNone();
+    }
+};
+
 class TweakChangeset
     : public Core::LoggingAgent
     , public Core::ShareFromThis<TweakChangeset>
@@ -17,9 +76,14 @@ public:
         Red::InstancePtr<> value;
     };
 
+    struct RecordSchemaEntry
+    {
+        Red::TweakDBRecordInfo recordInfo;
+    };
+
     struct RecordEntry
     {
-        const Red::CClass* type;
+        const CClassProxy* type;
         Red::TweakDBID sourceId;
     };
 
@@ -32,7 +96,7 @@ public:
 
     struct DeletionEntry
     {
-        const Red::CBaseRTTIType* type;
+        const Red::CBaseRTTIType* type; // TODO: this is unused
         Red::InstancePtr<> value;
     };
 
@@ -81,10 +145,15 @@ public:
     const Red::CClass* GetRecordType(Red::TweakDBID aRecordId);
     bool HasRecord(Red::TweakDBID aRecordId);
 
-    bool IsEmpty();
+    bool IsEmpty() const;
 
     void Commit(const Core::SharedPtr<Red::TweakDBManager>& aManager,
-                const Core::SharedPtr<App::TweakChangelog>& aChangelog);
+                const Core::SharedPtr<TweakChangelog>& aChangelog);
+
+    void AddClass(const CClassProxy& aClass);
+    const CClassProxy* GetClass(const std::string& aName);
+    const CClassProxy* GetClass(const Red::CClass* aClass);
+    const CClassProxy* GetClass(const Red::CName& aName);
 
 private:
     using ElementChange = std::pair<int32_t, Core::SharedPtr<void>>;
@@ -122,9 +191,13 @@ private:
     Core::Map<Red::TweakDBID, FlatEntry> m_pendingFlats;
     Core::Map<Red::TweakDBID, ReinheritanceEntry> m_reinheritedProps;
     Core::Map<Red::TweakDBID, std::string> m_pendingNames;
+    Core::Map<Red::CName, RecordSchemaEntry> m_pendingSchemas;
 
     std::mutex m_commitMutex;
     int32_t m_totalCommitChunks{0};
     int32_t m_finishedCommitChunks{0};
+
+    std::mutex m_cclassProxyMutex;
+    Core::Map<Red::CName, CClassProxy> m_classProxies{};
 };
 }

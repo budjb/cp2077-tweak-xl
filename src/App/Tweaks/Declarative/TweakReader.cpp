@@ -27,7 +27,7 @@ App::BaseTweakReader::BaseTweakReader(Core::SharedPtr<Red::TweakDBManager> aMana
 
 bool App::BaseTweakReader::IsOriginalBaseRecord(Red::TweakDBID aRecordId)
 {
-    return m_reflection->IsOriginalBaseRecord(aRecordId);
+    return Red::TweakDBReflection::IsOriginalBaseRecord(aRecordId);
 }
 
 std::string App::BaseTweakReader::ComposeGroupName(const std::string& aParentName, const std::string& aGroupName)
@@ -133,30 +133,30 @@ const Red::CBaseRTTIType* App::BaseTweakReader::ResolveFlatInstanceType(App::Twe
     return nullptr;
 }
 
-const Red::CClass* App::BaseTweakReader::ResolveRecordInstanceType(App::TweakChangeset& aChangeset,
-                                                                   Red::TweakDBID aRecordId)
+const App::CClassProxy* App::BaseTweakReader::ResolveRecordInstanceType(TweakChangeset& aChangeset,
+                                                                   const Red::TweakDBID aRecordId) const
 {
     if (!aRecordId.IsValid())
         return nullptr;
 
-    const auto existingRecordType = m_manager->GetRecordType(aRecordId);
-    if (existingRecordType)
+    if (const auto existingRecordType = m_manager->GetRecordType(aRecordId))
     {
-        return existingRecordType;
+        return aChangeset.GetClass(existingRecordType);
     }
 
-    const auto pendingRecord = aChangeset.GetRecord(aRecordId);
-    if (pendingRecord)
+    if (const auto pendingRecord = aChangeset.GetRecord(aRecordId))
     {
-        return pendingRecord->type;
+        return aChangeset.GetClass(pendingRecord->type);
     }
+
+    // TODO: create custom cclass proxy for custom types
 
     return nullptr;
 }
 
 std::string App::BaseTweakReader::ToName(const Red::CClass* aType)
 {
-    return m_reflection->GetRecordShortName(aType->GetName());
+    return Red::TweakDBReflection::GetRecordShortName<std::string>(aType->GetName());
 }
 
 std::string App::BaseTweakReader::ToName(const Red::CBaseRTTIType* aType, const Red::CClass* aKey)
@@ -169,7 +169,7 @@ std::string App::BaseTweakReader::ToName(const Red::CBaseRTTIType* aType, const 
     if (aKey)
     {
         name.append(ForeignKeyOpen);
-        name.append(m_reflection->GetRecordShortName(aKey->name));
+        name.append(Red::TweakDBReflection::GetRecordShortName<std::string>(aKey->name));
         name.append(ForeignKeyClose);
     }
 

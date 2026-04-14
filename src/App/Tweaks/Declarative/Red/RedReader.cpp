@@ -1,16 +1,15 @@
 #include "RedReader.hpp"
 #include "Red/TweakDB/Source/Parser.hpp"
 
-App::RedReader::RedReader(Core::SharedPtr<Red::TweakDBManager> aManager, Core::SharedPtr<App::TweakContext> aContext)
+App::RedReader::RedReader(Core::SharedPtr<Red::TweakDBManager> aManager, Core::SharedPtr<TweakContext> aContext)
     : BaseTweakReader(std::move(aManager), std::move(aContext))
-    , m_path{}
 {
 }
 
-bool App::RedReader::Load(const std::filesystem::path& aGroupPath)
+bool App::RedReader::Load(const std::filesystem::path& aPath)
 {
-    m_path = aGroupPath;
-    m_source = Red::TweakParser::Parse(aGroupPath);
+    m_path = aPath;
+    m_source = Red::TweakParser::Parse(aPath);
 
     return IsLoaded();
 }
@@ -26,16 +25,10 @@ void App::RedReader::Unload()
     m_source.reset();
 }
 
-void App::RedReader::Read(App::TweakChangeset& aChangeset)
+void App::RedReader::Read(TweakChangeset& aChangeset)
 {
     if (!IsLoaded())
         return;
-
-    if (m_source->isSchema)
-    {
-        LogError("Schema package editing is not supported.");
-        return;
-    }
 
     if (m_source->isQuery)
     {
@@ -48,9 +41,19 @@ void App::RedReader::Read(App::TweakChangeset& aChangeset)
         m_source->usings.insert(m_source->usings.begin(), m_source->package);
     }
 
-    for (const auto& group : m_source->groups)
+    if (m_source->isSchema)
     {
-        HandleGroup(aChangeset, group, m_source->package, m_source->package);
+        for (const auto& group : m_source->groups)
+        {
+            HandleSchemaGroup(aChangeset, group, m_source->package, m_source->package);
+        }
+    }
+    else
+    {
+        for (const auto& group : m_source->groups)
+        {
+            HandleGroup(aChangeset, group, m_source->package, m_source->package);
+        }
     }
 
     if (!m_source->package.empty())
@@ -62,7 +65,7 @@ void App::RedReader::Read(App::TweakChangeset& aChangeset)
     }
 }
 
-App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& aChangeset,
+App::RedReader::GroupStatePtr App::RedReader::HandleGroup(TweakChangeset& aChangeset,
                                                           const Red::TweakGroupPtr& aGroup,
                                                           const std::string& aParentName,
                                                           const std::string& aParentPath)
@@ -84,13 +87,13 @@ App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& a
         if (groupState->isRedefined)
             LogError("{}: Record type {} doesn't match previous definition {}.",
                      groupState->groupPath,
-                     ToName(groupState->resolvedType),
-                     ToName(groupState->requiredType));
+                     groupState->resolvedType->name,
+                     groupState->requiredType->name);
         else
             LogError("{}: Record type {} is not compatible with {}.",
                      groupState->groupPath,
-                     ToName(groupState->resolvedType),
-                     ToName(groupState->requiredType));
+                     groupState->resolvedType->name,
+                     groupState->requiredType->name);
         return groupState;
     }
 
@@ -103,6 +106,7 @@ App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& a
         return groupState;
     }
 
+    // TODO: proxy through the changeset instead of directly to reflection
     const auto recordInfo = m_reflection->GetRecordInfo(groupState->resolvedType);
 
     if (!recordInfo)
@@ -123,16 +127,14 @@ App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& a
 
     for (const auto& flat : aGroup->flats)
     {
-        const auto propInfo = recordInfo->GetPropInfo(flat->name.c_str());
-
-        if (propInfo)
+        if (const auto propInfo = recordInfo->GetProperty(flat->name.c_str()))
         {
             auto flatState = HandleFlat(aChangeset, flat, groupState->groupName, groupState->groupPath,
-                                        propInfo->type, propInfo->foreignType);
+                                        propInfo->GetType(), propInfo->GetForeignType());
 
             if (flatState && flatState->isProcessed && groupState->isOriginalBase)
             {
-                aChangeset.ReinheritFlat(flatState->flatId, groupState->recordId, propInfo->appendix);
+                aChangeset.ReinheritFlat(flatState->flatId, groupState->recordId, propInfo->GetAppendix());
             }
         }
         else
@@ -146,7 +148,7 @@ App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& a
     return groupState;
 }
 
-App::RedReader::GroupStatePtr App::RedReader::HandleInline(App::TweakChangeset& aChangeset,
+App::RedReader::GroupStatePtr App::RedReader::HandleInline(TweakChangeset& aChangeset,
                                                            const Red::TweakGroupPtr& aGroup,
                                                            const std::string& aParentName,
                                                            const std::string& aParentPath,
@@ -199,12 +201,12 @@ App::RedReader::GroupStatePtr App::RedReader::HandleInline(App::TweakChangeset& 
 
         for (const auto& flat : aGroup->flats)
         {
-            const auto propInfo = recordInfo->GetPropInfo(flat->name.c_str());
+            const auto propInfo = recordInfo->GetProperty(flat->name.c_str());
 
             if (propInfo)
             {
                 flatState = HandleFlat(aChangeset, flat, inlineState->groupName, inlineState->groupPath,
-                                       propInfo->type, propInfo->foreignType);
+                                       propInfo->GetType(), propInfo->GetForeignType());
             }
             else
             {
@@ -366,7 +368,7 @@ App::RedReader::GroupStatePtr App::RedReader::ResolveGroupState(App::TweakChange
             state->isRecord = true;
             state->isRedefined = true;
             state->isCompatible = !aBaseType || instanceType->IsA(aBaseType);
-            state->requiredType = aBaseType;
+            state->requiredType = aChangeset.GetClass(instanceType);
             state->resolvedType = instanceType;
         }
         else if (aBaseType)
@@ -376,14 +378,23 @@ App::RedReader::GroupStatePtr App::RedReader::ResolveGroupState(App::TweakChange
             state->requiredType = aBaseType;
             state->resolvedType = aBaseType;
         }
-        else
+        else if (m_source->isSchema)
         {
+            state->isRecord = true;
+            state->isCompatible = true;
+            state->isCustom = true;
+            state->resolvedType = nullptr; // TODO
+        }
+        {
+            // TODO: are we just assuming it's compatible?
+            // TODO: we need to mark that it's a new schema if the parent is RTDB and the instance doesn't exist.
             state->isCompatible = true;
         }
     }
     else
     {
-        state->resolvedType = m_reflection->GetRecordType(aGroup->base.c_str());
+        // TODO: this lookup needs to also look at pending custom types.
+        state->resolvedType = Red::TweakDBReflection::GetRecordType(aGroup->base.c_str());
 
         if (state->resolvedType)
         {
@@ -404,6 +415,7 @@ App::RedReader::GroupStatePtr App::RedReader::ResolveGroupState(App::TweakChange
             {
                 for (const auto& package : m_source->usings)
                 {
+                    // TODO: this doesn't matter anymore
                     if (package == Red::TweakSource::SchemaPackage)
                         continue;
 
@@ -495,23 +507,23 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(App::TweakChangese
         {
             state->isResolved = true;
             state->isCompatible = !state->requiredType || state->resolvedType == state->requiredType;
-            state->isArray = m_reflection->IsArrayType( state->resolvedType);
+            state->isArray = Red::TweakDBReflection::IsArrayType( state->resolvedType);
             state->isForeignKey = state->isArray
-                ? m_reflection->IsForeignKeyArray( state->resolvedType)
-                : m_reflection->IsForeignKey( state->resolvedType);
+                ? Red::TweakDBReflection::IsForeignKeyArray( state->resolvedType)
+                : Red::TweakDBReflection::IsForeignKey( state->resolvedType);
         }
     }
     else
     {
-        state->resolvedType = m_reflection->GetFlatType(GetFlatTypeName(aFlat));
+        state->resolvedType = Red::TweakDBReflection::GetFlatType(GetFlatTypeName(aFlat));
 
         if (state->resolvedType)
         {
             state->isResolved = true;
-            state->isArray = m_reflection->IsArrayType( state->resolvedType);
+            state->isArray = Red::TweakDBReflection::IsArrayType( state->resolvedType);
             state->isForeignKey = state->isArray
-                ? m_reflection->IsForeignKeyArray( state->resolvedType)
-                : m_reflection->IsForeignKey( state->resolvedType);
+                ? Red::TweakDBReflection::IsForeignKeyArray( state->resolvedType)
+                : Red::TweakDBReflection::IsForeignKey( state->resolvedType);
 
             if (instanceType)
             {
@@ -532,7 +544,7 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(App::TweakChangese
             if (state->isForeignKey)
             {
                 state->requiredKey = aForeignType;
-                state->resolvedKey = m_reflection->GetRecordType(aFlat->foreignType.c_str());
+                state->resolvedKey = Red::TweakDBReflection::GetRecordType(aFlat->foreignType.c_str());
 
                 if (state->isCompatible && state->requiredKey)
                 {
@@ -544,7 +556,7 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(App::TweakChangese
 
     if (state->isArray)
     {
-        state->elementType = m_reflection->GetElementType(state->resolvedType);
+        state->elementType = Red::TweakDBReflection::GetElementType(state->resolvedType);
     }
 
     return state;
@@ -564,4 +576,97 @@ bool App::RedReader::CheckConditions(const Core::Vector<std::string>& aTags)
     }
 
     return true;
+}
+
+void App::RedReader::RegisterSchema(const Red::TweakGroupPtr& aGroup)
+{
+    RED4EXT_UNUSED_PARAMETER(aGroup);
+    [[maybe_unused]] int meh = 1;
+}
+
+void App::RedReader::DescribeSchema(const Red::TweakGroupPtr& aGroup)
+{
+    RED4EXT_UNUSED_PARAMETER(aGroup);
+    [[maybe_unused]] int meh = 1;
+}
+
+App::RedReader::GroupStatePtr App::RedReader::HandleSchemaGroup(TweakChangeset& aChangeset, const Red::TweakGroupPtr& aGroup, const std::string& aParentName, const std::string& aParentPath)
+{
+    if (!CheckConditions(aGroup->tags))
+        return {};
+
+    auto groupState = ResolveGroupState(aChangeset, aGroup, aParentName, aParentPath);
+
+    if (!groupState->isResolved)
+    {
+        LogError("{}: Unknown base group {}.", groupState->groupPath, aGroup->base);
+
+        return groupState;
+    }
+    //
+    // if (!groupState->isCompatible)
+    // {
+    //     if (groupState->isRedefined)
+    //         LogError("{}: Record type {} doesn't match previous definition {}.",
+    //                  groupState->groupPath,
+    //                  ToName(groupState->resolvedType),
+    //                  ToName(groupState->requiredType));
+    //     else
+    //         LogError("{}: Record type {} is not compatible with {}.",
+    //                  groupState->groupPath,
+    //                  ToName(groupState->resolvedType),
+    //                  ToName(groupState->requiredType));
+    //     return groupState;
+    // }
+    //
+    // if (!groupState->isRecord)
+    // {
+    //     for (const auto& flat : aGroup->flats)
+    //     {
+    //         HandleFlat(aChangeset, flat, groupState->groupName, groupState->groupPath);
+    //     }
+    //     return groupState;
+    // }
+    //
+    // const auto recordInfo = m_reflection->GetRecordInfo(groupState->resolvedType);
+    //
+    // if (!recordInfo)
+    // {
+    //     LogError("{}: Cannot create record, the record type {} is abstract.",
+    //              groupState->groupPath, ToName(groupState->resolvedType));
+    //     return groupState;
+    // }
+    //
+    // if (groupState->recordId == groupState->sourceId)
+    // {
+    //     LogError("{}: Cannot clone {} from itself.", groupState->groupPath, groupState->groupName);
+    //     return groupState;
+    // }
+    //
+    // aChangeset.MakeRecord(groupState->recordId, groupState->resolvedType, groupState->sourceId);
+    // aChangeset.RegisterName(groupState->recordId, groupState->groupName);
+    //
+    // for (const auto& flat : aGroup->flats)
+    // {
+    //     const auto propInfo = recordInfo->GetProperty(flat->name.c_str());
+    //
+    //     if (propInfo)
+    //     {
+    //         auto flatState = HandleFlat(aChangeset, flat, groupState->groupName, groupState->groupPath,
+    //                                     propInfo->GetType(), propInfo->GetForeignType());
+    //
+    //         if (flatState && flatState->isProcessed && groupState->isOriginalBase)
+    //         {
+    //             aChangeset.ReinheritFlat(flatState->flatId, groupState->recordId, propInfo->GetAppendix());
+    //         }
+    //     }
+    //     else
+    //     {
+    //         HandleFlat(aChangeset, flat, groupState->groupName, groupState->groupPath);
+    //     }
+    // }
+    //
+    // groupState->isProcessed = true;
+
+    return groupState;
 }

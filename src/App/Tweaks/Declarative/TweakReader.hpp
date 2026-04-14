@@ -30,7 +30,7 @@ protected:
                                   const std::filesystem::path& aSource, int32_t aItemIndex = -1);
 
     const Red::CBaseRTTIType* ResolveFlatInstanceType(TweakChangeset& aChangeset, Red::TweakDBID aFlatId);
-    const Red::CClass* ResolveRecordInstanceType(TweakChangeset& aChangeset, Red::TweakDBID aRecordId);
+    const CClassProxy* ResolveRecordInstanceType(TweakChangeset& aChangeset, Red::TweakDBID aRecordId) const;
 
     bool IsOriginalBaseRecord(Red::TweakDBID aRecordId);
 

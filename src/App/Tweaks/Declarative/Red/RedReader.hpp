@@ -31,9 +31,10 @@ private:
         bool isRecord{};
         bool isOriginalBase{};
         bool isProcessed{};
+        bool isCustom{};
 
-        const Red::CClass* requiredType{};
-        const Red::CClass* resolvedType{};
+        const CClassProxy* requiredType{};
+        const CClassProxy* resolvedType{};
         Red::TweakDBID sourceId;
 
         std::string groupPath;
@@ -70,6 +71,10 @@ private:
     GroupStatePtr HandleInline(App::TweakChangeset& aChangeset, const Red::TweakGroupPtr& aGroup,
                                const std::string& aParentName, const std::string& aParentPath,
                                const Red::CClass* aRequiredType, int32_t aInlineIndex = 0);
+
+    void RegisterSchema(const Red::TweakGroupPtr& aGroup);
+    void DescribeSchema(const Red::TweakGroupPtr& aGroup);
+    GroupStatePtr HandleSchemaGroup(TweakChangeset& aChangeset, const Red::TweakGroupPtr& aGroup, const std::string& aParentName, const std::string& aParentPath);
 
     FlatStatePtr HandleFlat(App::TweakChangeset& aChangeset, const Red::TweakFlatPtr& aFlat,
                             const std::string& aParentName, const std::string& aParentPath,

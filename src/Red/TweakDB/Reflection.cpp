@@ -4,11 +4,6 @@
 
 namespace
 {
-constexpr auto RecordTypePrefix = "gamedata";
-constexpr auto RecordTypePrefixLength = std::char_traits<char>::length(RecordTypePrefix);
-constexpr auto RecordTypeSuffix = "_Record";
-constexpr auto RecordTypeSuffixLength = std::char_traits<char>::length(RecordTypeSuffix);
-
 constexpr auto BaseRecordTypeName = Red::GetTypeName<Red::TweakDBRecord>();
 
 constexpr auto ResRefTypeName = Red::GetTypeName<Red::RaRef<Red::CResource>>();
@@ -20,51 +15,49 @@ constexpr auto ScriptResRefArrayTypeName = Red::GetTypeName<Red::DynArray<Red::R
 constexpr auto NameSeparator = Red::TweakGrammar::Name::Separator;
 constexpr auto PropSeparator = std::string_view(NameSeparator);
 constexpr auto DataOffsetSize = 12;
-}
-
-Red::TweakDBReflection::TweakDBReflection()
-    : TweakDBReflection(Red::TweakDB::Get())
-{
-}
+} // namespace
 
 Red::TweakDBReflection::TweakDBReflection(Red::TweakDB* aTweakDb)
     : m_tweakDb(aTweakDb)
-    , m_rtti(Red::CRTTISystem::Get())
 {
 }
 
 const Red::TweakDBRecordInfo* Red::TweakDBReflection::GetRecordInfo(const Red::CClass* aType)
 {
-    if (!IsRecordType(aType))
-        return nullptr;
-
-    {
-        std::shared_lock lockR(m_mutex);
-        auto iter = m_resolved.find(aType->GetName());
-        if (iter != m_resolved.end())
-            return iter->second.get();
-    }
-
-    return CollectRecordInfo(aType).get();
+    return CollectRecordInfo(aType);
 }
 
 const Red::TweakDBRecordInfo* Red::TweakDBReflection::GetRecordInfo(Red::CName aTypeName)
 {
-    {
-        std::shared_lock lockR(m_mutex);
-        auto iter = m_resolved.find(aTypeName);
-        if (iter != m_resolved.end())
-            return iter->second.get();
-    }
-
-    return CollectRecordInfo(m_rtti->GetClass(aTypeName)).get();
+    if (const auto* type = GetRTTI()->GetClass(aTypeName))
+        return GetRecordInfo(type);
+    return nullptr;
 }
 
-Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInfo(
-    const Red::CClass* aType, Red::TweakDBID aSampleId)
+const Red::TweakDBRecordInfo* Red::TweakDBReflection::FindRecordInfo(const Red::CClass* aType) const
+{
+    std::shared_lock lockR(m_mutex);
+    auto iter = m_resolved.find(aType->GetName());
+    if (iter != m_resolved.end())
+        return iter->second.get();
+    return nullptr;
+}
+
+const Red::TweakDBRecordInfo* Red::TweakDBReflection::FindRecordInfo(Red::CName aTypeName) const
+{
+    if (const auto* type = GetRTTI()->GetClass(aTypeName))
+        return FindRecordInfo(type);
+    return nullptr;
+}
+
+const Red::TweakDBRecordInfo* Red::TweakDBReflection::CollectRecordInfo(const Red::CClass* aType,
+                                                                        Red::TweakDBID aSampleId)
 {
     if (!IsRecordType(aType))
         return nullptr;
+
+    if (const auto* existing = FindRecordInfo(aType))
+        return existing;
 
     auto sampleId = aSampleId;
     if (!sampleId.IsValid())
@@ -75,18 +68,13 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
             return nullptr;
     }
 
-    auto recordInfo = Red::MakeInstance<Red::TweakDBRecordInfo>();
-    recordInfo->name = aType->name;
-    recordInfo->type = aType;
-    recordInfo->typeHash = GetRecordTypeHash(aType);
-    recordInfo->shortName = GetRecordShortName(aType->name);
+    const auto recordInfo = Red::MakeInstance<Red::TweakDBRecordInfo>();
+    recordInfo->SetName(aType->name);
+    recordInfo->SetType(aType);
 
-    const auto parentInfo = CollectRecordInfo(aType->parent, sampleId);
-    if (parentInfo)
+    if (const auto* parentInfo = CollectRecordInfo(aType->parent, sampleId))
     {
-        recordInfo->parent = aType->parent;
-        recordInfo->props.insert(parentInfo->props.begin(), parentInfo->props.end());
-        recordInfo->extraFlats = parentInfo->extraFlats;
+        *recordInfo += *parentInfo;
     }
 
     const auto baseOffset = aType->parent->size;
@@ -97,22 +85,23 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
 
         auto propName = ResolvePropertyName(sampleId, func->shortName);
 
-        auto propInfo = Red::MakeInstance<Red::TweakDBPropertyInfo>();
-        propInfo->name = Red::CName(propName.c_str());
-        propInfo->dataOffset = baseOffset + (recordInfo->props.size() * DataOffsetSize);
+        auto propInfo = Red::MakeInstance<TweakDBPropertyInfo>();
+        propInfo->SetName(propName);
+
+        propInfo->SetDataOffset(baseOffset + (recordInfo->GetProperties().size() * DataOffsetSize));
 
         // Case: Foreign Key Array => TweakDBID[]
         if (!func->returnType)
         {
-            const auto arrayType = reinterpret_cast<Red::CRTTIArrayType*>(func->params[0]->type);
-            const auto handleType = reinterpret_cast<Red::CRTTIWeakHandleType*>(arrayType->innerType);
-            const auto recordType = reinterpret_cast<Red::CClass*>(handleType->innerType);
+            const auto arrayType = reinterpret_cast<CRTTIArrayType*>(func->params[0]->type);
+            const auto handleType = reinterpret_cast<CRTTIWeakHandleType*>(arrayType->innerType);
+            const auto recordType = reinterpret_cast<CClass*>(handleType->innerType);
 
-            propInfo->type = m_rtti->GetType(Red::ERTDBFlatType::TweakDBIDArray);
-            propInfo->isArray = true;
-            propInfo->elementType = m_rtti->GetType(Red::ERTDBFlatType::TweakDBID);
-            propInfo->isForeignKey = true;
-            propInfo->foreignType = recordType;
+            propInfo->SetType(GetRTTI()->GetType(ERTDBFlatType::TweakDBIDArray));
+            propInfo->SetArray();
+            propInfo->SetElementType(GetRTTI()->GetType(ERTDBFlatType::TweakDBID));
+            propInfo->SetForeignKey();
+            propInfo->SetForeignType(recordType);
 
             // Skip related functions:
             // func Get[Prop]Count()
@@ -123,32 +112,30 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
         }
         else
         {
-            auto returnType = func->returnType->type;
-
-            switch (returnType->GetType())
+            switch (auto returnType = func->returnType->type; returnType->GetType())
             {
-            case Red::ERTTIType::WeakHandle:
+            case ERTTIType::WeakHandle:
             {
                 // Case: Foreign Key => TweakDBID
-                const auto handleType = reinterpret_cast<Red::CRTTIWeakHandleType*>(returnType);
-                const auto recordType = reinterpret_cast<Red::CClass*>(handleType->innerType);
+                const auto handleType = reinterpret_cast<CRTTIWeakHandleType*>(returnType);
+                const auto recordType = reinterpret_cast<CClass*>(handleType->innerType);
 
-                propInfo->type = m_rtti->GetType(Red::ERTDBFlatType::TweakDBID);
-                propInfo->isForeignKey = true;
-                propInfo->foreignType = recordType;
+                propInfo->SetType(GetRTTI()->GetType(ERTDBFlatType::TweakDBID));
+                propInfo->SetForeignKey();
+                propInfo->SetForeignType(recordType);
 
                 // Skip related function:
                 // func Get[Prop]Handle()
                 funcIndex += 1;
                 break;
             }
-            case Red::ERTTIType::Array:
+            case ERTTIType::Array:
             {
                 if (IsResRefTokenArray(returnType))
                 {
-                    propInfo->type = m_rtti->GetType(Red::ERTDBFlatType::ResRefArray);
-                    propInfo->isArray = true;
-                    propInfo->elementType = m_rtti->GetType(Red::ERTDBFlatType::ResRef);
+                    propInfo->SetType(GetRTTI()->GetType(ERTDBFlatType::ResRefArray));
+                    propInfo->SetArray();
+                    propInfo->SetElementType(GetRTTI()->GetType(ERTDBFlatType::ResRef));
 
                     // Skip related functions:
                     // func Get[Prop]Count()
@@ -157,12 +144,12 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
                 }
                 else
                 {
-                    const auto arrayType = reinterpret_cast<Red::CRTTIArrayType*>(returnType);
-                    const auto elementType = reinterpret_cast<Red::CBaseRTTIType*>(arrayType->innerType);
+                    const auto arrayType = reinterpret_cast<CRTTIArrayType*>(returnType);
+                    const auto elementType = arrayType->innerType;
 
-                    propInfo->type = returnType;
-                    propInfo->isArray = true;
-                    propInfo->elementType = elementType;
+                    propInfo->SetType(returnType);
+                    propInfo->SetArray();
+                    propInfo->SetElementType(elementType);
 
                     // Skip related functions:
                     // func Get[Prop]Count()
@@ -172,7 +159,7 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
                 }
                 break;
             }
-            case Red::ERTTIType::Enum:
+            case ERTTIType::Enum:
             {
                 // Some types have additional enum getters,
                 // but they're not backed by any flat.
@@ -182,81 +169,68 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
             {
                 if (IsResRefToken(returnType))
                 {
-                    propInfo->type = m_rtti->GetType(Red::ERTDBFlatType::ResRef);
+                    propInfo->SetType(GetRTTI()->GetType(ERTDBFlatType::ResRef));
                 }
                 else
                 {
                     // Getter for LocKey returns CName, so we have to get
                     // the actual property type from the flat value.
-                    if (returnType->GetType() == Red::ERTTIType::Name)
+                    if (returnType->GetType() == ERTTIType::Name)
                     {
-                        auto propId = sampleId + PropSeparator + propName;
-                        auto flat = m_tweakDb->GetFlatValue(propId);
+                        const auto propId = sampleId + PropSeparator + propName;
+                        const auto flat = m_tweakDb->GetFlatValue(propId);
                         returnType = flat->GetValue().type;
                     }
 
-                    propInfo->type = returnType;
+                    propInfo->SetType(returnType);
                 }
             }
             }
         }
 
-        assert(propInfo->type);
+        if (propInfo->GetDataOffset())
+        {
+            propInfo->SetDefaultValue(ResolveDefaultValue(aType, propInfo->GetAppendix()));
+        }
 
-        propInfo->appendix = PropSeparator;
-        propInfo->appendix.append(propName);
+        assert(propInfo->IsValid());
 
-        recordInfo->props[propInfo->name] = propInfo;
+        recordInfo->AddProperty(propInfo);
     }
 
     {
-        auto extraFlatsIt = s_extraFlats.find(aType->name);
-        if (extraFlatsIt != s_extraFlats.end())
+        if (const auto extraFlatsIt = s_extraFlats.find(aType->name); extraFlatsIt != s_extraFlats.end())
         {
-            recordInfo->extraFlats = true;
-
-            for (const auto& extraFlat : extraFlatsIt.value())
+            for (const auto& [typeName, foreignTypeName, appendix] : extraFlatsIt.value())
             {
-                auto propInfo = Red::MakeInstance<Red::TweakDBPropertyInfo>();
-                propInfo->name = Red::CName(extraFlat.appendix.c_str() + 1);
-                propInfo->appendix = extraFlat.appendix;
-                propInfo->type = m_rtti->GetType(extraFlat.typeName);
+                const auto propInfo = Red::MakeInstance<TweakDBPropertyInfo>();
+                propInfo->SetName(appendix.c_str() + 1);
+                propInfo->SetType(GetRTTI()->GetType(typeName));
 
-                if (propInfo->type->GetType() == Red::ERTTIType::Array)
+                if (propInfo->GetType()->GetType() == ERTTIType::Array)
                 {
-                    const auto arrayType = reinterpret_cast<const Red::CRTTIArrayType*>(propInfo->type);
-                    propInfo->elementType = arrayType->innerType;
-                    propInfo->isArray = true;
+                    const auto arrayType = reinterpret_cast<const CRTTIArrayType*>(propInfo->GetType());
+                    propInfo->SetElementType(arrayType->innerType);
+                    propInfo->SetArray();
                 }
 
-                if (!extraFlat.foreignTypeName.IsNone())
+                if (!foreignTypeName.IsNone())
                 {
-                    propInfo->foreignType = m_rtti->GetClass(extraFlat.foreignTypeName);
-                    propInfo->isForeignKey = true;
+                    propInfo->SetForeignType(GetRTTI()->GetClass(foreignTypeName));
+                    propInfo->SetForeignKey();
                 }
 
-                propInfo->dataOffset = 0;
-                propInfo->defaultValue = -1;
+                propInfo->SetDataOffset(0);
+                propInfo->SetDefaultValue(-1);
 
-                recordInfo->props[propInfo->name] = propInfo;
+                assert(recordInfo->AddProperty(propInfo) && "Failed to add extra flat property");
             }
         }
     }
 
-    for (auto& [_, propInfo] : recordInfo->props)
-    {
-        if (propInfo->dataOffset)
-        {
-            propInfo->defaultValue = ResolveDefaultValue(aType, propInfo->appendix);
-        }
-    }
-
-    {
-        std::unique_lock lockRW(m_mutex);
-        m_resolved.insert({ recordInfo->name, recordInfo });
-    }
-
-    return recordInfo;
+    const auto r = RegisterRecordInfo(recordInfo);
+    assert(r && "Failed to register record info");
+    return r.get();
 }
 
 Red::TweakDBID Red::TweakDBReflection::GetRecordSampleId(const Red::CClass* aType)
@@ -270,15 +244,9 @@ Red::TweakDBID Red::TweakDBReflection::GetRecordSampleId(const Red::CClass* aTyp
     return records->Begin()->GetPtr<Red::TweakDBRecord>()->recordID;
 }
 
-uint32_t Red::TweakDBReflection::GetRecordTypeHash(const Red::CClass* aType)
+uint32_t Red::TweakDBReflection::GetRecordTypeHash(const std::string& aName)
 {
-    std::shared_lock<Red::SharedSpinLock> recordLockR(m_tweakDb->mutex01);
-    auto* records = m_tweakDb->recordsByType.Get(const_cast<Red::CClass*>(aType));
-
-    if (records == nullptr)
-        return 0;
-
-    return records->Begin()->GetPtr<Red::TweakDBRecord>()->GetTweakBaseHash();
+    return Murmur3_32(reinterpret_cast<const uint8_t*>(aName.c_str()), aName.length());
 }
 
 std::string Red::TweakDBReflection::ResolvePropertyName(Red::TweakDBID aSampleId, Red::CName aGetterName)
@@ -301,7 +269,7 @@ int32_t Red::TweakDBReflection::ResolveDefaultValue(const Red::CClass* aType, co
 {
     std::string defaultFlatName = TweakSource::SchemaPackage;
     defaultFlatName.append(NameSeparator);
-    defaultFlatName.append(GetRecordShortName(aType->GetName()));
+    defaultFlatName.append(GetRecordShortName<std::string>(aType->GetName()));
 
     if (!aPropName.starts_with(NameSeparator))
     {
@@ -324,7 +292,7 @@ int32_t Red::TweakDBReflection::ResolveDefaultValue(const Red::CClass* aType, co
 
 const Red::CBaseRTTIType* Red::TweakDBReflection::GetFlatType(Red::CName aTypeName)
 {
-    const Red::CBaseRTTIType* type = m_rtti->GetType(aTypeName);
+    const Red::CBaseRTTIType* type = GetRTTI()->GetType(aTypeName);
 
     if (!IsFlatType(type))
         return nullptr;
@@ -339,9 +307,9 @@ const Red::CClass* Red::TweakDBReflection::GetRecordType(Red::CName aTypeName)
 
 const Red::CClass* Red::TweakDBReflection::GetRecordType(const char* aTypeName)
 {
-    auto aFullName = GetRecordFullName(aTypeName);
+    auto aFullName = GetRecordFullName<CName>(aTypeName);
 
-    Red::CClass* type = m_rtti->GetClass(aFullName);
+    Red::CClass* type = GetRTTI()->GetClass(aFullName);
 
     if (!IsRecordType(type))
         return nullptr;
@@ -351,17 +319,17 @@ const Red::CClass* Red::TweakDBReflection::GetRecordType(const char* aTypeName)
 
 Red::CBaseRTTIType* Red::TweakDBReflection::GetArrayType(Red::CName aTypeName)
 {
-    return m_rtti->GetType(GetArrayTypeName(aTypeName));
+    return GetRTTI()->GetType(GetArrayTypeName(aTypeName));
 }
 
 Red::CBaseRTTIType* Red::TweakDBReflection::GetArrayType(const Red::CBaseRTTIType* aType)
 {
-    return m_rtti->GetType(GetArrayTypeName(aType));
+    return GetRTTI()->GetType(GetArrayTypeName(aType));
 }
 
 Red::CBaseRTTIType* Red::TweakDBReflection::GetElementType(Red::CName aTypeName)
 {
-    return GetElementType(m_rtti->GetType(aTypeName));
+    return GetElementType(GetRTTI()->GetType(aTypeName));
 }
 
 Red::CBaseRTTIType* Red::TweakDBReflection::GetElementType(const Red::CBaseRTTIType* aType)
@@ -497,22 +465,35 @@ Red::CName Red::TweakDBReflection::GetArrayTypeName(Red::CName aTypeName)
 {
     switch (aTypeName)
     {
-    case Red::ERTDBFlatType::Int: return Red::ERTDBFlatType::IntArray;
-    case Red::ERTDBFlatType::Float: return Red::ERTDBFlatType::FloatArray;
-    case Red::ERTDBFlatType::Bool: return Red::ERTDBFlatType::BoolArray;
-    case Red::ERTDBFlatType::String: return Red::ERTDBFlatType::StringArray;
-    case Red::ERTDBFlatType::CName: return Red::ERTDBFlatType::CNameArray;
-    case Red::ERTDBFlatType::LocKey: return Red::ERTDBFlatType::LocKeyArray;
-    case Red::ERTDBFlatType::ResRef: return Red::ERTDBFlatType::ResRefArray;
-    case Red::ERTDBFlatType::TweakDBID: return Red::ERTDBFlatType::TweakDBIDArray;
-    case Red::ERTDBFlatType::Quaternion: return Red::ERTDBFlatType::QuaternionArray;
-    case Red::ERTDBFlatType::EulerAngles: return Red::ERTDBFlatType::EulerAnglesArray;
-    case Red::ERTDBFlatType::Vector3: return Red::ERTDBFlatType::Vector3Array;
-    case Red::ERTDBFlatType::Vector2: return Red::ERTDBFlatType::Vector2Array;
-    case Red::ERTDBFlatType::Color: return Red::ERTDBFlatType::ColorArray;
+    case Red::ERTDBFlatType::Int:
+        return Red::ERTDBFlatType::IntArray;
+    case Red::ERTDBFlatType::Float:
+        return Red::ERTDBFlatType::FloatArray;
+    case Red::ERTDBFlatType::Bool:
+        return Red::ERTDBFlatType::BoolArray;
+    case Red::ERTDBFlatType::String:
+        return Red::ERTDBFlatType::StringArray;
+    case Red::ERTDBFlatType::CName:
+        return Red::ERTDBFlatType::CNameArray;
+    case Red::ERTDBFlatType::LocKey:
+        return Red::ERTDBFlatType::LocKeyArray;
+    case Red::ERTDBFlatType::ResRef:
+        return Red::ERTDBFlatType::ResRefArray;
+    case Red::ERTDBFlatType::TweakDBID:
+        return Red::ERTDBFlatType::TweakDBIDArray;
+    case Red::ERTDBFlatType::Quaternion:
+        return Red::ERTDBFlatType::QuaternionArray;
+    case Red::ERTDBFlatType::EulerAngles:
+        return Red::ERTDBFlatType::EulerAnglesArray;
+    case Red::ERTDBFlatType::Vector3:
+        return Red::ERTDBFlatType::Vector3Array;
+    case Red::ERTDBFlatType::Vector2:
+        return Red::ERTDBFlatType::Vector2Array;
+    case Red::ERTDBFlatType::Color:
+        return Red::ERTDBFlatType::ColorArray;
+    default:
+        return {};
     }
-
-    return {};
 }
 
 Red::CName Red::TweakDBReflection::GetArrayTypeName(const Red::CBaseRTTIType* aType)
@@ -527,22 +508,35 @@ Red::CName Red::TweakDBReflection::GetElementTypeName(Red::CName aTypeName)
 {
     switch (aTypeName)
     {
-    case Red::ERTDBFlatType::IntArray: return Red::ERTDBFlatType::Int;
-    case Red::ERTDBFlatType::FloatArray: return Red::ERTDBFlatType::Float;
-    case Red::ERTDBFlatType::BoolArray: return Red::ERTDBFlatType::Bool;
-    case Red::ERTDBFlatType::StringArray: return Red::ERTDBFlatType::String;
-    case Red::ERTDBFlatType::CNameArray: return Red::ERTDBFlatType::CName;
-    case Red::ERTDBFlatType::TweakDBIDArray: return Red::ERTDBFlatType::TweakDBID;
-    case Red::ERTDBFlatType::LocKeyArray: return Red::ERTDBFlatType::LocKey;
-    case Red::ERTDBFlatType::ResRefArray: return Red::ERTDBFlatType::ResRef;
-    case Red::ERTDBFlatType::QuaternionArray: return Red::ERTDBFlatType::Quaternion;
-    case Red::ERTDBFlatType::EulerAnglesArray: return Red::ERTDBFlatType::EulerAngles;
-    case Red::ERTDBFlatType::Vector3Array: return Red::ERTDBFlatType::Vector3;
-    case Red::ERTDBFlatType::Vector2Array: return Red::ERTDBFlatType::Vector2;
-    case Red::ERTDBFlatType::ColorArray: return Red::ERTDBFlatType::Color;
+    case Red::ERTDBFlatType::IntArray:
+        return Red::ERTDBFlatType::Int;
+    case Red::ERTDBFlatType::FloatArray:
+        return Red::ERTDBFlatType::Float;
+    case Red::ERTDBFlatType::BoolArray:
+        return Red::ERTDBFlatType::Bool;
+    case Red::ERTDBFlatType::StringArray:
+        return Red::ERTDBFlatType::String;
+    case Red::ERTDBFlatType::CNameArray:
+        return Red::ERTDBFlatType::CName;
+    case Red::ERTDBFlatType::TweakDBIDArray:
+        return Red::ERTDBFlatType::TweakDBID;
+    case Red::ERTDBFlatType::LocKeyArray:
+        return Red::ERTDBFlatType::LocKey;
+    case Red::ERTDBFlatType::ResRefArray:
+        return Red::ERTDBFlatType::ResRef;
+    case Red::ERTDBFlatType::QuaternionArray:
+        return Red::ERTDBFlatType::Quaternion;
+    case Red::ERTDBFlatType::EulerAnglesArray:
+        return Red::ERTDBFlatType::EulerAngles;
+    case Red::ERTDBFlatType::Vector3Array:
+        return Red::ERTDBFlatType::Vector3;
+    case Red::ERTDBFlatType::Vector2Array:
+        return Red::ERTDBFlatType::Vector2;
+    case Red::ERTDBFlatType::ColorArray:
+        return Red::ERTDBFlatType::Color;
+    default:
+        return {};
     }
-
-    return {};
 }
 
 Red::CName Red::TweakDBReflection::GetElementTypeName(const Red::CBaseRTTIType* aType)
@@ -553,78 +547,65 @@ Red::CName Red::TweakDBReflection::GetElementTypeName(const Red::CBaseRTTIType* 
     return GetElementTypeName(aType->GetName());
 }
 
-Red::CName Red::TweakDBReflection::GetRecordFullName(Red::CName aName)
-{
-    return GetRecordFullName(aName.ToString());
-}
-
-Red::CName Red::TweakDBReflection::GetRecordFullName(const char* aName)
-{
-    std::string finalName = aName;
-
-    if (finalName.empty())
-        return {};
-
-    if (!finalName.starts_with(RecordTypePrefix))
-        finalName.insert(0, RecordTypePrefix);
-
-    if (!finalName.ends_with(RecordTypeSuffix))
-        finalName.append(RecordTypeSuffix);
-
-    return finalName.c_str();
-}
-
-std::string Red::TweakDBReflection::GetRecordShortName(Red::CName aName)
-{
-    return GetRecordShortName(aName.ToString());
-}
-
-std::string Red::TweakDBReflection::GetRecordShortName(const char* aName)
-{
-    std::string finalName = aName;
-
-    if (finalName.starts_with(RecordTypePrefix))
-        finalName.erase(0, RecordTypePrefixLength);
-
-    if (finalName.ends_with(RecordTypeSuffix))
-        finalName.erase(finalName.end() - RecordTypeSuffixLength, finalName.end());
-
-    return finalName;
-}
-
 Red::InstancePtr<> Red::TweakDBReflection::Construct(Red::CName aTypeName)
 {
     switch (aTypeName)
     {
-    case Red::ERTDBFlatType::Int: return Red::MakeInstance<int>();
-    case Red::ERTDBFlatType::Float: return Red::MakeInstance<float>();
-    case Red::ERTDBFlatType::Bool: return Red::MakeInstance<bool>();
-    case Red::ERTDBFlatType::String: return Red::MakeInstance<Red::CString>();
-    case Red::ERTDBFlatType::CName: return Red::MakeInstance<Red::CName>();
-    case Red::ERTDBFlatType::LocKey: return Red::MakeInstance<Red::LocKeyWrapper>();
-    case Red::ERTDBFlatType::ResRef: return Red::MakeInstance<Red::ResourceAsyncReference<>>();
-    case Red::ERTDBFlatType::TweakDBID: return Red::MakeInstance<Red::TweakDBID>();
-    case Red::ERTDBFlatType::Quaternion: return Red::MakeInstance<Red::Quaternion>();
-    case Red::ERTDBFlatType::EulerAngles: return Red::MakeInstance<Red::EulerAngles>();
-    case Red::ERTDBFlatType::Vector3: return Red::MakeInstance<Red::Vector3>();
-    case Red::ERTDBFlatType::Vector2: return Red::MakeInstance<Red::Vector2>();
-    case Red::ERTDBFlatType::Color: return Red::MakeInstance<Red::Color>();
-    case Red::ERTDBFlatType::IntArray: return Red::MakeInstance<Red::DynArray<int>>();
-    case Red::ERTDBFlatType::FloatArray: return Red::MakeInstance<Red::DynArray<float>>();
-    case Red::ERTDBFlatType::BoolArray: return Red::MakeInstance<Red::DynArray<bool>>();
-    case Red::ERTDBFlatType::StringArray: return Red::MakeInstance<Red::DynArray<Red::CString>>();
-    case Red::ERTDBFlatType::CNameArray: return Red::MakeInstance<Red::DynArray<Red::CName>>();
-    case Red::ERTDBFlatType::LocKeyArray: return Red::MakeInstance<Red::DynArray<Red::LocKeyWrapper>>();
-    case Red::ERTDBFlatType::ResRefArray: return Red::MakeInstance<Red::DynArray<Red::ResourceAsyncReference<>>>();
-    case Red::ERTDBFlatType::TweakDBIDArray: return Red::MakeInstance<Red::DynArray<Red::TweakDBID>>();
-    case Red::ERTDBFlatType::QuaternionArray: return Red::MakeInstance<Red::DynArray<Red::Quaternion>>();
-    case Red::ERTDBFlatType::EulerAnglesArray: return Red::MakeInstance<Red::DynArray<Red::EulerAngles>>();
-    case Red::ERTDBFlatType::Vector3Array: return Red::MakeInstance<Red::DynArray<Red::Vector3>>();
-    case Red::ERTDBFlatType::Vector2Array: return Red::MakeInstance<Red::DynArray<Red::Vector2>>();
-    case Red::ERTDBFlatType::ColorArray: return Red::MakeInstance<Red::DynArray<Red::Color>>();
+    case Red::ERTDBFlatType::Int:
+        return Red::MakeInstance<int>();
+    case Red::ERTDBFlatType::Float:
+        return Red::MakeInstance<float>();
+    case Red::ERTDBFlatType::Bool:
+        return Red::MakeInstance<bool>();
+    case Red::ERTDBFlatType::String:
+        return Red::MakeInstance<Red::CString>();
+    case Red::ERTDBFlatType::CName:
+        return Red::MakeInstance<Red::CName>();
+    case Red::ERTDBFlatType::LocKey:
+        return Red::MakeInstance<Red::LocKeyWrapper>();
+    case Red::ERTDBFlatType::ResRef:
+        return Red::MakeInstance<Red::ResourceAsyncReference<>>();
+    case Red::ERTDBFlatType::TweakDBID:
+        return Red::MakeInstance<Red::TweakDBID>();
+    case Red::ERTDBFlatType::Quaternion:
+        return Red::MakeInstance<Red::Quaternion>();
+    case Red::ERTDBFlatType::EulerAngles:
+        return Red::MakeInstance<Red::EulerAngles>();
+    case Red::ERTDBFlatType::Vector3:
+        return Red::MakeInstance<Red::Vector3>();
+    case Red::ERTDBFlatType::Vector2:
+        return Red::MakeInstance<Red::Vector2>();
+    case Red::ERTDBFlatType::Color:
+        return Red::MakeInstance<Red::Color>();
+    case Red::ERTDBFlatType::IntArray:
+        return Red::MakeInstance<Red::DynArray<int>>();
+    case Red::ERTDBFlatType::FloatArray:
+        return Red::MakeInstance<Red::DynArray<float>>();
+    case Red::ERTDBFlatType::BoolArray:
+        return Red::MakeInstance<Red::DynArray<bool>>();
+    case Red::ERTDBFlatType::StringArray:
+        return Red::MakeInstance<Red::DynArray<Red::CString>>();
+    case Red::ERTDBFlatType::CNameArray:
+        return Red::MakeInstance<Red::DynArray<Red::CName>>();
+    case Red::ERTDBFlatType::LocKeyArray:
+        return Red::MakeInstance<Red::DynArray<Red::LocKeyWrapper>>();
+    case Red::ERTDBFlatType::ResRefArray:
+        return Red::MakeInstance<Red::DynArray<Red::ResourceAsyncReference<>>>();
+    case Red::ERTDBFlatType::TweakDBIDArray:
+        return Red::MakeInstance<Red::DynArray<Red::TweakDBID>>();
+    case Red::ERTDBFlatType::QuaternionArray:
+        return Red::MakeInstance<Red::DynArray<Red::Quaternion>>();
+    case Red::ERTDBFlatType::EulerAnglesArray:
+        return Red::MakeInstance<Red::DynArray<Red::EulerAngles>>();
+    case Red::ERTDBFlatType::Vector3Array:
+        return Red::MakeInstance<Red::DynArray<Red::Vector3>>();
+    case Red::ERTDBFlatType::Vector2Array:
+        return Red::MakeInstance<Red::DynArray<Red::Vector2>>();
+    case Red::ERTDBFlatType::ColorArray:
+        return Red::MakeInstance<Red::DynArray<Red::Color>>();
+    default:
+        return {};
     }
-
-    return {};
 }
 
 Red::InstancePtr<> Red::TweakDBReflection::Construct(const Red::CBaseRTTIType* aType)
@@ -642,7 +623,7 @@ void Red::TweakDBReflection::RegisterExtraFlat(Red::CName aRecordType, const std
 }
 
 void Red::TweakDBReflection::RegisterDescendants(Red::TweakDBID aParentId,
-                                                const Core::Set<Red::TweakDBID>& aDescendantIds)
+                                                 const Core::Set<Red::TweakDBID>& aDescendantIds)
 {
     s_descendantMap[aParentId].insert(aDescendantIds.begin(), aDescendantIds.end());
 
@@ -679,7 +660,26 @@ std::string Red::TweakDBReflection::ToString(Red::TweakDBID aID)
     return {str.c_str(), str.Length()};
 }
 
-Red::TweakDB* Red::TweakDBReflection::GetTweakDB()
+Red::TweakDB* Red::TweakDBReflection::GetTweakDB() const
 {
     return m_tweakDb;
+}
+
+Red::IRTTISystem* Red::TweakDBReflection::GetRTTI()
+{
+    if (!s_rtti)
+        s_rtti = CRTTISystem::Get();
+    ;
+    return s_rtti;
+}
+
+Core::SharedPtr<const Red::TweakDBRecordInfo> Red::TweakDBReflection::RegisterRecordInfo(
+    Core::SharedPtr<TweakDBRecordInfo> aRecordInfo)
+{
+    std::unique_lock lockRW(m_mutex);
+    if (auto [it, success] = m_resolved.insert({aRecordInfo->GetName(), aRecordInfo}); success)
+    {
+        return it->second;
+    }
+    return nullptr;
 }
