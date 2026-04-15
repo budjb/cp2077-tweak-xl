@@ -1,5 +1,6 @@
 #include "RecordInfo.hpp"
 
+#include "App/Tweaks/Record/CustomTweakDBRecord.hpp"
 #include "Red/TweakDB/Reflection.hpp"
 
 namespace
@@ -36,19 +37,19 @@ void TweakDBPropertyInfo::SetName(const std::string& aName)
     m_functionName = CNamePool::Add(functionName.c_str());
 }
 
-void TweakDBPropertyInfo::SetType(const rtti::IType* aType)
+void TweakDBPropertyInfo::SetType(const DeferredType& aType)
 {
     m_type = aType;
 }
 
-void TweakDBPropertyInfo::SetElementType(const rtti::IType* aElementType)
+void TweakDBPropertyInfo::SetElementType(const DeferredType& aType)
 {
-    m_elementType = aElementType;
+    m_elementType = aType;
 }
 
-void TweakDBPropertyInfo::SetForeignType(const CClass* aForeignType)
+void TweakDBPropertyInfo::SetForeignType(const DeferredType& aType)
 {
-    m_foreignType = aForeignType;
+    m_foreignType = aType;
 }
 
 void TweakDBPropertyInfo::SetArray(const bool aArray)
@@ -91,17 +92,17 @@ CName TweakDBPropertyInfo::GetFunctionName() const
     return m_functionName;
 }
 
-const rtti::IType* TweakDBPropertyInfo::GetType() const
+DeferredType TweakDBPropertyInfo::GetType() const
 {
     return m_type;
 }
 
-const rtti::IType* TweakDBPropertyInfo::GetElementType() const
+DeferredType TweakDBPropertyInfo::GetElementType() const
 {
     return m_elementType;
 }
 
-const CClass* TweakDBPropertyInfo::GetForeignType() const
+DeferredType TweakDBPropertyInfo::GetForeignType() const
 {
     return m_foreignType;
 }
@@ -133,13 +134,18 @@ std::optional<int32_t> TweakDBPropertyInfo::GetDefaultValue() const
 
 bool TweakDBPropertyInfo::IsValid() const
 {
-    if (m_name.IsNone() || m_functionName.IsNone() || !m_type || !TweakDBReflection::IsFlatType(m_type) ||
-        m_appendix.length() < 2 || !m_appendix.starts_with(NameSeparator))
+    if (m_name.IsNone() || m_functionName.IsNone() || !m_type || m_appendix.length() < 2 ||
+        !m_appendix.starts_with(NameSeparator))
     {
         return false;
     }
 
-    switch (m_type->GetName())
+    if (m_type.IsResolved() && !TweakDBReflection::IsFlatType(m_type.GetName()))
+    {
+        return false;
+    }
+
+    switch (m_type.GetHash())
     {
     case ERTDBFlatType::Int:
     case ERTDBFlatType::Float:
@@ -167,43 +173,38 @@ bool TweakDBPropertyInfo::IsValid() const
     case ERTDBFlatType::Vector2Array:
     case ERTDBFlatType::ColorArray:
         return m_isArray && m_elementType && !m_isForeignKey && !m_foreignType &&
-               m_elementType->GetName() == TweakDBReflection::GetElementTypeName(m_type);
+               m_elementType.GetHash() == TweakDBReflection::GetElementTypeName(m_type.GetHash());
     case ERTDBFlatType::TweakDBID:
         return !m_isArray && !m_elementType && m_isForeignKey && m_foreignType;
     case ERTDBFlatType::TweakDBIDArray:
         return m_isArray && m_elementType && m_isForeignKey && m_foreignType &&
-               m_elementType->GetName() == ERTDBFlatType::TweakDBID;
+               m_elementType.GetHash() == ERTDBFlatType::TweakDBID;
     default:
         return false;
     }
 }
 
-void TweakDBRecordInfo::SetName(const char* aName)
+void TweakDBRecordInfo::SetType(DeferredType aType)
 {
-    m_name = TweakDBReflection::GetRecordFullName<CName>(aName);
-    m_aliasName = TweakDBReflection::GetRecordAliasName<CName>(aName);
-    m_shortName = TweakDBReflection::GetRecordShortName<std::string>(aName);
+    const auto name = TweakDBReflection::GetRecordFullName<std::string>(aType.GetHash());
+
+    m_type = aType;
+    m_aliasName = TweakDBReflection::GetRecordAliasName<CName>(name.c_str());
+    m_shortName = TweakDBReflection::GetRecordShortName<std::string>(name.c_str());
     m_typeHash = TweakDBReflection::GetRecordTypeHash(m_shortName);
 }
 
-void TweakDBRecordInfo::SetName(CName aName)
+void TweakDBRecordInfo::SetParent(DeferredType aType)
 {
-    SetName(aName.ToString());
-}
-
-void TweakDBRecordInfo::SetType(const CClass* aType)
-{
-    m_type = aType;
-}
-
-void TweakDBRecordInfo::SetParent(const CClass* aParent)
-{
-    m_parent = aParent;
+    m_parent = aType;
 }
 
 void TweakDBRecordInfo::SetCustom(const bool aCustom)
 {
     m_isCustom = aCustom;
+
+    if (!m_parent)
+        m_parent = App::CustomTweakDBRecord::NAME;
 }
 
 Core::SharedPtr<const TweakDBPropertyInfo> TweakDBRecordInfo::AddProperty(
@@ -218,11 +219,6 @@ Core::SharedPtr<const TweakDBPropertyInfo> TweakDBRecordInfo::AddProperty(
     return aProperty;
 }
 
-CName TweakDBRecordInfo::GetName() const
-{
-    return m_name;
-}
-
 CName TweakDBRecordInfo::GetAliasName() const
 {
     return m_aliasName;
@@ -233,12 +229,12 @@ const std::string& TweakDBRecordInfo::GetShortName() const
     return m_shortName;
 }
 
-const CClass* TweakDBRecordInfo::GetType() const
+DeferredType TweakDBRecordInfo::GetType() const
 {
     return m_type;
 }
 
-const CClass* TweakDBRecordInfo::GetParent() const
+DeferredType TweakDBRecordInfo::GetParent() const
 {
     return m_parent;
 }
@@ -266,12 +262,7 @@ const Core::Map<CName, Core::SharedPtr<const TweakDBPropertyInfo>>& TweakDBRecor
 
 bool TweakDBRecordInfo::IsValid() const
 {
-    if (m_name.IsNone() || m_aliasName.IsNone() || m_shortName.empty() || !m_type || m_type->GetName() != m_name)
-    {
-        return false;
-    }
-
-    if (m_parent && !TweakDBReflection::IsRecordType(m_parent))
+    if (!m_type || m_aliasName.IsNone() || m_shortName.empty())
     {
         return false;
     }
@@ -286,9 +277,7 @@ TweakDBRecordInfo& TweakDBRecordInfo::operator+=(const TweakDBRecordInfo* aOther
 
 TweakDBRecordInfo& TweakDBRecordInfo::operator+=(const TweakDBRecordInfo& aOther)
 {
-    assert(m_type->parent == aOther.m_type);
-
-    m_parent = m_type->parent;
+    m_parent = aOther.m_type;
     m_props.insert(aOther.m_props.begin(), aOther.m_props.end());
 
     return *this;

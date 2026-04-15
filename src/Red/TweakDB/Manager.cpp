@@ -1,6 +1,7 @@
 #include "Manager.hpp"
 
 #include "App/Tweaks/Record/CustomTweakDBRecord.hpp"
+#include "Core/Facades/Container.hpp"
 #include "Red/TweakDB/Raws.hpp"
 
 namespace
@@ -12,6 +13,7 @@ Red::TweakDBManager::TweakDBManager(Core::SharedPtr<Red::TweakDBReflection> aRef
     : m_tweakDb(aReflection->GetTweakDB())
     , m_buffer(Core::MakeShared<Red::TweakDBBuffer>(m_tweakDb))
     , m_reflection(std::move(aReflection))
+    , m_rtti(CRTTISystem::Get())
 {
 }
 
@@ -32,7 +34,7 @@ Red::Value<> Red::TweakDBManager::GetFlat(Red::TweakDBID aFlatId)
     return m_buffer->GetValue(offset);
 }
 
-Red::Value<> Red::TweakDBManager::GetDefault(const Red::CBaseRTTIType* aType)
+Red::Value<> Red::TweakDBManager::GetDefault(const Red::rtti::IType* aType)
 {
     if (!m_reflection->IsFlatType(aType))
         return {};
@@ -70,7 +72,7 @@ bool Red::TweakDBManager::IsRecordExists(Red::TweakDBID aRecordId)
     return m_tweakDb->recordsByID.Get(aRecordId) != nullptr;
 }
 
-bool Red::TweakDBManager::SetFlat(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, Red::Instance aInstance)
+bool Red::TweakDBManager::SetFlat(Red::TweakDBID aFlatId, const Red::rtti::IType* aType, Red::Instance aInstance)
 {
     if (!aFlatId.IsValid() || !aInstance || !m_reflection->IsFlatType(aType))
         return false;
@@ -87,7 +89,7 @@ bool Red::TweakDBManager::CreateCustomRecord(TweakDBID aRecordId, const uint32_t
 {
     if (const auto* recordInfo = m_reflection->FindCustomRecordInfo(aHash))
     {
-        if (const auto* cls = CRTTISystem::Get()->GetClass(recordInfo->GetName()))
+        if (const auto* cls = recordInfo->GetType().GetClass())
         {
             const auto instance = Red::MakeHandle<App::CustomTweakDBRecord>(*recordInfo, aRecordId);
             Raw::InsertRecord(m_tweakDb, aRecordId, cls, instance);
@@ -200,7 +202,7 @@ void Red::TweakDBManager::RegisterEnum(Red::TweakDBID aRecordId)
     m_knownEnums.insert(aRecordId);
 }
 
-void Red::TweakDBManager::RegisterName(const std::string& aName, const Red::CClass* aType)
+void Red::TweakDBManager::RegisterName(const std::string& aName)
 {
     RegisterName(aName.data(), aName);
 }
@@ -232,7 +234,8 @@ Red::Value<> Red::TweakDBManager::GetFlat(const Red::TweakDBManager::BatchPtr& a
     return m_buffer->GetValue(flat->ToTDBOffset());
 }
 
-const Red::CClass* Red::TweakDBManager::GetRecordType(const Red::TweakDBManager::BatchPtr& aBatch, Red::TweakDBID aRecordId)
+const Red::CClass* Red::TweakDBManager::GetRecordType(const Red::TweakDBManager::BatchPtr& aBatch,
+                                                      Red::TweakDBID aRecordId)
 {
     auto recordType = GetRecordType(aRecordId);
 
@@ -242,7 +245,7 @@ const Red::CClass* Red::TweakDBManager::GetRecordType(const Red::TweakDBManager:
         const auto it = aBatch->records.find(aRecordId);
 
         if (it != aBatch->records.end())
-            recordType = it.value()->GetType();
+            recordType = it.value()->GetType().GetClass();
     }
 
     return recordType;
@@ -267,9 +270,9 @@ bool Red::TweakDBManager::IsRecordExists(const Red::TweakDBManager::BatchPtr& aB
 }
 
 bool Red::TweakDBManager::SetFlat(const Red::TweakDBManager::BatchPtr& aBatch, Red::TweakDBID aFlatId,
-                                  const Red::CBaseRTTIType* aType, Red::Instance aInstance)
+                                  const Red::rtti::IType* aType, Red::Instance aInstance)
 {
-    if (!aFlatId.IsValid() || !aInstance || !m_reflection->IsFlatType(aType))
+    if (!aFlatId.IsValid() || !aInstance || !Red::TweakDBReflection::IsFlatType(aType))
         return false;
 
     return AssignFlat(aBatch, aFlatId, {aType, aInstance});
@@ -278,7 +281,7 @@ bool Red::TweakDBManager::SetFlat(const Red::TweakDBManager::BatchPtr& aBatch, R
 bool Red::TweakDBManager::SetFlat(const Red::TweakDBManager::BatchPtr& aBatch, Red::TweakDBID aFlatId,
                                   const Red::Value<>& aValue)
 {
-    if (!aFlatId.IsValid() || !aValue.instance || !m_reflection->IsFlatType(aValue.type))
+    if (!aFlatId.IsValid() || !aValue.instance || !Red::TweakDBReflection::IsFlatType(aValue.type))
         return false;
 
     return AssignFlat(aBatch, aFlatId, aValue);
@@ -365,11 +368,6 @@ bool Red::TweakDBManager::UpdateRecord(const Red::TweakDBManager::BatchPtr& aBat
     return true;
 }
 
-void Red::TweakDBManager::RegisterEnum(const Red::TweakDBManager::BatchPtr& aBatch, Red::TweakDBID aRecordId)
-{
-    RegisterEnum(aRecordId);
-}
-
 void Red::TweakDBManager::RegisterName(const Red::TweakDBManager::BatchPtr& aBatch, Red::TweakDBID aId,
                                        const std::string& aName)
 {
@@ -450,8 +448,7 @@ Core::SharedPtr<Red::TweakDBReflection>& Red::TweakDBManager::GetReflection()
 
 template<class SharedLockable>
 bool Red::TweakDBManager::AssignFlat(Red::SortedUniqueArray<Red::TweakDBID>& aFlats, Red::TweakDBID aFlatId,
-                                     const Red::CBaseRTTIType* aType, Red::Instance aInstance,
-                                     SharedLockable& aMutex)
+                                     const Red::rtti::IType* aType, Red::Instance aInstance, SharedLockable& aMutex)
 {
     int32_t offset = -1;
 
@@ -541,7 +538,7 @@ bool Red::TweakDBManager::AssignFlat(const Red::TweakDBManager::BatchPtr& aBatch
     std::unique_lock batchLockRW(aBatch->mutex);
 
     const auto& flat = aBatch->flats.find(aFlatId);
-    int32_t offset = -1;
+    int32_t offset;
 
     if (flat != aBatch->flats.end())
     {
@@ -700,4 +697,53 @@ const Core::Set<Red::TweakDBID>& Red::TweakDBManager::GetEnums()
     std::shared_lock _(m_mutex);
 
     return m_knownEnums;
+}
+
+bool Red::TweakDBManager::RegisterCustomRecord(const TweakDBRecordInfo* aRecordInfo)
+{
+    if (!aRecordInfo || !aRecordInfo->IsCustom())
+        return false;
+
+    m_rtti->CreateScriptedClass(aRecordInfo->GetType(), {.isImportOnly = true}, nullptr);
+
+    return m_rtti->GetClass(aRecordInfo->GetType());
+}
+
+bool Red::TweakDBManager::DescribeCustomRecord(const TweakDBRecordInfo* aRecordInfo,
+                                               Red::ScriptingFunction_t<void*> aGetterFunction)
+{
+    if (!aRecordInfo || !aRecordInfo->IsCustom())
+        return false;
+
+    auto* rtti = CRTTISystem::Get();
+    auto* cls = rtti->GetClass(aRecordInfo->GetType());
+
+    m_rtti->RegisterScriptName(aRecordInfo->GetType(), aRecordInfo->GetAliasName());
+
+    if (aRecordInfo->GetParent())
+    {
+        auto* parentCls = rtti->GetClass(aRecordInfo->GetParent());
+        if (!parentCls || !TweakDBReflection::IsRecordType(parentCls))
+            return false;
+        cls->parent = parentCls;
+    }
+    else
+    {
+        cls->parent = m_rtti->GetClass(App::CustomTweakDBRecord::NAME);
+    }
+
+    for (const auto& propInfo : aRecordInfo->GetProperties() | std::views::values)
+    {
+        DescribeCustomRecordProperty(cls, propInfo.get(), aGetterFunction);
+    }
+
+    return true;
+}
+
+void Red::TweakDBManager::DescribeCustomRecordProperty(CClass* cls, const Red::TweakDBPropertyInfo* aPropertyInfo,
+                                                       const Red::ScriptingFunction_t<void*> aGetterFunction)
+{
+    auto* function = Red::CClassFunction::Create(cls, aPropertyInfo->GetFunctionName().ToString(),
+                                                 aPropertyInfo->GetFunctionName().ToString(), aGetterFunction);
+    function->SetReturnType(aPropertyInfo->GetType());
 }

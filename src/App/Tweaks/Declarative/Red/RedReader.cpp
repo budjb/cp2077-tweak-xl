@@ -128,7 +128,7 @@ App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& a
         if (propInfo)
         {
             auto flatState = HandleFlat(aChangeset, flat, groupState->groupName, groupState->groupPath,
-                                        propInfo->GetType(), propInfo->GetForeignType());
+                                        propInfo->GetType(), propInfo->GetForeignType().GetClass());
 
             if (flatState && flatState->isProcessed && groupState->isOriginalBase)
             {
@@ -204,7 +204,7 @@ App::RedReader::GroupStatePtr App::RedReader::HandleInline(App::TweakChangeset& 
             if (propInfo)
             {
                 flatState = HandleFlat(aChangeset, flat, inlineState->groupName, inlineState->groupPath,
-                                       propInfo->GetType(), propInfo->GetForeignType());
+                                       propInfo->GetType(), propInfo->GetForeignType().GetClass());
             }
             else
             {

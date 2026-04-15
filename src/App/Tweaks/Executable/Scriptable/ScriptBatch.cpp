@@ -53,7 +53,7 @@ bool App::ScriptBatch::RegisterEnum(Red::TweakDBID aRecordID) const
 {
     if (m_batch && aRecordID)
     {
-        m_manager->RegisterEnum(m_batch, aRecordID);
+        m_manager->RegisterEnum(aRecordID);
         return true;
     }
 

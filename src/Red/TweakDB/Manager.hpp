@@ -26,12 +26,12 @@ public:
     TweakDBManager& operator=(const TweakDBManager&) = delete;
 
     Red::Value<> GetFlat(Red::TweakDBID aFlatId);
-    Red::Value<> GetDefault(const Red::CBaseRTTIType* aType);
+    Red::Value<> GetDefault(const Red::rtti::IType* aType);
     Red::Handle<Red::TweakDBRecord> GetRecord(Red::TweakDBID aRecordId);
     const Red::CClass* GetRecordType(Red::TweakDBID aRecordId);
     bool IsFlatExists(Red::TweakDBID aFlatId);
     bool IsRecordExists(Red::TweakDBID aRecordId);
-    bool SetFlat(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, Red::Instance aInstance);
+    bool SetFlat(Red::TweakDBID aFlatId, const Red::rtti::IType* aType, Red::Instance aInstance);
     bool SetFlat(Red::TweakDBID aFlatId, const Red::Value<>& aData);
     bool CreateRecord(Red::TweakDBID aRecordId, const Red::CClass* aType);
     bool CreateCustomRecord(Red::TweakDBID aRecordId, uint32_t aHash) const;
@@ -39,7 +39,7 @@ public:
     bool InheritProps(Red::TweakDBID aRecordId, Red::TweakDBID aSourceId);
     bool UpdateRecord(Red::TweakDBID aRecordId);
     void RegisterEnum(Red::TweakDBID aRecordId);
-    void RegisterName(const std::string& aName, const Red::CClass* aType = nullptr);
+    void RegisterName(const std::string& aName);
     void RegisterName(Red::TweakDBID aId, const std::string& aName, const Red::CClass* aType = nullptr);
     const Core::Set<Red::TweakDBID>& GetEnums();
     std::string_view GetName(Red::TweakDBID aId);
@@ -50,15 +50,17 @@ public:
     const Red::CClass* GetRecordType(const BatchPtr& aBatch, Red::TweakDBID aRecordId);
     bool IsFlatExists(const BatchPtr& aBatch, Red::TweakDBID aFlatId);
     bool IsRecordExists(const BatchPtr& aBatch, Red::TweakDBID aRecordId);
-    bool SetFlat(const BatchPtr& aBatch, Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, Red::Instance aValue);
+    bool SetFlat(const BatchPtr& aBatch, Red::TweakDBID aFlatId, const Red::rtti::IType* aType, Red::Instance aValue);
     bool SetFlat(const BatchPtr& aBatch, Red::TweakDBID aFlatId, const Red::Value<>& aData);
     bool CreateRecord(const BatchPtr& aBatch, Red::TweakDBID aRecordId, const Red::CClass* aType);
     bool CloneRecord(const BatchPtr& aBatch, Red::TweakDBID aRecordId, Red::TweakDBID aSourceId);
     bool InheritProps(const BatchPtr& aBatch, Red::TweakDBID aRecordId, Red::TweakDBID aSourceId);
     bool UpdateRecord(const BatchPtr& aBatch, Red::TweakDBID aRecordId);
-    void RegisterEnum(const BatchPtr& aBatch, Red::TweakDBID aRecordId);
     void RegisterName(const BatchPtr& aBatch, Red::TweakDBID aId, const std::string& aName);
     void CommitBatch(const BatchPtr& aBatch);
+
+    bool RegisterCustomRecord(const TweakDBRecordInfo* aRecordInfo);
+    bool DescribeCustomRecord(const TweakDBRecordInfo* aRecordInfo, Red::ScriptingFunction_t<void*> aGetterFunction);
 
     void Invalidate();
 
@@ -68,8 +70,7 @@ public:
 private:
     template<class SharedLockable>
     inline bool AssignFlat(Red::SortedUniqueArray<Red::TweakDBID>& aFlats, Red::TweakDBID aFlatId,
-                           const Red::CBaseRTTIType* aType, Red::Instance aInstance,
-                           SharedLockable& aMutex);
+                           const Red::rtti::IType* aType, Red::Instance aInstance, SharedLockable& aMutex);
     inline void InheritFlats(Red::SortedUniqueArray<Red::TweakDBID>& aFlats, Red::TweakDBID aRecordId,
                              const Red::TweakDBRecordInfo* aRecordInfo);
     inline void InheritFlats(Red::SortedUniqueArray<Red::TweakDBID>& aFlats, Red::TweakDBID aRecordId,
@@ -85,11 +86,14 @@ private:
     void CreateBaseName(Red::TweakDBID aId, const std::string& aName);
     void CreateExtraNames(Red::TweakDBID aId, const std::string& aName, const Red::CClass* aType = nullptr);
 
+    void DescribeCustomRecordProperty(CClass* cls, const Red::TweakDBPropertyInfo* aPropertyInfo, Red::ScriptingFunction_t<void*> aGetterFunction);
+
     Red::TweakDB* m_tweakDb;
+    Red::CRTTISystem* m_rtti;
     Core::SharedPtr<Red::TweakDBBuffer> m_buffer;
     Core::SharedPtr<Red::TweakDBReflection> m_reflection;
     Core::Map<Red::TweakDBID, std::string> m_knownNames;
     Core::Set<Red::TweakDBID> m_knownEnums;
     std::shared_mutex m_mutex;
 };
-}
+} // namespace Red

@@ -35,8 +35,6 @@ constexpr auto LegacyValueNodeKey = "value";
 
 App::YamlReader::YamlReader(Core::SharedPtr<Red::TweakDBManager> aManager, Core::SharedPtr<App::TweakContext> aContext)
     : BaseTweakReader(std::move(aManager), std::move(aContext))
-    , m_path{}
-    , m_data{}
 {
 }
 
@@ -422,7 +420,8 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
                     if (itemData.IsMap())
                     {
                         auto sourceId = Red::TweakDBID();
-                        auto foreignType = propInfo->GetForeignType();
+                        auto foreignType = propInfo->GetForeignType().GetClass();
+
                         auto inlinePath = ComposePath(propPath, itemIndex);
 
                         if (!ResolveInlineNode(aChangeset, inlinePath, itemData, foreignType, sourceId))
@@ -451,7 +450,7 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
             else if (originalData.IsMap())
             {
                 auto sourceId = Red::TweakDBID();
-                auto foreignType = propInfo->GetForeignType();
+                auto foreignType = propInfo->GetForeignType().GetClass();
 
                 if (!ResolveInlineNode(aChangeset, propPath, originalData, foreignType, sourceId))
                     continue;
@@ -459,7 +458,7 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
                 auto inlineName = ComposeInlineName(propName, foreignType, m_path);
 
                 // Special handling for UIIcon
-                if (propInfo->GetForeignType()->GetName() == UIIconType)
+                if (propInfo->GetForeignType().GetName() == UIIconType)
                 {
                     // Item records have both .iconPath and .icon properties, but last one is never used.
                     // So if parent record has .iconPath property then auto fill it with our inline icon name.
@@ -495,11 +494,11 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
             }
         }
 
-        const auto propValue = MakeValue(propInfo->GetType(), nodeData);
+        const auto propValue = MakeValue(propInfo->GetType().GetName(), nodeData);
 
         if (!propValue)
         {
-            LogError("{}.{}: Invalid value, expected \"{}\".", aRecordPath, nodeKey, propInfo->GetType()->GetName().ToString());
+            LogError("{}.{}: Invalid value, expected \"{}\".", aRecordPath, nodeKey, propInfo->GetType().GetName().ToString());
             continue;
         }
 
