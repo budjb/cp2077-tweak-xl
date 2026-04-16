@@ -176,8 +176,9 @@ class TweakDBRecordInfo
 public:
     TweakDBRecordInfo() noexcept = default;
 
-    void SetType(DeferredType aType);
-    void SetParent(DeferredType aType);
+    void SetName(const std::string& aName);
+    void SetType(const DeferredType& aType);
+    void SetParent(const DeferredType& aType);
     void SetCustom(bool aCustom = true);
 
     Core::SharedPtr<const TweakDBPropertyInfo> AddProperty(Core::SharedPtr<TweakDBPropertyInfo> aProperty);

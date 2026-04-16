@@ -42,9 +42,9 @@ void TweakDBPropertyInfo::SetType(const DeferredType& aType)
     m_type = aType;
 }
 
-void TweakDBPropertyInfo::SetElementType(const DeferredType& aType)
+void TweakDBPropertyInfo::SetElementType(const DeferredType& aElementType)
 {
-    m_elementType = aType;
+    m_elementType = aElementType;
 }
 
 void TweakDBPropertyInfo::SetForeignType(const DeferredType& aType)
@@ -184,17 +184,27 @@ bool TweakDBPropertyInfo::IsValid() const
     }
 }
 
-void TweakDBRecordInfo::SetType(DeferredType aType)
+void TweakDBRecordInfo::SetName(const std::string& aName)
 {
-    const auto name = TweakDBReflection::GetRecordFullName<std::string>(aType.GetHash());
-
-    m_type = aType;
-    m_aliasName = TweakDBReflection::GetRecordAliasName<CName>(name.c_str());
-    m_shortName = TweakDBReflection::GetRecordShortName<std::string>(name.c_str());
+    m_type = TweakDBReflection::GetRecordFullName<CName>(aName.c_str());
+    m_aliasName = TweakDBReflection::GetRecordAliasName<CName>(aName.c_str());
+    m_shortName = TweakDBReflection::GetRecordShortName<std::string>(aName.c_str());
     m_typeHash = TweakDBReflection::GetRecordTypeHash(m_shortName);
 }
 
-void TweakDBRecordInfo::SetParent(DeferredType aType)
+void TweakDBRecordInfo::SetType(const DeferredType& aType)
+{
+    m_type = aType;
+
+    if (m_type.IsResolved())
+        m_type = TweakDBReflection::GetRecordFullName<std::string>(aType.GetHash());
+
+    m_aliasName = TweakDBReflection::GetRecordAliasName<CName>(m_type);
+    m_shortName = TweakDBReflection::GetRecordShortName<std::string>(m_type);
+    m_typeHash = TweakDBReflection::GetRecordTypeHash(m_shortName);
+}
+
+void TweakDBRecordInfo::SetParent(const DeferredType& aType)
 {
     m_parent = aType;
 }

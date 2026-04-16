@@ -3,6 +3,8 @@
 #include "App/Tweaks/Executable/TweakExecutor.hpp"
 #include "App/Tweaks/Metadata/MetadataExporter.hpp"
 #include "App/Tweaks/Metadata/MetadataImporter.hpp"
+#include "Core/Facades/Container.hpp"
+#include "Record/CustomTweakDBRecord.hpp"
 #include "Red/TweakDB/Raws.hpp"
 
 App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesystem::path aGameDir,
@@ -221,6 +223,17 @@ App::TweakChangelog& App::TweakService::GetChangelog()
     return *m_changelog;
 }
 
+void App::CustomRecordGetter(Red::IScriptable* aInstance, Red::CStackFrame* aStackFrame, void* aOut, int64_t)
+{
+    const void* value = Core::Resolve<App::TweakService>()->GetManager().GetCustomRecordValue(
+        static_cast<App::CustomTweakDBRecord*>(aInstance), aStackFrame->func->fullName);
+
+    if (aOut && value)
+    {
+        aStackFrame->dataType->Assign(aOut, value);
+    }
+}
+
 #ifndef NDEBUG
 
 void App::TweakService::RegisterTestCustomRecord() const
@@ -229,14 +242,14 @@ void App::TweakService::RegisterTestCustomRecord() const
     constexpr Red::TypeLocator<Red::CName("CName")> cnameType{};
 
     const auto recordInfo = Core::MakeShared<Red::TweakDBRecordInfo>();
-    recordInfo->SetType("TweakXLTest");
-    recordInfo->SetParent(tweakDBRecord->GetName());
+    recordInfo->SetName("TweakXLTest");
+    recordInfo->SetParent(RED4ext::CRTTISystem::Get()->GetClass(App::CustomTweakDBRecord::NAME));
     recordInfo->SetCustom();
 
     {
         const auto propertyInfo = Core::MakeShared<Red::TweakDBPropertyInfo>();
         propertyInfo->SetName("foo");
-        propertyInfo->SetType(cnameType->GetName());
+        propertyInfo->SetType(RED4ext::CRTTISystem::Get()->GetType("CName"));
         assert(propertyInfo->IsValid());
         recordInfo->AddProperty(propertyInfo);
     }
@@ -244,10 +257,13 @@ void App::TweakService::RegisterTestCustomRecord() const
     {
         const auto propertyInfo = Core::MakeShared<Red::TweakDBPropertyInfo>();
         propertyInfo->SetName("bar");
-        propertyInfo->SetType(cnameType->GetName());
+        propertyInfo->SetType(RED4ext::CRTTISystem::Get()->GetType("CName"));
         assert(propertyInfo->IsValid());
         recordInfo->AddProperty(propertyInfo);
     }
+
+    m_manager->RegisterCustomRecord(recordInfo);
+    m_manager->DescribeCustomRecord(recordInfo, &CustomRecordGetter);
 }
 
 #endif

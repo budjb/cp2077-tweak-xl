@@ -699,51 +699,83 @@ const Core::Set<Red::TweakDBID>& Red::TweakDBManager::GetEnums()
     return m_knownEnums;
 }
 
-bool Red::TweakDBManager::RegisterCustomRecord(const TweakDBRecordInfo* aRecordInfo)
+bool Red::TweakDBManager::RegisterCustomRecord(const Core::SharedPtr<Red::TweakDBRecordInfo>& aRecordInfo) const
 {
     if (!aRecordInfo || !aRecordInfo->IsCustom())
         return false;
 
     m_rtti->CreateScriptedClass(aRecordInfo->GetType(), {.isImportOnly = true}, nullptr);
 
-    return m_rtti->GetClass(aRecordInfo->GetType());
+    if (const auto* cls = m_rtti->GetClass(aRecordInfo->GetType()); !cls)
+        return false;
+
+    m_reflection->RegisterRecordInfo(aRecordInfo);
+    return true;
 }
 
-bool Red::TweakDBManager::DescribeCustomRecord(const TweakDBRecordInfo* aRecordInfo,
-                                               Red::ScriptingFunction_t<void*> aGetterFunction)
+bool Red::TweakDBManager::DescribeCustomRecord(const Core::SharedPtr<Red::TweakDBRecordInfo>& aRecordInfo,
+                                               const Red::ScriptingFunction_t<void*> aGetterFunction)
 {
     if (!aRecordInfo || !aRecordInfo->IsCustom())
         return false;
 
-    auto* rtti = CRTTISystem::Get();
-    auto* cls = rtti->GetClass(aRecordInfo->GetType());
+    auto* cls = m_rtti->GetClass(aRecordInfo->GetType());
 
     m_rtti->RegisterScriptName(aRecordInfo->GetType(), aRecordInfo->GetAliasName());
 
     if (aRecordInfo->GetParent())
     {
-        auto* parentCls = rtti->GetClass(aRecordInfo->GetParent());
-        if (!parentCls || !TweakDBReflection::IsRecordType(parentCls))
-            return false;
-        cls->parent = parentCls;
+        auto* parentCls = m_rtti->GetClass(aRecordInfo->GetParent());
+        if (!parentCls || !parentCls->IsA(m_rtti->GetClass(App::CustomTweakDBRecord::NAME)))
+            cls->parent = parentCls;
+        else
+            cls->parent = m_rtti->GetClass(App::CustomTweakDBRecord::NAME);
     }
     else
     {
         cls->parent = m_rtti->GetClass(App::CustomTweakDBRecord::NAME);
     }
 
-    for (const auto& propInfo : aRecordInfo->GetProperties() | std::views::values)
+    for (const auto propInfo : aRecordInfo->GetProperties() | std::views::values)
     {
-        DescribeCustomRecordProperty(cls, propInfo.get(), aGetterFunction);
+        DescribeCustomRecordProperty(cls, propInfo, aGetterFunction);
+        InsertPropertyFlat(aRecordInfo->GetType(), propInfo);
     }
 
     return true;
 }
 
-void Red::TweakDBManager::DescribeCustomRecordProperty(CClass* cls, const Red::TweakDBPropertyInfo* aPropertyInfo,
-                                                       const Red::ScriptingFunction_t<void*> aGetterFunction)
+void Red::TweakDBManager::DescribeCustomRecordProperty(
+    CClass* cls, const Core::SharedPtr<const Red::TweakDBPropertyInfo>& aPropertyInfo,
+    const Red::ScriptingFunction_t<void*> aGetterFunction)
 {
     auto* function = Red::CClassFunction::Create(cls, aPropertyInfo->GetFunctionName().ToString(),
                                                  aPropertyInfo->GetFunctionName().ToString(), aGetterFunction);
     function->SetReturnType(aPropertyInfo->GetType());
+}
+
+void Red::TweakDBManager::InsertPropertyFlat(CName aRecordName,
+                                             const Core::SharedPtr<const Red::TweakDBPropertyInfo>& aPropertyInfo)
+{
+    const auto id = TweakDBReflection::BuildRootTweakDBID(aRecordName.ToString(), aPropertyInfo->GetName().ToString());
+    const auto ptr = TweakDBReflection::Construct(aPropertyInfo->GetType().GetName());
+    SetFlat(id, TweakDBReflection::GetFlatType(aPropertyInfo->GetType()), ptr.get());
+}
+
+void* Red::TweakDBManager::GetCustomRecordValue(const App::CustomTweakDBRecord* aRecord, CName functionName)
+{
+    if (const auto* recordInfo = m_reflection->FindCustomRecordInfo(aRecord->GetTweakBaseHash()))
+    {
+        std::string propName = functionName.ToString();
+        propName[0] = static_cast<char>(std::tolower(propName[0]));
+
+        if (const auto propertyInfo = recordInfo->GetProperty(propName.c_str()))
+        {
+            if (const auto flat = GetFlat(aRecord->recordID + propertyInfo->GetAppendix()); flat && flat.instance)
+            {
+                return flat.instance;
+            }
+        }
+    }
+    return nullptr;
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "App/Tweaks/Record/CustomTweakDBRecord.hpp"
 #include "Red/TweakDB/Alias.hpp"
 #include "Red/TweakDB/Buffer.hpp"
 #include "Red/TweakDB/Reflection.hpp"
@@ -59,8 +60,10 @@ public:
     void RegisterName(const BatchPtr& aBatch, Red::TweakDBID aId, const std::string& aName);
     void CommitBatch(const BatchPtr& aBatch);
 
-    bool RegisterCustomRecord(const TweakDBRecordInfo* aRecordInfo);
-    bool DescribeCustomRecord(const TweakDBRecordInfo* aRecordInfo, Red::ScriptingFunction_t<void*> aGetterFunction);
+    bool RegisterCustomRecord(const Core::SharedPtr<Red::TweakDBRecordInfo>& aRecordInfo) const;
+    bool DescribeCustomRecord(const Core::SharedPtr<Red::TweakDBRecordInfo>& aRecordInfo,
+                              Red::ScriptingFunction_t<void*> aGetterFunction);
+    void* GetCustomRecordValue(const App::CustomTweakDBRecord* aRecord, CName functionName);
 
     void Invalidate();
 
@@ -86,7 +89,11 @@ private:
     void CreateBaseName(Red::TweakDBID aId, const std::string& aName);
     void CreateExtraNames(Red::TweakDBID aId, const std::string& aName, const Red::CClass* aType = nullptr);
 
-    void DescribeCustomRecordProperty(CClass* cls, const Red::TweakDBPropertyInfo* aPropertyInfo, Red::ScriptingFunction_t<void*> aGetterFunction);
+    void DescribeCustomRecordProperty(Red::CClass* cls,
+                                      const Core::SharedPtr<const Red::TweakDBPropertyInfo>& aPropertyInfo,
+                                      Red::ScriptingFunction_t<void*> aGetterFunction);
+    void InsertPropertyFlat(Red::CName aRecordName,
+                            const Core::SharedPtr<const Red::TweakDBPropertyInfo>& aPropertyInfo);
 
     Red::TweakDB* m_tweakDb;
     Red::CRTTISystem* m_rtti;
