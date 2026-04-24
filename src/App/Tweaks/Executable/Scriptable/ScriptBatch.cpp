@@ -12,7 +12,7 @@ bool App::ScriptBatch::SetFlat(Red::TweakDBID aFlatID, Red::Variant& aVariant) c
 {
     if (m_batch && !aVariant.IsEmpty())
     {
-        ConvertScriptValueForFlatValue(aVariant, m_reflection);
+        ConvertScriptValueForFlatValue(aVariant);
         return m_manager->SetFlat(m_batch, aFlatID, aVariant.GetType(), aVariant.GetDataPtr());
     }
 
@@ -23,7 +23,7 @@ bool App::ScriptBatch::CreateRecord(Red::TweakDBID aRecordID, Red::CName aTypeNa
 {
     if (m_batch && aTypeName)
     {
-        return m_manager->CreateRecord(m_batch, aRecordID, m_reflection->GetRecordType(aTypeName));
+        return m_manager->CreateRecord(m_batch, aRecordID, Red::TweakDBUtil::GetRecordType(aTypeName));
     }
 
     return false;
