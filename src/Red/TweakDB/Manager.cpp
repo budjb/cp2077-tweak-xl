@@ -1,7 +1,5 @@
 #include "Manager.hpp"
-
 #include "Red/TweakDB/Raws.hpp"
-#include "ScriptableTweakDBRecord.hpp"
 
 namespace
 {
@@ -12,7 +10,6 @@ Red::TweakDBManager::TweakDBManager(Core::SharedPtr<Red::TweakDBReflection> aRef
     : m_tweakDb(aReflection->GetTweakDB())
     , m_buffer(Core::MakeShared<Red::TweakDBBuffer>(m_tweakDb))
     , m_reflection(std::move(aReflection))
-    , m_rtti(Red::CRTTISystem::Get())
 {
 }
 
@@ -35,7 +32,7 @@ Red::Value<> Red::TweakDBManager::GetFlat(Red::TweakDBID aFlatId)
 
 Red::Value<> Red::TweakDBManager::GetDefault(const Red::CBaseRTTIType* aType)
 {
-    if (!m_reflection->IsFlatType(aType))
+    if (!TweakDBUtil::IsFlatType(aType))
         return {};
 
     return m_buffer->GetValue(m_buffer->AllocateDefault(aType));
@@ -73,7 +70,7 @@ bool Red::TweakDBManager::IsRecordExists(Red::TweakDBID aRecordId)
 
 bool Red::TweakDBManager::SetFlat(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, Red::Instance aInstance)
 {
-    if (!aFlatId.IsValid() || !aInstance || !m_reflection->IsFlatType(aType))
+    if (!aFlatId.IsValid() || !aInstance || !TweakDBUtil::IsFlatType(aType))
         return false;
 
     return AssignFlat(m_tweakDb->flats, aFlatId, aType, aInstance, m_tweakDb->mutex00);
@@ -106,16 +103,6 @@ bool Red::TweakDBManager::CreateRecord(Red::TweakDBID aRecordId, const Red::CCla
     m_tweakDb->CreateRecord(aRecordId, recordInfo->typeHash);
 
     return true;
-}
-
-bool Red::TweakDBManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, Red::TweakDBID aRecordId, uint32_t aHash)
-{
-    if (const auto instance = m_reflection->ConstructScriptableRecord(aRecordId, aHash))
-    {
-        Raw::InsertRecord(aTweakDB, aRecordId, instance->GetType(), instance);
-        return true;
-    }
-    return false;
 }
 
 bool Red::TweakDBManager::CloneRecord(Red::TweakDBID aRecordId, Red::TweakDBID aSourceId)
@@ -267,7 +254,7 @@ bool Red::TweakDBManager::IsRecordExists(const Red::TweakDBManager::BatchPtr& aB
 bool Red::TweakDBManager::SetFlat(const Red::TweakDBManager::BatchPtr& aBatch, Red::TweakDBID aFlatId,
                                   const Red::CBaseRTTIType* aType, Red::Instance aInstance)
 {
-    if (!aFlatId.IsValid() || !aInstance || !m_reflection->IsFlatType(aType))
+    if (!aFlatId.IsValid() || !aInstance || !TweakDBUtil::IsFlatType(aType))
         return false;
 
     return AssignFlat(aBatch, aFlatId, {aType, aInstance});
@@ -276,7 +263,7 @@ bool Red::TweakDBManager::SetFlat(const Red::TweakDBManager::BatchPtr& aBatch, R
 bool Red::TweakDBManager::SetFlat(const Red::TweakDBManager::BatchPtr& aBatch, Red::TweakDBID aFlatId,
                                   const Red::Value<>& aValue)
 {
-    if (!aFlatId.IsValid() || !aValue.instance || !m_reflection->IsFlatType(aValue.type))
+    if (!aFlatId.IsValid() || !aValue.instance || !TweakDBUtil::IsFlatType(aValue.type))
         return false;
 
     return AssignFlat(aBatch, aFlatId, aValue);
@@ -689,31 +676,4 @@ const Core::Set<Red::TweakDBID>& Red::TweakDBManager::GetEnums()
     std::shared_lock _(m_mutex);
 
     return m_knownEnums;
-}
-
-bool Red::TweakDBManager::RegisterScriptableRecordType(const std::string& aName, Red::CClass* aParent)
-{
-    return m_reflection->RegisterScriptableRecordType(aName, aParent) ? true : false;
-}
-
-bool Red::TweakDBManager::RegisterScriptableProperty(const std::string& aName, const std::string& aPropertyName,
-                                                     const uint64_t aFlatType, const Red::CClass* aForeignType)
-{
-    const auto recordInfo = m_reflection->GetRecordInfo(aName);
-
-    if (!recordInfo)
-        return false;
-
-    const auto propertyInfo =
-        m_reflection->RegisterScriptableProperty(recordInfo, aPropertyName, aFlatType, aForeignType);
-    if (!propertyInfo)
-        return false;
-
-    // TODO: handle populating default values other than "empty"
-    const auto instance = m_reflection->Construct(propertyInfo->type);
-    if (!instance)
-        return false;
-
-    const auto flatId = m_reflection->BuildRTDBID(recordInfo->shortName, propertyInfo->name);
-    return SetFlat(flatId, propertyInfo->type, instance.get());
 }

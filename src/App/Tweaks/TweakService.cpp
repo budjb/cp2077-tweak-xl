@@ -4,7 +4,6 @@
 #include "App/Tweaks/Metadata/MetadataExporter.hpp"
 #include "App/Tweaks/Metadata/MetadataImporter.hpp"
 #include "Red/TweakDB/Raws.hpp"
-#include "Red/TweakDB/ScriptableTweakDBRecord.hpp"
 
 App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesystem::path aGameDir,
                                 std::filesystem::path aTweaksDir, std::filesystem::path aInheritanceMapPath,
@@ -15,6 +14,7 @@ App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesyste
     , m_inheritanceMapPath(std::move(aInheritanceMapPath))
     , m_extraFlatsPath(std::move(aExtraFlatsPath))
     , m_productVer(aProductVer)
+    , m_scriptableRecordManager(Core::MakeShared<App::ScriptableRecordManager>())
 {
     m_importPaths.push_back(m_tweaksDir);
 }
@@ -22,6 +22,8 @@ App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesyste
 void App::TweakService::OnBootstrap()
 {
     CreateTweaksDir();
+
+    // TODO: do the needful
 
     HookAfter<Raw::TryLoadTweakDB>([&](bool& aSuccess) {
         if (aSuccess)
@@ -57,7 +59,7 @@ void App::TweakService::OnBootstrap()
 
     HookWrap<Raw::CreateRecord>([&](const CreateRecordFunction aOriginal, Red::TweakDB* aTweakDB,
                                     const uint32_t aTypeHash, const Red::TweakDBID aTweakDBID) {
-        if (!m_manager || !m_manager->CreateScriptableRecord(aTweakDB, aTweakDBID, aTypeHash))
+        if (!m_scriptableRecordManager->CreateScriptableRecord(aTweakDB, aTweakDBID, aTypeHash))
         {
             aOriginal(aTweakDB, aTypeHash, aTweakDBID);
         }
@@ -232,28 +234,28 @@ App::TweakChangelog& App::TweakService::GetChangelog()
 
 void App::TweakService::RegisterTestScriptableRecord() const
 {
-    static constexpr auto recordName = "TweakXLTest";
-
-    if (!m_manager->RegisterScriptableRecordType("TweakXLTest"))
-    {
-        LogError("Failed to register scriptable TweakDB record type {}.", recordName);
-        return;
-    }
-
-    if (!m_manager->RegisterScriptableProperty(recordName, "foo", Red::ERTDBFlatType::CName))
-    {
-        LogError("Failed to register scriptable TweakDB record property \"foo\".");
-    }
-
-    if (!m_manager->RegisterScriptableProperty(recordName, "bar", Red::ERTDBFlatType::CName))
-    {
-        LogError("Failed to register scriptable TweakDB record property \"bar\".");
-    }
+    // static constexpr auto recordName = "TweakXLTest";
+    //
+    // if (!m_manager->RegisterScriptableRecordType("TweakXLTest"))
+    // {
+    //     LogError("Failed to register scriptable TweakDB record type {}.", recordName);
+    //     return;
+    // }
+    //
+    // if (!m_manager->RegisterScriptableProperty(recordName, "foo", Red::ERTDBFlatType::CName))
+    // {
+    //     LogError("Failed to register scriptable TweakDB record property \"foo\".");
+    // }
+    //
+    // if (!m_manager->RegisterScriptableProperty(recordName, "bar", Red::ERTDBFlatType::CName))
+    // {
+    //     LogError("Failed to register scriptable TweakDB record property \"bar\".");
+    // }
 }
 
 void App::TweakService::TestScriptableRecord()
 {
-    using recordType = Red::TypeLocator<Red::CName("gamedataTweakXLTest_Record")>;
+    using recordType = Red::TypeLocator<"gamedataTweakXLTest_Record">;
     using cnameType = Red::TypeLocator<"CName">;
 
     static auto recordID = Red::TweakDBID{"test.tweakxl.scriptable"};
@@ -287,3 +289,13 @@ void App::TweakService::TestScriptableRecord()
 }
 
 #endif
+
+void App::TweakService::DoShit()
+{
+    static auto rtti = Red::CRTTISystem::Get();
+
+    rtti->AddRegisterCallback(
+        Red::Callback<void (*)()>{m_scriptableRecordManager.get(), &ScriptableRecordManager::RegisterScriptableRecordSpecs});
+    rtti->AddPostRegisterCallback(
+        Red::Callback<void (*)()>{m_scriptableRecordManager.get(), &ScriptableRecordManager::DescribeScriptableRecordSpecs});
+}

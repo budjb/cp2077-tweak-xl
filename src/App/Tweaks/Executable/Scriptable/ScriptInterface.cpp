@@ -73,7 +73,7 @@ void App::ScriptInterface::GetRecords(Red::IScriptable*, Red::CStackFrame* aFram
     if (!aRet)
         return;
 
-    auto records = FetchRecords(s_reflection->GetRecordFullName(recordTypeName));
+    auto records = FetchRecords(Red::TweakDBUtil::GetRecordFullName<Red::CName>(recordTypeName));
 
     if (!records || records->IsEmpty())
         return;

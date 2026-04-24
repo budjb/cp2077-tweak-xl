@@ -51,3 +51,7 @@
 #include "Red/Value.hpp"
 
 #include "Red/Addresses/Library.hpp"
+
+#include "Red/TweakDB/Types.hpp"
+#include "Red/TweakDB/Util.hpp"
+

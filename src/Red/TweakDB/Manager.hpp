@@ -1,7 +1,5 @@
 #pragma once
 
-#include <memory>
-
 #include "Red/TweakDB/Alias.hpp"
 #include "Red/TweakDB/Buffer.hpp"
 #include "Red/TweakDB/Reflection.hpp"
@@ -38,7 +36,6 @@ public:
     bool SetFlat(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, Red::Instance aInstance);
     bool SetFlat(Red::TweakDBID aFlatId, const Red::Value<>& aData);
     bool CreateRecord(Red::TweakDBID aRecordId, const Red::CClass* aType);
-    bool CreateScriptableRecord(Red::TweakDB* aTweakDB, Red::TweakDBID aRecordId, uint32_t aHash);
     bool CloneRecord(Red::TweakDBID aRecordId, Red::TweakDBID aSourceId);
     bool InheritProps(Red::TweakDBID aRecordId, Red::TweakDBID aSourceId);
     bool UpdateRecord(Red::TweakDBID aRecordId);
@@ -62,10 +59,6 @@ public:
     void RegisterEnum(const BatchPtr& aBatch, Red::TweakDBID aRecordId);
     void RegisterName(const BatchPtr& aBatch, Red::TweakDBID aId, const std::string& aName);
     void CommitBatch(const BatchPtr& aBatch);
-
-    bool RegisterScriptableRecordType(const std::string& aName, Red::CClass* aParent = nullptr);
-    bool RegisterScriptableProperty(const std::string& aName, const std::string& aPropertyName, uint64_t aFlatType,
-                                    const Red::CClass* aForeignType = nullptr);
 
     void Invalidate();
 
@@ -92,7 +85,6 @@ private:
     void CreateExtraNames(Red::TweakDBID aId, const std::string& aName, const Red::CClass* aType = nullptr);
 
     Red::TweakDB* m_tweakDb;
-    Red::CRTTISystem* m_rtti;
     Core::SharedPtr<Red::TweakDBBuffer> m_buffer;
     Core::SharedPtr<Red::TweakDBReflection> m_reflection;
     Core::Map<Red::TweakDBID, std::string> m_knownNames;
