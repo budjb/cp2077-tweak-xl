@@ -44,7 +44,6 @@ using PropertyInfo = Core::SharedPtr<Red::TweakDBPropertyInfo>;
 struct TweakDBPropertyInfo
 {
     Red::CName name;
-    Red::CName functionName;
     const Red::CBaseRTTIType* type;
     const Red::CBaseRTTIType* elementType;
     const Red::CClass* foreignType;
@@ -58,11 +57,9 @@ struct TweakDBPropertyInfo
 struct TweakDBRecordInfo
 {
     Red::CName name;
-    Red::CName aliasName;
     Red::CClass* type;
     Red::CClass* parent;
     Core::Map<Red::CName, PropertyInfo> props;
-    bool isScriptable;
     std::string shortName;
     uint32_t typeHash;
 

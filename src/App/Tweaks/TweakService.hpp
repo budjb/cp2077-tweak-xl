@@ -48,8 +48,8 @@ protected:
     void CreateTweaksDir();
     void EnsureRuntimeAccess();
     void ApplyPatches();
-
-    void DoShit();
+    void InsertScriptableRecordDefaults();
+    void SetupScriptableRecords();
 
     std::filesystem::path m_gameDir;
     std::filesystem::path m_tweaksDir;
@@ -65,10 +65,5 @@ protected:
     Core::SharedPtr<App::TweakExecutor> m_executor;
     Core::SharedPtr<App::TweakContext> m_context;
     Core::SharedPtr<App::ScriptableRecordManager> m_scriptableRecordManager;
-
-#ifndef NDEBUG
-    void RegisterTestScriptableRecord() const;
-    void TestScriptableRecord();
-#endif
 };
 } // namespace App

@@ -23,7 +23,7 @@ void App::TweakService::OnBootstrap()
 {
     CreateTweaksDir();
 
-    // TODO: do the needful
+    SetupScriptableRecords();
 
     HookAfter<Raw::TryLoadTweakDB>([&](bool& aSuccess) {
         if (aSuccess)
@@ -35,19 +35,16 @@ void App::TweakService::OnBootstrap()
             m_executor = Core::MakeShared<App::TweakExecutor>(m_manager);
             m_changelog = Core::MakeShared<App::TweakChangelog>();
 
-#ifndef NDEBUG
-            RegisterTestScriptableRecord();
-#endif
-
             if (ImportMetadata())
             {
                 EnsureRuntimeAccess();
                 ApplyPatches();
+                InsertScriptableRecordDefaults();
                 LoadTweaks(false);
             }
 
 #ifndef NDEBUG
-            TestScriptableRecord();
+            m_scriptableRecordManager->TestScriptableRecord(m_manager);
 #endif
         }
     });
@@ -59,7 +56,7 @@ void App::TweakService::OnBootstrap()
 
     HookWrap<Raw::CreateRecord>([&](const CreateRecordFunction aOriginal, Red::TweakDB* aTweakDB,
                                     const uint32_t aTypeHash, const Red::TweakDBID aTweakDBID) {
-        if (!m_scriptableRecordManager->CreateScriptableRecord(aTweakDB, aTweakDBID, aTypeHash))
+        if (!m_scriptableRecordManager->CreateScriptableRecord(aTweakDB, aTypeHash, aTweakDBID))
         {
             aOriginal(aTweakDB, aTypeHash, aTweakDBID);
         }
@@ -230,72 +227,20 @@ App::TweakChangelog& App::TweakService::GetChangelog()
     return *m_changelog;
 }
 
-#ifndef NDEBUG
-
-void App::TweakService::RegisterTestScriptableRecord() const
+void App::TweakService::InsertScriptableRecordDefaults()
 {
-    // static constexpr auto recordName = "TweakXLTest";
-    //
-    // if (!m_manager->RegisterScriptableRecordType("TweakXLTest"))
-    // {
-    //     LogError("Failed to register scriptable TweakDB record type {}.", recordName);
-    //     return;
-    // }
-    //
-    // if (!m_manager->RegisterScriptableProperty(recordName, "foo", Red::ERTDBFlatType::CName))
-    // {
-    //     LogError("Failed to register scriptable TweakDB record property \"foo\".");
-    // }
-    //
-    // if (!m_manager->RegisterScriptableProperty(recordName, "bar", Red::ERTDBFlatType::CName))
-    // {
-    //     LogError("Failed to register scriptable TweakDB record property \"bar\".");
-    // }
-}
-
-void App::TweakService::TestScriptableRecord()
-{
-    using recordType = Red::TypeLocator<"gamedataTweakXLTest_Record">;
-    using cnameType = Red::TypeLocator<"CName">;
-
-    static auto recordID = Red::TweakDBID{"test.tweakxl.scriptable"};
-    static auto fooValue = Red::CNamePool::Add("test foo value");
-    static auto barValue = Red::CNamePool::Add("test bar value");
-    static auto fooAppendix = std::string_view(".foo");
-    static auto barAppendix = std::string_view(".bar");
-
-    assert(m_manager->CreateRecord(recordID, recordType::GetClass()));
-    assert(m_manager->SetFlat(recordID + fooAppendix, cnameType::GetClass(), &fooValue));
-    assert(m_manager->SetFlat(recordID + barAppendix, cnameType::GetClass(), &barValue));
-
-    const auto record =
-        reinterpret_cast<Red::ScriptableTweakDBRecord*>(m_manager->GetTweakDB()->GetRecord(recordID).instance);
-
-    assert(record);
-
+    if (m_manager && m_scriptableRecordManager)
     {
-        auto* func = recordType::GetClass()->GetFunction("Foo");
-        Red::CName result;
-        assert(Red::ExecuteFunction(record, func, &result));
-        assert(result && strcmp(result.ToString(), "test foo value") == 0);
-    }
-
-    {
-        auto* func = recordType::GetClass()->GetFunction("Bar");
-        Red::CName result;
-        assert(Red::ExecuteFunction(record, func, &result));
-        assert(result && strcmp(result.ToString(), "test bar value") == 0);
+        m_scriptableRecordManager->InsertScriptableRecordDefaults(m_manager);
     }
 }
 
-#endif
-
-void App::TweakService::DoShit()
+void App::TweakService::SetupScriptableRecords()
 {
     static auto rtti = Red::CRTTISystem::Get();
 
-    rtti->AddRegisterCallback(
-        Red::Callback<void (*)()>{m_scriptableRecordManager.get(), &ScriptableRecordManager::RegisterScriptableRecordSpecs});
-    rtti->AddPostRegisterCallback(
-        Red::Callback<void (*)()>{m_scriptableRecordManager.get(), &ScriptableRecordManager::DescribeScriptableRecordSpecs});
+    rtti->AddRegisterCallback(Red::Callback<void (*)()>{m_scriptableRecordManager.get(),
+                                                        &ScriptableRecordManager::RegisterScriptableRecordSpecs});
+    rtti->AddPostRegisterCallback(Red::Callback<void (*)()>{m_scriptableRecordManager.get(),
+                                                            &ScriptableRecordManager::DescribeScriptableRecordSpecs});
 }
