@@ -93,9 +93,33 @@ template<>
 
 template<>
 [[nodiscard]] CName GetRecordAliasName(CName aName);
+
+template<typename T>
+T GetRecordShortName(const std::string& aName);
+
+template<typename T>
+T GetRecordShortName(CName aName);
+
+template<typename T>
+T GetRecordShortName(const char* aName);
+
+template<>
 std::string GetRecordShortName(const std::string& aName);
+
+template<>
 std::string GetRecordShortName(CName aName);
+
+template<>
 std::string GetRecordShortName(const char* aName);
+
+template<>
+CName GetRecordShortName(const std::string& aName);
+
+template<>
+CName GetRecordShortName(CName aName);
+
+template<>
+CName GetRecordShortName(const char* aName);
 
 std::string GetPropertyFunctionName(CName aName);
 

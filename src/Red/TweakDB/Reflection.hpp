@@ -28,8 +28,6 @@ public:
 
     Red::TweakDB* GetTweakDB();
 
-    Red::TweakDBID BuildRTDBID(const std::string& aRecordName, Red::CName aPropertyName);
-
 private:
     struct ExtraFlat
     {
@@ -43,8 +41,6 @@ private:
     using ExtraFlatMap = Core::Map<Red::CName, Core::Vector<ExtraFlat>>;
     using RecordInfoByNameMap = Core::Map<Red::CName, RecordInfo>;
     using RecordInfoByHashMap = Core::Map<uint32_t, RecordInfo>;
-
-    Red::CName RegisterCName(const std::string& aName) const;
 
     Red::RecordInfo CollectRecordInfo(Red::CClass* aType, Red::TweakDBID aSampleId = {});
     Red::TweakDBID GetRecordSampleId(const Red::CClass* aType);

@@ -326,7 +326,7 @@ std::string GetRecordFullName(const CName aName)
 }
 
 template<>
-std::string GetRecordAliasName<std::string>(const std::string& aName)
+std::string GetRecordAliasName(const std::string& aName)
 {
     std::string finalName = aName;
 
@@ -381,11 +381,17 @@ CName GetRecordFullName(const CName aName)
 }
 
 template<>
+CName GetRecordAliasName(const std::string& aName)
+{
+    return CName(GetRecordAliasName<std::string>(aName).c_str());
+}
+
+template<>
 CName GetRecordAliasName(const char* aName)
 {
     if (aName)
     {
-        return GetRecordAliasName<CName>(aName);
+        return GetRecordAliasName<CName>(std::string(aName));
     }
     return {};
 }
@@ -396,6 +402,7 @@ CName GetRecordAliasName(const CName aName)
     return GetRecordAliasName<CName>(aName.ToString());
 }
 
+template<>
 std::string GetRecordShortName(const std::string& aName)
 {
     std::string finalName = aName;
@@ -409,16 +416,40 @@ std::string GetRecordShortName(const std::string& aName)
     return finalName;
 }
 
+template<>
 std::string GetRecordShortName(CName aName)
 {
-    return GetRecordShortName(aName.ToString());
+    return GetRecordShortName<std::string>(aName.ToString());
 }
 
+template<>
 std::string GetRecordShortName(const char* aName)
 {
     if (aName)
     {
-        return GetRecordShortName(std::string(aName));
+        return GetRecordShortName<std::string>(std::string(aName));
+    }
+    return {};
+}
+
+template<>
+CName GetRecordShortName(const std::string& aName)
+{
+    return CName{GetRecordShortName<std::string>(aName).c_str()};
+}
+
+template<>
+CName GetRecordShortName(CName aName)
+{
+    return GetRecordShortName<CName>(aName.ToString());
+}
+
+template<>
+CName GetRecordShortName(const char* aName)
+{
+    if (aName)
+    {
+        return GetRecordShortName<CName>(std::string(aName));
     }
     return {};
 }
@@ -442,7 +473,7 @@ uint32_t GetRecordTypeHash(const std::string& aName)
 
 uint32_t GetRecordTypeHash(const char* aName)
 {
-    const std::string shortName = GetRecordShortName(aName);
+    const auto shortName = GetRecordShortName<std::string>(aName);
     return Murmur3_32(reinterpret_cast<const uint8_t*>(shortName.data()), shortName.size());
 }
 
@@ -497,6 +528,50 @@ InstancePtr<> Construct(const CBaseRTTIType* aType)
         return {};
 
     return Construct(aType->GetName());
+}
+
+ValuePtr<> ConstructValue(const CBaseRTTIType* aType)
+{
+    if (!aType || !IsFlatType(aType))
+        return {};
+
+    // clang-format off
+    switch (aType->GetName())
+    {
+    case ERTDBFlatType::Int: return MakeValue(aType);
+    case ERTDBFlatType::Float: return MakeValue(aType);
+    case ERTDBFlatType::Bool: return MakeValue(aType);
+    case ERTDBFlatType::String: return MakeValue(aType);
+    case ERTDBFlatType::CName: return MakeValue(aType);
+    case ERTDBFlatType::LocKey: return MakeValue(aType);
+    case ERTDBFlatType::ResRef: return MakeValue(aType);
+    case ERTDBFlatType::TweakDBID: return MakeValue(aType);
+    case ERTDBFlatType::Quaternion: return MakeValue(aType);
+    case ERTDBFlatType::EulerAngles: return MakeValue(aType);
+    case ERTDBFlatType::Vector3: return MakeValue(aType);
+    case ERTDBFlatType::Vector2: return MakeValue(aType);
+    case ERTDBFlatType::Color: return MakeValue(aType);
+    case ERTDBFlatType::IntArray: return MakeValue(aType);
+    case ERTDBFlatType::FloatArray: return MakeValue(aType);
+    case ERTDBFlatType::BoolArray: return MakeValue(aType);
+    case ERTDBFlatType::StringArray: return MakeValue(aType);
+    case ERTDBFlatType::CNameArray: return MakeValue(aType);
+    case ERTDBFlatType::LocKeyArray: return MakeValue(aType);
+    case ERTDBFlatType::ResRefArray: return MakeValue(aType);
+    case ERTDBFlatType::TweakDBIDArray: return MakeValue(aType);
+    case ERTDBFlatType::QuaternionArray: return MakeValue(aType);
+    case ERTDBFlatType::EulerAnglesArray: return MakeValue(aType);
+    case ERTDBFlatType::Vector3Array: return MakeValue(aType);
+    case ERTDBFlatType::Vector2Array: return MakeValue(aType);
+    case ERTDBFlatType::ColorArray: return MakeValue(aType);
+    default: return {};
+    }
+    // clang-format on}
+}
+
+ValuePtr<> ConstructValue(CName aTypeName)
+{
+    return ConstructValue(CRTTISystem::Get()->GetType(aTypeName));
 }
 
 } // namespace Red::TweakDBUtil

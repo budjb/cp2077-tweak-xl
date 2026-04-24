@@ -69,11 +69,6 @@ Red::RecordInfo Red::TweakDBReflection::GetRecordInfo(const Red::CClass* aType, 
     return GetRecordInfo(const_cast<Red::CClass*>(aType), aCollect);
 }
 
-Red::CName Red::TweakDBReflection::RegisterCName(const std::string& aName) const
-{
-    return Red::CName(aName.c_str());
-}
-
 Red::RecordInfo Red::TweakDBReflection::CollectRecordInfo(Red::CClass* aType, Red::TweakDBID aSampleId)
 {
     if (!TweakDBUtil::IsRecordType(aType))
@@ -262,7 +257,7 @@ std::optional<int32_t> Red::TweakDBReflection::ResolveDefaultValue(const Red::CC
 {
     std::string defaultFlatName = TweakSource::SchemaPackage;
     defaultFlatName.append(NameSeparator);
-    defaultFlatName.append(TweakDBUtil::GetRecordShortName(aType->GetName()));
+    defaultFlatName.append(TweakDBUtil::GetRecordShortName<std::string>(aType->GetName()));
 
     if (!aPropName.starts_with(NameSeparator))
     {
@@ -376,11 +371,6 @@ bool Red::TweakDBReflection::IsValid(const PropertyInfo& aPropInfo)
         return false;
     }
 
-    if (!aPropInfo->isExtra && aPropInfo->functionName.IsNone())
-    {
-        return false;
-    }
-
     switch (aPropInfo->type->GetName())
     {
     case ERTDBFlatType::Int:
@@ -422,8 +412,8 @@ bool Red::TweakDBReflection::IsValid(const PropertyInfo& aPropInfo)
 
 bool Red::TweakDBReflection::IsValid(const RecordInfo& aRecordInfo)
 {
-    if (aRecordInfo->name.IsNone() || aRecordInfo->aliasName.IsNone() || aRecordInfo->shortName.empty() ||
-        !aRecordInfo->type || aRecordInfo->type->GetName() != aRecordInfo->name)
+    if (aRecordInfo->name.IsNone() || aRecordInfo->shortName.empty() || !aRecordInfo->type ||
+        aRecordInfo->type->GetName() != aRecordInfo->name)
     {
         return false;
     }
@@ -436,22 +426,11 @@ bool Red::TweakDBReflection::IsValid(const RecordInfo& aRecordInfo)
     return true;
 }
 
-Red::TweakDBID Red::TweakDBReflection::BuildRTDBID(const std::string& aRecordName, Red::CName aPropertyName)
-{
-    std::string id = TweakSource::SchemaPackage;
-    id.append(NameSeparator);
-    id.append(aRecordName);
-    id.append(NameSeparator);
-    id.append(aPropertyName.ToString());
-    return TweakDBID{id};
-}
-
 Red::RecordInfo Red::TweakDBReflection::CreateRecordInfo(Red::CClass* aClass)
 {
     const auto recordInfo = Core::MakeShared<Red::TweakDBRecordInfo>();
     recordInfo->name = aClass->GetName();
-    recordInfo->aliasName = TweakDBUtil::GetRecordAliasName<Red::CName>(recordInfo->name);
-    recordInfo->shortName = TweakDBUtil::GetRecordShortName(recordInfo->name);
+    recordInfo->shortName = TweakDBUtil::GetRecordShortName<std::string>(recordInfo->name);
     recordInfo->type = aClass;
     recordInfo->typeHash = TweakDBUtil::GetRecordTypeHash(recordInfo->type);
     return recordInfo;
@@ -466,11 +445,10 @@ Red::PropertyInfo Red::TweakDBReflection::CreatePropertyInfo(const std::string& 
                                                              const Red::CBaseRTTIType* aFlatType)
 {
     const auto propInfo = Core::MakeShared<Red::TweakDBPropertyInfo>();
-    propInfo->name = RegisterCName(aName);
+    propInfo->name = CNamePool::Add(aName.c_str());
     propInfo->type = aFlatType;
     propInfo->appendix = PropSeparator;
-    propInfo->appendix.append(propInfo->name.ToString());
-    propInfo->functionName = CNamePool::Add(TweakDBUtil::GetPropertyFunctionName(propInfo->name).c_str());
+    propInfo->appendix.append(aName);
 
     if (TweakDBUtil::IsArrayType(propInfo->type))
     {

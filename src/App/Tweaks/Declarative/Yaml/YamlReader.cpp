@@ -358,7 +358,7 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
     {
         if (Red::TweakDBUtil::IsRecordType(aRecordType))
             LogError("{}: Cannot create record, the record type {} is abstract.", aRecordPath,
-                     Red::TweakDBUtil::GetRecordShortName(aRecordType->GetName()));
+                     Red::TweakDBUtil::GetRecordShortName<std::string>(aRecordType->GetName()));
         else
             LogError("{}: Cannot create record, {} is not a record type.", aRecordPath, aRecordType->GetName().ToString());
         return;
