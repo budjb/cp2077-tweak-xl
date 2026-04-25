@@ -167,7 +167,7 @@ bool App::MetadataImporter::ImportExtraFlats(const std::filesystem::path& aPath)
 
                 const auto propType = Red::CName(propTypeNode.Scalar().data());
 
-                if (!Red::TweakDBUtil::IsFlatType(propType))
+                if (!Red::ERTDBFlatType::IsFlatType(propType))
                     return false;
 
                 const auto& foreignTypeNode = propDataNode["foreignType"];

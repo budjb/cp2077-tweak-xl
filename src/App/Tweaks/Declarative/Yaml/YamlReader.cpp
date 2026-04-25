@@ -275,9 +275,9 @@ void App::YamlReader::HandleFlatNode(App::TweakChangeset& aChangeset, const std:
     {
         flatType = aType;
 
-        if (Red::TweakDBUtil::IsArrayType(flatType))
+        if (Red::ERTDBFlatType::IsArrayType(flatType))
         {
-            const auto elementType = ResolveFlatType(Red::TweakDBUtil::GetElementTypeName(flatType));
+            const auto elementType = ResolveFlatType(Red::ERTDBFlatType::GetElementTypeName(flatType));
 
             if (HandleMutations(aChangeset, aName, aName, aNode, elementType))
             {
@@ -304,11 +304,11 @@ void App::YamlReader::HandleFlatNode(App::TweakChangeset& aChangeset, const std:
             return;
         }
 
-        flatType = Red::TweakDBUtil::GetFlatType(x.first);
+        flatType = Red::ERTDBFlatType::GetType(x.first);
 
-        if (Red::TweakDBUtil::IsArrayType(flatType))
+        if (Red::ERTDBFlatType::IsArrayType(flatType))
         {
-            const auto elementType = ResolveFlatType(Red::TweakDBUtil::GetElementTypeName(flatType));
+            const auto elementType = ResolveFlatType(Red::ERTDBFlatType::GetElementTypeName(flatType));
 
             if (HandleMutations(aChangeset, aName, aName, aNode, elementType))
             {
@@ -712,12 +712,12 @@ bool App::YamlReader::HandleMutations(TweakChangeset& aChangeset, const std::str
 
 const Red::CBaseRTTIType* App::YamlReader::ResolveFlatType(const YAML::Node& aNode)
 {
-    return Red::TweakDBUtil::GetFlatType(aNode.Scalar().c_str());
+    return Red::ERTDBFlatType::GetType(aNode.Scalar().c_str());
 }
 
 const Red::CBaseRTTIType* App::YamlReader::ResolveFlatType(Red::CName aName)
 {
-    return Red::TweakDBUtil::GetFlatType(aName);
+    return Red::ERTDBFlatType::GetType(aName);
 }
 
 const Red::CClass* App::YamlReader::ResolveRecordType(const YAML::Node& aNode)

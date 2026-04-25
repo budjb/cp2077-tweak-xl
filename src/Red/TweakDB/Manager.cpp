@@ -32,7 +32,7 @@ Red::Value<> Red::TweakDBManager::GetFlat(Red::TweakDBID aFlatId)
 
 Red::Value<> Red::TweakDBManager::GetDefault(const Red::CBaseRTTIType* aType)
 {
-    if (!TweakDBUtil::IsFlatType(aType))
+    if (!ERTDBFlatType::IsFlatType(aType))
         return {};
 
     return m_buffer->GetValue(m_buffer->AllocateDefault(aType));
@@ -70,7 +70,7 @@ bool Red::TweakDBManager::IsRecordExists(Red::TweakDBID aRecordId)
 
 bool Red::TweakDBManager::SetFlat(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, Red::Instance aInstance)
 {
-    if (!aFlatId.IsValid() || !aInstance || !TweakDBUtil::IsFlatType(aType))
+    if (!aFlatId.IsValid() || !aInstance || !ERTDBFlatType::IsFlatType(aType))
         return false;
 
     return AssignFlat(m_tweakDb->flats, aFlatId, aType, aInstance, m_tweakDb->mutex00);
@@ -254,7 +254,7 @@ bool Red::TweakDBManager::IsRecordExists(const Red::TweakDBManager::BatchPtr& aB
 bool Red::TweakDBManager::SetFlat(const Red::TweakDBManager::BatchPtr& aBatch, Red::TweakDBID aFlatId,
                                   const Red::CBaseRTTIType* aType, Red::Instance aInstance)
 {
-    if (!aFlatId.IsValid() || !aInstance || !TweakDBUtil::IsFlatType(aType))
+    if (!aFlatId.IsValid() || !aInstance || !ERTDBFlatType::IsFlatType(aType))
         return false;
 
     return AssignFlat(aBatch, aFlatId, {aType, aInstance});
@@ -263,7 +263,7 @@ bool Red::TweakDBManager::SetFlat(const Red::TweakDBManager::BatchPtr& aBatch, R
 bool Red::TweakDBManager::SetFlat(const Red::TweakDBManager::BatchPtr& aBatch, Red::TweakDBID aFlatId,
                                   const Red::Value<>& aValue)
 {
-    if (!aFlatId.IsValid() || !aValue.instance || !TweakDBUtil::IsFlatType(aValue.type))
+    if (!aFlatId.IsValid() || !aValue.instance || !ERTDBFlatType::IsFlatType(aValue.type))
         return false;
 
     return AssignFlat(aBatch, aFlatId, aValue);
