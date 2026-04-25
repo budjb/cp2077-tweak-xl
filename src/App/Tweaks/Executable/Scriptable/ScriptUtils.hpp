@@ -10,14 +10,14 @@ inline void ConvertScriptValueForFlatValue(Red::Variant& aVariant)
 {
     const auto& variantType = aVariant.GetType();
 
-    if (Red::TweakDBUtil::IsResRefToken(variantType))
+    if (Red::ERTDBFlatType::IsResRefToken(variantType))
     {
         const auto rtti = Red::CRTTISystem::Get();
         const auto type = rtti->GetType(Red::ERTDBFlatType::ResRef);
 
         aVariant = Red::Variant(type, aVariant.GetDataPtr());
     }
-    else if (Red::TweakDBUtil::IsResRefTokenArray(variantType))
+    else if (Red::ERTDBFlatType::IsResRefTokenArray(variantType))
     {
         const auto rtti = Red::CRTTISystem::Get();
         const auto type = rtti->GetType(Red::ERTDBFlatType::ResRefArray);
@@ -39,7 +39,7 @@ inline void ConvertScriptValueForFlatValue(Red::Variant& aVariant)
                 wrapper.primaryKey = Red::FNV1a64(value);
             }
 
-            aVariant.Fill(Red::TweakDBUtil::GetFlatType(Red::ERTDBFlatType::LocKey), &wrapper);
+            aVariant.Fill(Red::ERTDBFlatType::GetType(Red::ERTDBFlatType::LocKey), &wrapper);
         }
     }
     else if (variantType->GetName() == Red::ERTDBFlatType::String)

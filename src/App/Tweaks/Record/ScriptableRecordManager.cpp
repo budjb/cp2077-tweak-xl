@@ -14,16 +14,6 @@ Red::TweakDBID BuildRTDBID(const std::string& aRecordName)
     id.append(aRecordName);
     return Red::TweakDBID{id};
 }
-
-Red::TweakDBID BuildRTDBID(const std::string& aRecordName, const std::string& aPropertyName)
-{
-    std::string id = Red::TweakSource::SchemaPackage;
-    id.append(".");
-    id.append(aRecordName);
-    id.append(".");
-    id.append(aPropertyName);
-    return Red::TweakDBID{id};
-}
 } // namespace
 
 namespace App
@@ -225,7 +215,7 @@ Red::CName ScriptableRecordManager::RegisterScriptableProperty(Red::CName aRecor
         return {};
     }
 
-    if (!Red::TweakDBUtil::IsFlatType(aFlatType))
+    if (!Red::ERTDBFlatType::IsFlatType(aFlatType))
     {
         return {};
     }
@@ -383,7 +373,7 @@ bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordCla
         return false;
     }
 
-    const auto* type = Red::TweakDBUtil::GetFlatType(aSpec->type);
+    const auto* type = Red::ERTDBFlatType::GetType(aSpec->type);
 
     if (!type)
     {

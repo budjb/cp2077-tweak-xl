@@ -129,7 +129,7 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
             }
             case Red::ERTTIType::Array:
             {
-                if (TweakDBUtil::IsResRefTokenArray(returnType))
+                if (ERTDBFlatType::IsResRefTokenArray(returnType))
                 {
                     propInfo->type = m_rtti->GetType(Red::ERTDBFlatType::ResRefArray);
                     propInfo->isArray = true;
@@ -165,7 +165,7 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
             }
             default:
             {
-                if (TweakDBUtil::IsResRefToken(returnType))
+                if (ERTDBFlatType::IsResRefToken(returnType))
                 {
                     propInfo->type = m_rtti->GetType(Red::ERTDBFlatType::ResRef);
                 }
