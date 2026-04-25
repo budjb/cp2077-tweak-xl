@@ -66,9 +66,8 @@ private:
     using ExtraFlatMap = Core::Map<Red::CName, Core::Vector<ExtraFlat>>;
     using RecordInfoMap = Core::Map<Red::CName, Core::SharedPtr<Red::TweakDBRecordInfo>>;
 
-    Core::SharedPtr<Red::TweakDBRecordInfo> CollectRecordInfo(const Red::CClass* aType, Red::TweakDBID aSampleId = {});
-    Red::TweakDBID GetRecordSampleId(const Red::CClass* aType);
-    std::string ResolvePropertyName(Red::TweakDBID aSampleId, Red::CName aGetterName);
+    Core::SharedPtr<Red::TweakDBRecordInfo> CollectRecordInfo(const Red::CClass* aType);
+    std::string ResolvePropertyName(const Red::CClass* aClass, Red::CName aGetterName) const;
     int32_t ResolveDefaultValue(const Red::CClass* aType, const std::string& aPropName);
 
     Red::TweakDB* m_tweakDb;

@@ -6,7 +6,6 @@ namespace
 {
 constexpr auto NameSeparator = Red::TweakGrammar::Name::Separator;
 constexpr auto PropSeparator = std::string_view(NameSeparator);
-constexpr auto DataOffsetSize = 12;
 } // namespace
 
 Red::TweakDBReflection::TweakDBReflection()
@@ -47,20 +46,10 @@ const Red::TweakDBRecordInfo* Red::TweakDBReflection::GetRecordInfo(Red::CName a
     return CollectRecordInfo(m_rtti->GetClass(aTypeName)).get();
 }
 
-Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInfo(const Red::CClass* aType,
-                                                                                  Red::TweakDBID aSampleId)
+Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInfo(const Red::CClass* aType)
 {
     if (!TweakDBUtil::IsRecordType(aType))
         return nullptr;
-
-    auto sampleId = aSampleId;
-    if (!sampleId.IsValid())
-    {
-        sampleId = GetRecordSampleId(aType);
-
-        if (!sampleId.IsValid())
-            return nullptr;
-    }
 
     auto recordInfo = Red::MakeInstance<Red::TweakDBRecordInfo>();
     recordInfo->name = aType->name;
@@ -68,20 +57,17 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
     recordInfo->typeHash = TweakDBUtil::GetRecordTypeHash(aType);
     recordInfo->shortName = TweakDBUtil::GetRecordShortName<std::string>(aType->name);
 
-    const auto parentInfo = CollectRecordInfo(aType->parent, sampleId);
-    if (parentInfo)
+    if (const auto parentInfo = CollectRecordInfo(aType->parent))
     {
         recordInfo->parent = aType->parent;
         recordInfo->props.insert(parentInfo->props.begin(), parentInfo->props.end());
     }
 
-    const auto baseOffset = aType->parent->size;
-
     for (uint32_t funcIndex = 0u; funcIndex < aType->funcs.Size(); ++funcIndex)
     {
         const auto func = aType->funcs[funcIndex];
 
-        auto propName = ResolvePropertyName(sampleId, func->shortName);
+        auto propName = ResolvePropertyName(aType, func->shortName);
 
         auto propInfo = Red::MakeInstance<Red::TweakDBPropertyInfo>();
         propInfo->name = Red::CName(propName.c_str());
@@ -129,7 +115,7 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
             }
             case Red::ERTTIType::Array:
             {
-                if (ERTDBFlatType::IsResRefTokenArray(returnType))
+                if (TweakDBUtil::IsResRefTokenArray(returnType))
                 {
                     propInfo->type = m_rtti->GetType(Red::ERTDBFlatType::ResRefArray);
                     propInfo->isArray = true;
@@ -165,7 +151,7 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
             }
             default:
             {
-                if (ERTDBFlatType::IsResRefToken(returnType))
+                if (TweakDBUtil::IsResRefToken(returnType))
                 {
                     propInfo->type = m_rtti->GetType(Red::ERTDBFlatType::ResRef);
                 }
@@ -175,8 +161,7 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
                     // the actual property type from the flat value.
                     if (returnType->GetType() == Red::ERTTIType::Name)
                     {
-                        auto propId = sampleId + PropSeparator + propName;
-                        auto flat = m_tweakDb->GetFlatValue(propId);
+                        const auto flat = m_tweakDb->GetFlatValue(TweakDBUtil::GetRTDBFlatID(aType->name, propName));
                         returnType = flat->GetValue().type;
                     }
 
@@ -240,30 +225,19 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
     return recordInfo;
 }
 
-Red::TweakDBID Red::TweakDBReflection::GetRecordSampleId(const Red::CClass* aType)
+std::string Red::TweakDBReflection::ResolvePropertyName(const Red::CClass* aClass, Red::CName aGetterName) const
 {
-    std::shared_lock<Red::SharedSpinLock> recordLockR(m_tweakDb->mutex01);
-    auto* records = m_tweakDb->recordsByType.Get(const_cast<Red::CClass*>(aType));
+    std::string funcName = aGetterName.ToString();
+    std::string propName = TweakDBUtil::Decapitalize(funcName);
 
-    if (records == nullptr)
-        return {};
+    const auto propId = TweakDBUtil::GetRTDBFlatID(aClass->GetName(), propName);
 
-    return records->Begin()->GetPtr<Red::TweakDBRecord>()->recordID;
-}
+    std::shared_lock flatLockR(m_tweakDb->mutex00);
 
-std::string Red::TweakDBReflection::ResolvePropertyName(Red::TweakDBID aSampleId, Red::CName aGetterName)
-{
-    std::string propName = aGetterName.ToString();
-    propName[0] = static_cast<char>(std::tolower(propName[0]));
-
-    auto propId = aSampleId + PropSeparator + propName;
-
-    std::shared_lock<Red::SharedSpinLock> flatLockR(m_tweakDb->mutex00);
-
-    auto propFlat = m_tweakDb->flats.Find(propId);
-    if (propFlat == m_tweakDb->flats.End())
-        propName[0] = static_cast<char>(std::toupper(propName[0]));
-
+    if (const auto propFlat = m_tweakDb->flats.Find(propId); propFlat == m_tweakDb->flats.End())
+    {
+        return funcName;
+    }
     return propName;
 }
 

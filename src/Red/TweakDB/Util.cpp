@@ -1,5 +1,6 @@
 #include "Alias.hpp"
 #include "Source/Grammar.hpp"
+#include "Source/Source.hpp"
 
 namespace
 {
@@ -7,6 +8,12 @@ constexpr auto RecordTypePrefix = "gamedata";
 constexpr auto RecordTypePrefixLength = std::char_traits<char>::length(RecordTypePrefix);
 constexpr auto RecordTypeSuffix = "_Record";
 constexpr auto RecordTypeSuffixLength = std::char_traits<char>::length(RecordTypeSuffix);
+
+constexpr auto ResRefTypeName = Red::GetTypeName<Red::RaRef<Red::CResource>>();
+constexpr auto ResRefArrayTypeName = Red::GetTypeName<Red::DynArray<Red::RaRef<Red::CResource>>>();
+
+constexpr auto ScriptResRefTypeName = Red::GetTypeName<Red::ResRef>();
+constexpr auto ScriptResRefArrayTypeName = Red::GetTypeName<Red::DynArray<Red::ResRef>>();
 
 constexpr auto BaseRecordTypeName = Red::GetTypeName<Red::TweakDBRecord>();
 
@@ -16,6 +23,303 @@ constexpr auto PropSeparator = std::string_view(NameSeparator);
 
 namespace Red::TweakDBUtil
 {
+
+CBaseRTTIType* GetType(const uint64_t aType)
+{
+    // clang-format off
+    switch (aType)
+    {
+    case ERTDBFlatType::Int: return TypeLocator<ERTDBFlatType::Int>::Get();
+    case ERTDBFlatType::Float: return TypeLocator<ERTDBFlatType::Float>::Get();
+    case ERTDBFlatType::Bool: return TypeLocator<ERTDBFlatType::Bool>::Get();
+    case ERTDBFlatType::String: return TypeLocator<ERTDBFlatType::String>::Get();
+    case ERTDBFlatType::CName: return TypeLocator<ERTDBFlatType::CName>::Get();
+    case ERTDBFlatType::LocKey: return TypeLocator<ERTDBFlatType::LocKey>::Get();
+    case ERTDBFlatType::ResRef: return TypeLocator<ERTDBFlatType::ResRef>::Get();
+    case ERTDBFlatType::TweakDBID: return TypeLocator<ERTDBFlatType::TweakDBID>::Get();
+    case ERTDBFlatType::Quaternion: return TypeLocator<ERTDBFlatType::Quaternion>::Get();
+    case ERTDBFlatType::EulerAngles: return TypeLocator<ERTDBFlatType::EulerAngles>::Get();
+    case ERTDBFlatType::Vector3: return TypeLocator<ERTDBFlatType::Vector3>::Get();
+    case ERTDBFlatType::Vector2: return TypeLocator<ERTDBFlatType::Vector2>::Get();
+    case ERTDBFlatType::Color: return TypeLocator<ERTDBFlatType::Color>::Get();
+    case ERTDBFlatType::IntArray: return TypeLocator<ERTDBFlatType::IntArray>::Get();
+    case ERTDBFlatType::FloatArray: return TypeLocator<ERTDBFlatType::FloatArray>::Get();
+    case ERTDBFlatType::BoolArray: return TypeLocator<ERTDBFlatType::BoolArray>::Get();
+    case ERTDBFlatType::StringArray: return TypeLocator<ERTDBFlatType::StringArray>::Get();
+    case ERTDBFlatType::CNameArray: return TypeLocator<ERTDBFlatType::CNameArray>::Get();
+    case ERTDBFlatType::LocKeyArray: return TypeLocator<ERTDBFlatType::LocKeyArray>::Get();
+    case ERTDBFlatType::ResRefArray: return TypeLocator<ERTDBFlatType::ResRefArray>::Get();
+    case ERTDBFlatType::TweakDBIDArray: return TypeLocator<ERTDBFlatType::TweakDBIDArray>::Get();
+    case ERTDBFlatType::QuaternionArray: return TypeLocator<ERTDBFlatType::QuaternionArray>::Get();
+    case ERTDBFlatType::EulerAnglesArray: return TypeLocator<ERTDBFlatType::EulerAnglesArray>::Get();
+    case ERTDBFlatType::Vector3Array: return TypeLocator<ERTDBFlatType::Vector3Array>::Get();
+    case ERTDBFlatType::Vector2Array: return TypeLocator<ERTDBFlatType::Vector2Array>::Get();
+    case ERTDBFlatType::ColorArray: return TypeLocator<ERTDBFlatType::ColorArray>::Get();
+    default: return nullptr;
+    }
+    // clang-format on
+}
+
+CBaseRTTIType* GetType(CName aTypeName)
+{
+    CBaseRTTIType* type = CRTTISystem::Get()->GetType(aTypeName);
+
+    if (!IsFlatType(type))
+        return nullptr;
+
+    return type;
+}
+
+CBaseRTTIType* GetArrayType(CName aTypeName)
+{
+    return CRTTISystem::Get()->GetType(GetArrayTypeName(aTypeName));
+}
+
+CBaseRTTIType* GetArrayType(const CBaseRTTIType* aType)
+{
+    return CRTTISystem::Get()->GetType(GetArrayTypeName(aType));
+}
+
+CBaseRTTIType* GetElementType(CName aTypeName)
+{
+    return GetElementType(CRTTISystem::Get()->GetType(aTypeName));
+}
+
+CBaseRTTIType* GetElementType(const CBaseRTTIType* aType)
+{
+    if (!aType || aType->GetType() != ERTTIType::Array)
+        return nullptr;
+
+    return reinterpret_cast<const CRTTIBaseArrayType*>(aType)->innerType;
+}
+
+bool IsFlatType(CName aTypeName)
+{
+    switch (aTypeName)
+    {
+    case ERTDBFlatType::Int:
+    case ERTDBFlatType::Float:
+    case ERTDBFlatType::Bool:
+    case ERTDBFlatType::String:
+    case ERTDBFlatType::CName:
+    case ERTDBFlatType::LocKey:
+    case ERTDBFlatType::ResRef:
+    case ERTDBFlatType::TweakDBID:
+    case ERTDBFlatType::Quaternion:
+    case ERTDBFlatType::EulerAngles:
+    case ERTDBFlatType::Vector3:
+    case ERTDBFlatType::Vector2:
+    case ERTDBFlatType::Color:
+    case ERTDBFlatType::IntArray:
+    case ERTDBFlatType::FloatArray:
+    case ERTDBFlatType::BoolArray:
+    case ERTDBFlatType::StringArray:
+    case ERTDBFlatType::CNameArray:
+    case ERTDBFlatType::LocKeyArray:
+    case ERTDBFlatType::ResRefArray:
+    case ERTDBFlatType::TweakDBIDArray:
+    case ERTDBFlatType::QuaternionArray:
+    case ERTDBFlatType::EulerAnglesArray:
+    case ERTDBFlatType::Vector3Array:
+    case ERTDBFlatType::Vector2Array:
+    case ERTDBFlatType::ColorArray:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool IsFlatType(const CBaseRTTIType* aType)
+{
+    return aType && IsFlatType(aType->GetName());
+}
+
+bool IsArrayType(CName aTypeName)
+{
+    switch (aTypeName)
+    {
+    case ERTDBFlatType::IntArray:
+    case ERTDBFlatType::FloatArray:
+    case ERTDBFlatType::BoolArray:
+    case ERTDBFlatType::StringArray:
+    case ERTDBFlatType::CNameArray:
+    case ERTDBFlatType::LocKeyArray:
+    case ERTDBFlatType::ResRefArray:
+    case ERTDBFlatType::TweakDBIDArray:
+    case ERTDBFlatType::QuaternionArray:
+    case ERTDBFlatType::EulerAnglesArray:
+    case ERTDBFlatType::Vector3Array:
+    case ERTDBFlatType::Vector2Array:
+    case ERTDBFlatType::ColorArray:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool IsArrayType(const CBaseRTTIType* aType)
+{
+    return aType && IsArrayType(aType->GetName());
+}
+
+bool IsForeignKey(CName aTypeName)
+{
+    return aTypeName == ERTDBFlatType::TweakDBID;
+}
+
+bool IsForeignKey(const CBaseRTTIType* aType)
+{
+    return aType && IsForeignKey(aType->GetName());
+}
+
+bool IsForeignKeyArray(CName aTypeName)
+{
+    return aTypeName == ERTDBFlatType::TweakDBIDArray;
+}
+
+bool IsForeignKeyArray(const CBaseRTTIType* aType)
+{
+    return aType && IsForeignKeyArray(aType->GetName());
+}
+
+bool IsResRefToken(CName aTypeName)
+{
+    return aTypeName == ScriptResRefTypeName || aTypeName == ResRefTypeName;
+}
+
+bool IsResRefToken(const CBaseRTTIType* aType)
+{
+    return aType && IsResRefToken(aType->GetName());
+}
+
+bool IsResRefTokenArray(CName aTypeName)
+{
+    return aTypeName == ScriptResRefArrayTypeName || aTypeName == ResRefArrayTypeName;
+}
+
+bool IsResRefTokenArray(const CBaseRTTIType* aType)
+{
+    return aType && IsResRefTokenArray(aType->GetName());
+}
+
+CName GetArrayTypeName(CName aTypeName)
+{
+    // clang-format off
+    switch (aTypeName)
+    {
+    case ERTDBFlatType::Int: return ERTDBFlatType::IntArray;
+    case ERTDBFlatType::Float: return ERTDBFlatType::FloatArray;
+    case ERTDBFlatType::Bool: return ERTDBFlatType::BoolArray;
+    case ERTDBFlatType::String: return ERTDBFlatType::StringArray;
+    case ERTDBFlatType::CName: return ERTDBFlatType::CNameArray;
+    case ERTDBFlatType::LocKey: return ERTDBFlatType::LocKeyArray;
+    case ERTDBFlatType::ResRef: return ERTDBFlatType::ResRefArray;
+    case ERTDBFlatType::TweakDBID: return ERTDBFlatType::TweakDBIDArray;
+    case ERTDBFlatType::Quaternion: return ERTDBFlatType::QuaternionArray;
+    case ERTDBFlatType::EulerAngles: return ERTDBFlatType::EulerAnglesArray;
+    case ERTDBFlatType::Vector3: return ERTDBFlatType::Vector3Array;
+    case ERTDBFlatType::Vector2: return ERTDBFlatType::Vector2Array;
+    case ERTDBFlatType::Color: return ERTDBFlatType::ColorArray;
+    default: return {};
+    }
+    // clang-format on
+}
+
+CName GetArrayTypeName(const CBaseRTTIType* aType)
+{
+    if (!aType)
+        return {};
+
+    return GetArrayTypeName(aType->GetName());
+}
+
+CName GetElementTypeName(CName aTypeName)
+{
+    // clang-format off
+    switch (aTypeName)
+    {
+    case ERTDBFlatType::IntArray: return ERTDBFlatType::Int;
+    case ERTDBFlatType::FloatArray: return ERTDBFlatType::Float;
+    case ERTDBFlatType::BoolArray: return ERTDBFlatType::Bool;
+    case ERTDBFlatType::StringArray: return ERTDBFlatType::String;
+    case ERTDBFlatType::CNameArray: return ERTDBFlatType::CName;
+    case ERTDBFlatType::TweakDBIDArray: return ERTDBFlatType::TweakDBID;
+    case ERTDBFlatType::LocKeyArray: return ERTDBFlatType::LocKey;
+    case ERTDBFlatType::ResRefArray: return ERTDBFlatType::ResRef;
+    case ERTDBFlatType::QuaternionArray: return ERTDBFlatType::Quaternion;
+    case ERTDBFlatType::EulerAnglesArray: return ERTDBFlatType::EulerAngles;
+    case ERTDBFlatType::Vector3Array: return ERTDBFlatType::Vector3;
+    case ERTDBFlatType::Vector2Array: return ERTDBFlatType::Vector2;
+    case ERTDBFlatType::ColorArray: return ERTDBFlatType::Color;
+    default: return {};
+    }
+    // clang-format on
+}
+
+CName GetElementTypeName(const CBaseRTTIType* aType)
+{
+    if (!aType)
+        return {};
+
+    return GetElementTypeName(aType->GetName());
+}
+
+InstancePtr<> Construct(CName aTypeName)
+{
+    // clang-format off
+    switch (aTypeName)
+    {
+    case ERTDBFlatType::Int: return MakeInstance<int>();
+    case ERTDBFlatType::Float: return MakeInstance<float>();
+    case ERTDBFlatType::Bool: return MakeInstance<bool>();
+    case ERTDBFlatType::String: return MakeInstance<Red::CString>();
+    case ERTDBFlatType::CName: return MakeInstance<Red::CName>();
+    case ERTDBFlatType::LocKey: return MakeInstance<Red::LocKeyWrapper>();
+    case ERTDBFlatType::ResRef: return MakeInstance<Red::ResourceAsyncReference<>>();
+    case ERTDBFlatType::TweakDBID: return MakeInstance<Red::TweakDBID>();
+    case ERTDBFlatType::Quaternion: return MakeInstance<Red::Quaternion>();
+    case ERTDBFlatType::EulerAngles: return MakeInstance<Red::EulerAngles>();
+    case ERTDBFlatType::Vector3: return MakeInstance<Red::Vector3>();
+    case ERTDBFlatType::Vector2: return MakeInstance<Red::Vector2>();
+    case ERTDBFlatType::Color: return MakeInstance<Red::Color>();
+    case ERTDBFlatType::IntArray: return MakeInstance<DynArray<int>>();
+    case ERTDBFlatType::FloatArray: return MakeInstance<DynArray<float>>();
+    case ERTDBFlatType::BoolArray: return MakeInstance<DynArray<bool>>();
+    case ERTDBFlatType::StringArray: return MakeInstance<DynArray<Red::CString>>();
+    case ERTDBFlatType::CNameArray: return MakeInstance<DynArray<Red::CName>>();
+    case ERTDBFlatType::LocKeyArray: return MakeInstance<DynArray<Red::LocKeyWrapper>>();
+    case ERTDBFlatType::ResRefArray: return MakeInstance<DynArray<Red::ResourceAsyncReference<>>>();
+    case ERTDBFlatType::TweakDBIDArray: return MakeInstance<DynArray<Red::TweakDBID>>();
+    case ERTDBFlatType::QuaternionArray: return MakeInstance<DynArray<Red::Quaternion>>();
+    case ERTDBFlatType::EulerAnglesArray: return MakeInstance<DynArray<Red::EulerAngles>>();
+    case ERTDBFlatType::Vector3Array: return MakeInstance<DynArray<Red::Vector3>>();
+    case ERTDBFlatType::Vector2Array: return MakeInstance<DynArray<Red::Vector2>>();
+    case ERTDBFlatType::ColorArray: return MakeInstance<DynArray<Red::Color>>();
+    default: return {};
+    }
+    // clang-format on
+}
+
+InstancePtr<> Construct(const CBaseRTTIType* aType)
+{
+    if (!aType)
+        return {};
+
+    return Construct(aType->GetName());
+}
+
+ValuePtr<> ConstructValue(const CBaseRTTIType* aType)
+{
+    if (!aType || !IsFlatType(aType))
+        return {};
+
+    return MakeValue(aType);
+}
+
+ValuePtr<> ConstructValue(CName aTypeName)
+{
+    return ConstructValue(CRTTISystem::Get()->GetType(aTypeName));
+}
 
 CClass* GetRecordType(CName aTypeName)
 {
@@ -137,7 +441,7 @@ CName GetRecordFullName(const CName aName)
 template<>
 CName GetRecordAliasName(const std::string& aName)
 {
-    return CName(GetRecordAliasName<std::string>(aName).c_str());
+    return {GetRecordAliasName<std::string>(aName).c_str()};
 }
 
 template<>
@@ -238,6 +542,100 @@ uint32_t GetRecordTypeHash(const CClass* aType)
     name.remove_suffix(RecordTypeSuffixLength);
 
     return Murmur3_32(reinterpret_cast<const uint8_t*>(name.data()), name.size());
+}
+
+TweakDBID GetRTDBFlatID(CName aRecord, CName aProp)
+{
+    return GetRTDBFlatID(aRecord, aProp.ToString());
+}
+
+TweakDBID GetRTDBFlatID(CName aRecord, const std::string& aProp)
+{
+    return GetRTDBFlatID(aRecord, aProp.c_str());
+}
+
+TweakDBID GetRTDBFlatID(CName aRecord, const char* aProp)
+{
+    if (!aProp)
+    {
+        return {};
+    }
+
+    const auto recordID = GetRTDBRecordID(aRecord);
+
+    if (!recordID.IsValid())
+    {
+        return {};
+    }
+
+    return recordID + PropSeparator + std::string_view(aProp);
+}
+
+TweakDBID GetRTDBRecordID(CName aRecord)
+{
+    const auto name = GetRecordShortName<std::string>(aRecord);
+
+    if (name.empty())
+    {
+        return {};
+    }
+
+    std::string flatName = TweakSource::SchemaPackage;
+    flatName.append(PropSeparator);
+    flatName.append(name);
+
+    return {flatName.c_str()};
+}
+
+std::string Capitalize(CName aName)
+{
+    return Capitalize(aName.ToString());
+}
+
+std::string Capitalize(const std::string& aName)
+{
+    return Capitalize(aName.c_str());
+}
+
+std::string Capitalize(const char* aName)
+{
+    if (!aName)
+    {
+        return {};
+    }
+
+    std::string name = aName;
+    if (!name.empty())
+    {
+        name[0] = static_cast<char>(std::toupper(name[0]));
+    }
+    return name;
+}
+
+std::string Decapitalize(CName aName)
+{
+    return Decapitalize(aName.ToString());
+}
+
+std::string Decapitalize(const std::string& aName)
+{
+    return Decapitalize(aName.c_str());
+}
+
+std::string Decapitalize(const char* aName)
+{
+    if (!aName)
+    {
+        return {};
+    }
+
+    std::string name = aName;
+
+    if (!name.empty())
+    {
+        name[0] = static_cast<char>(std::tolower(name[0]));
+    }
+    return name;
 }
 
 } // namespace Red::TweakDBUtil

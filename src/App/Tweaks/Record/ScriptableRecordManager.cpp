@@ -215,7 +215,7 @@ Red::CName ScriptableRecordManager::RegisterScriptableProperty(Red::CName aRecor
         return {};
     }
 
-    if (!Red::ERTDBFlatType::IsFlatType(aFlatType))
+    if (!Red::TweakDBUtil::IsFlatType(aFlatType))
     {
         return {};
     }
@@ -373,7 +373,7 @@ bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordCla
         return false;
     }
 
-    const auto* type = Red::ERTDBFlatType::GetType(aSpec->type);
+    const auto* type = Red::TweakDBUtil::GetType(aSpec->type);
 
     if (!type)
     {
