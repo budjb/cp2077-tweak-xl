@@ -495,23 +495,23 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(App::TweakChangese
         {
             state->isResolved = true;
             state->isCompatible = !state->requiredType || state->resolvedType == state->requiredType;
-            state->isArray = Red::ERTDBFlatType::IsArrayType( state->resolvedType);
+            state->isArray = Red::TweakDBUtil::IsArrayType( state->resolvedType);
             state->isForeignKey = state->isArray
-                ? Red::ERTDBFlatType::IsForeignKeyArray( state->resolvedType)
-                : Red::ERTDBFlatType::IsForeignKey( state->resolvedType);
+                ? Red::TweakDBUtil::IsForeignKeyArray( state->resolvedType)
+                : Red::TweakDBUtil::IsForeignKey( state->resolvedType);
         }
     }
     else
     {
-        state->resolvedType = Red::ERTDBFlatType::GetType(GetFlatTypeName(aFlat));
+        state->resolvedType = Red::TweakDBUtil::GetType(GetFlatTypeName(aFlat));
 
         if (state->resolvedType)
         {
             state->isResolved = true;
-            state->isArray = Red::ERTDBFlatType::IsArrayType( state->resolvedType);
+            state->isArray = Red::TweakDBUtil::IsArrayType( state->resolvedType);
             state->isForeignKey = state->isArray
-                ? Red::ERTDBFlatType::IsForeignKeyArray( state->resolvedType)
-                : Red::ERTDBFlatType::IsForeignKey( state->resolvedType);
+                ? Red::TweakDBUtil::IsForeignKeyArray( state->resolvedType)
+                : Red::TweakDBUtil::IsForeignKey( state->resolvedType);
 
             if (instanceType)
             {
@@ -544,7 +544,7 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(App::TweakChangese
 
     if (state->isArray)
     {
-        state->elementType = Red::ERTDBFlatType::GetElementType(state->resolvedType);
+        state->elementType = Red::TweakDBUtil::GetElementType(state->resolvedType);
     }
 
     return state;
