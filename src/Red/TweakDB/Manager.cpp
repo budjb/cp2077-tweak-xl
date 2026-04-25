@@ -475,7 +475,7 @@ bool Red::TweakDBManager::AssignFlat(Red::SortedUniqueArray<Red::TweakDBID>& aFl
 }
 
 void Red::TweakDBManager::InheritFlats(RED4ext::SortedUniqueArray<Red::TweakDBID>& aFlats, Red::TweakDBID aRecordId,
-                                       RecordInfo aRecordInfo)
+                                       const Red::TweakDBRecordInfo* aRecordInfo)
 {
     for (const auto& propInfo : aRecordInfo->props | std::views::values)
     {
@@ -492,7 +492,7 @@ void Red::TweakDBManager::InheritFlats(RED4ext::SortedUniqueArray<Red::TweakDBID
 }
 
 void Red::TweakDBManager::InheritFlats(RED4ext::SortedUniqueArray<Red::TweakDBID>& aFlats, Red::TweakDBID aRecordId,
-                                       RecordInfo aRecordInfo, Red::TweakDBID aSourceId)
+                                       const Red::TweakDBRecordInfo* aRecordInfo, Red::TweakDBID aSourceId)
 {
     std::shared_lock flatLockR(m_tweakDb->mutex00);
 
@@ -556,7 +556,7 @@ bool Red::TweakDBManager::AssignFlat(const Red::TweakDBManager::BatchPtr& aBatch
 }
 
 void Red::TweakDBManager::InheritFlats(const Red::TweakDBManager::BatchPtr& aBatch, Red::TweakDBID aRecordId,
-                                       RecordInfo aRecordInfo)
+                                       const Red::TweakDBRecordInfo* aRecordInfo)
 {
     for (const auto& propInfo : aRecordInfo->props | std::views::values)
     {
@@ -578,7 +578,7 @@ void Red::TweakDBManager::InheritFlats(const Red::TweakDBManager::BatchPtr& aBat
 }
 
 void Red::TweakDBManager::InheritFlats(const Red::TweakDBManager::BatchPtr& aBatch, Red::TweakDBID aRecordId,
-                                       RecordInfo aRecordInfo, Red::TweakDBID aSourceId)
+                                       const Red::TweakDBRecordInfo* aRecordInfo, Red::TweakDBID aSourceId)
 {
     std::shared_lock flatLockR(m_tweakDb->mutex00);
 

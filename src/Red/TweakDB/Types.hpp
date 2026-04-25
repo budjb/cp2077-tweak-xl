@@ -35,41 +35,4 @@ namespace ERTDBFlatType
     };
 } // namespace ERTDBFlatType
 
-struct TweakDBRecordInfo;
-struct TweakDBPropertyInfo;
-
-using RecordInfo = Core::SharedPtr<Red::TweakDBRecordInfo>;
-using PropertyInfo = Core::SharedPtr<Red::TweakDBPropertyInfo>;
-
-struct TweakDBPropertyInfo
-{
-    Red::CName name;
-    const Red::CBaseRTTIType* type;
-    const Red::CBaseRTTIType* elementType;
-    const Red::CClass* foreignType;
-    bool isArray;
-    bool isForeignKey;
-    bool isExtra;
-    std::string appendix;                // The name used to build ID of the property
-    std::optional<int32_t> defaultValue; // Offset of the default value in the buffer
-};
-
-struct TweakDBRecordInfo
-{
-    Red::CName name;
-    Red::CClass* type;
-    Red::CClass* parent;
-    Core::Map<Red::CName, PropertyInfo> props;
-    std::string shortName;
-    uint32_t typeHash;
-
-    [[nodiscard]] const Red::TweakDBPropertyInfo* GetPropInfo(Red::CName aPropName) const
-    {
-        if (const auto it = props.find(aPropName); it != props.end())
-        {
-            return it->second.get();
-        }
-        return nullptr;
-    }
-};
 } // namespace Red

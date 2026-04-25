@@ -5,9 +5,9 @@
 namespace Red
 {
 
-ScriptableTweakDBRecord::ScriptableTweakDBRecord(const App::RecordClass* aClass)
+ScriptableTweakDBRecord::ScriptableTweakDBRecord(const App::ScriptableRecordClass* aClass)
 {
-    this->nativeType = const_cast<App::RecordClass*>(aClass);
+    this->nativeType = const_cast<App::ScriptableRecordClass*>(aClass);
 }
 
 void ScriptableTweakDBRecord::sub_108()
@@ -21,7 +21,7 @@ Red::CClass* ScriptableTweakDBRecord::GetNativeType()
 
 uint32_t ScriptableTweakDBRecord::GetTweakBaseHash() const
 {
-    return reinterpret_cast<App::RecordClass*>(this->nativeType)->tweakBaseHash;
+    return reinterpret_cast<App::ScriptableRecordClass*>(this->nativeType)->tweakBaseHash;
 }
 
 } // namespace Red
