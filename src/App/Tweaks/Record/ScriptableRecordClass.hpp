@@ -2,10 +2,10 @@
 
 namespace App
 {
-class RecordClass : public Red::CClass
+class ScriptableRecordClass : public Red::CClass
 {
 public:
-    RecordClass(RED4ext::CName aName, uint32_t aHash);
+    ScriptableRecordClass(RED4ext::CName aName, uint32_t aHash);
     void ConstructCls(void* aMemory) const override;
     void DestructCls(void* aMemory) const override;
     [[nodiscard]] void* AllocMemory() const override;

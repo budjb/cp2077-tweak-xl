@@ -9,24 +9,24 @@ constexpr auto ScriptableRecordAlignment = alignof(Red::ScriptableTweakDBRecord)
 
 namespace App
 {
-RecordClass::RecordClass(Red::CName aName, const uint32_t aHash)
+ScriptableRecordClass::ScriptableRecordClass(Red::CName aName, const uint32_t aHash)
     : CClass(aName, ScriptableRecordSize, {.isNative = true})
     , tweakBaseHash(aHash)
 {
     alignment = ScriptableRecordAlignment;
 }
 
-void RecordClass::ConstructCls(void* aMemory) const
+void ScriptableRecordClass::ConstructCls(void* aMemory) const
 {
     new (aMemory) Red::ScriptableTweakDBRecord(this);
 }
 
-void RecordClass::DestructCls(void* aMemory) const
+void ScriptableRecordClass::DestructCls(void* aMemory) const
 {
     static_cast<Red::ScriptableTweakDBRecord*>(aMemory)->~ScriptableTweakDBRecord();
 }
 
-void* RecordClass::AllocMemory() const
+void* ScriptableRecordClass::AllocMemory() const
 {
     const auto alignedSize = Red::AlignUp(size, alignment);
 
@@ -37,7 +37,7 @@ void* RecordClass::AllocMemory() const
     return memory;
 }
 
-const bool RecordClass::IsEqual(const void* aLhs, const void* aRhs, const uint32_t a3)
+const bool ScriptableRecordClass::IsEqual(const void* aLhs, const void* aRhs, const uint32_t a3)
 {
     using func_t = bool (*)(CClass*, const void*, const void*, uint32_t);
 #if defined(RED4EXT_V1_SDK_VERSION_CURRENT) || defined(RED4EXT_SDK_0_5_0)
@@ -48,7 +48,7 @@ const bool RecordClass::IsEqual(const void* aLhs, const void* aRhs, const uint32
     return func(this, aLhs, aRhs, a3);
 }
 
-void RecordClass::Assign(void* aLhs, const void* aRhs) const
+void ScriptableRecordClass::Assign(void* aLhs, const void* aRhs) const
 {
     new (aLhs) Red::ScriptableTweakDBRecord(*static_cast<const Red::ScriptableTweakDBRecord*>(aRhs));
 }

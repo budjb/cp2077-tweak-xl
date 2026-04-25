@@ -16,7 +16,7 @@ public:
     ~ScriptableRecordManager();
 
     bool CreateScriptableRecord(Red::TweakDB* aTweakDB, uint32_t aHash, Red::TweakDBID aRecordId);
-    bool CreateScriptableRecord(Red::TweakDB* aTweakDB, RecordClass* aClass, Red::TweakDBID aRecordId);
+    bool CreateScriptableRecord(Red::TweakDB* aTweakDB, ScriptableRecordClass* aClass, Red::TweakDBID aRecordId);
 
 #ifndef NDEBUG
     void TestScriptableRecord(const Core::SharedPtr<Red::TweakDBManager>& aManager);
@@ -98,7 +98,7 @@ private:
 
         uint32_t hash;
 
-        RecordClass* type;
+        ScriptableRecordClass* type;
         std::optional<std::string> parent;
         Core::Map<Red::CName, Core::SharedPtr<ScriptablePropertySpec>> props;
 
@@ -110,7 +110,8 @@ private:
     Core::SharedPtr<ScriptableRecordSpec> GetRecordSpec(Red::CName aName) const;
     bool RegisterScriptableRecordSpec(const Core::SharedPtr<ScriptableRecordSpec>& aSpec);
     bool DescribeScriptableRecordSpec(const Core::SharedPtr<ScriptableRecordSpec>& aSpec);
-    bool DescribeScriptablePropertySpec(RecordClass* aClass, const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
+    bool DescribeScriptablePropertySpec(ScriptableRecordClass* aClass,
+                                        const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
     void InsertScriptableRecordDefaults(const Core::SharedPtr<ScriptableRecordSpec>& aSpec,
                                         const Core::SharedPtr<Red::TweakDBManager>& aManager);
     void InsertScriptableRecordDefaults(const Red::CClass* aClass,
@@ -127,12 +128,12 @@ private:
 
 #pragma region ScriptableRecordClass
 
-    RecordClass* GetRecordClass(uint32_t aHash) const;
-    RecordClass* CreateRecordClass(const Core::SharedPtr<ScriptableRecordSpec>& aSpec);
-    bool DestroyRecordClass(RecordClass* aClass);
+    ScriptableRecordClass* GetRecordClass(uint32_t aHash) const;
+    ScriptableRecordClass* CreateRecordClass(const Core::SharedPtr<ScriptableRecordSpec>& aSpec);
+    bool DestroyRecordClass(ScriptableRecordClass* aClass);
 
     mutable std::shared_mutex m_classesMutex;
-    Core::Map<uint32_t, Core::SharedPtr<RecordClass>> m_classes;
+    Core::Map<uint32_t, Core::SharedPtr<ScriptableRecordClass>> m_classes;
 
 #pragma endregion
 };

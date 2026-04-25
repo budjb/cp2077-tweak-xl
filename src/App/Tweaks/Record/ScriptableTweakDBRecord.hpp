@@ -2,7 +2,7 @@
 
 namespace App
 {
-class RecordClass;
+class ScriptableRecordClass;
 }
 
 namespace Red
@@ -19,7 +19,7 @@ public:
     using TYPE = ClassLocator<ScriptableTweakDBRecord>;
 
     ScriptableTweakDBRecord() = default;
-    explicit ScriptableTweakDBRecord(const App::RecordClass* aClass);
+    explicit ScriptableTweakDBRecord(const App::ScriptableRecordClass* aClass);
 
     void sub_108() override;
     CClass* GetNativeType() override;

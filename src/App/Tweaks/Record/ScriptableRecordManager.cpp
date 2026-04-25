@@ -375,7 +375,7 @@ void ScriptableRecordManager::InsertScriptableRecordDefaults(const Red::CClass* 
     }
 }
 
-bool ScriptableRecordManager::DescribeScriptablePropertySpec(RecordClass* aClass,
+bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordClass* aClass,
                                                              const Core::SharedPtr<ScriptablePropertySpec>& aSpec)
 {
     if (aSpec->isDescribed)
@@ -440,7 +440,7 @@ Red::CName ScriptableRecordManager::RegisterPropertyFunctionName(const std::stri
     return Red::CNamePool::Add(name.c_str());
 }
 
-RecordClass* ScriptableRecordManager::GetRecordClass(const uint32_t aHash) const
+ScriptableRecordClass* ScriptableRecordManager::GetRecordClass(const uint32_t aHash) const
 {
     std::shared_lock lockR(m_classesMutex);
     if (const auto it = m_classes.find(aHash); it != m_classes.end())
@@ -450,7 +450,7 @@ RecordClass* ScriptableRecordManager::GetRecordClass(const uint32_t aHash) const
     return nullptr;
 }
 
-RecordClass* ScriptableRecordManager::CreateRecordClass(const Core::SharedPtr<ScriptableRecordSpec>& aSpec)
+ScriptableRecordClass* ScriptableRecordManager::CreateRecordClass(const Core::SharedPtr<ScriptableRecordSpec>& aSpec)
 {
     if (GetRecordClass(aSpec->hash))
     {
@@ -464,7 +464,7 @@ RecordClass* ScriptableRecordManager::CreateRecordClass(const Core::SharedPtr<Sc
         return nullptr;
     }
 
-    const auto cls = Core::MakeShared<RecordClass>(aSpec->cname, aSpec->hash);
+    const auto cls = Core::MakeShared<ScriptableRecordClass>(aSpec->cname, aSpec->hash);
 
     m_rtti->RegisterType(cls.get());
     m_rtti->RegisterScriptName(aSpec->cname, aSpec->aliasCName);
@@ -477,7 +477,7 @@ RecordClass* ScriptableRecordManager::CreateRecordClass(const Core::SharedPtr<Sc
     return cls.get();
 }
 
-bool ScriptableRecordManager::DestroyRecordClass(RecordClass* aClass)
+bool ScriptableRecordManager::DestroyRecordClass(ScriptableRecordClass* aClass)
 {
     std::unique_lock lockRW(m_classesMutex);
 
@@ -502,7 +502,7 @@ bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, con
     return false;
 }
 
-bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, RecordClass* aClass,
+bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, ScriptableRecordClass* aClass,
                                                      Red::TweakDBID aRecordId)
 {
     if (!aClass || !aTweakDB)
