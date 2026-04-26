@@ -24,7 +24,7 @@ constexpr auto PropSeparator = std::string_view(NameSeparator);
 namespace Red::TweakDBUtil
 {
 
-CBaseRTTIType* GetType(const uint64_t aType)
+CBaseRTTIType* GetFlatType(const uint64_t aType)
 {
     // clang-format off
     switch (aType)
@@ -60,7 +60,7 @@ CBaseRTTIType* GetType(const uint64_t aType)
     // clang-format on
 }
 
-CBaseRTTIType* GetType(CName aTypeName)
+CBaseRTTIType* GetFlatType(CName aTypeName)
 {
     CBaseRTTIType* type = CRTTISystem::Get()->GetType(aTypeName);
 

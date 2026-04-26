@@ -137,7 +137,7 @@ void ScriptableRecordManager::FfiDispatch(ffi_cif* aCif, void* aRet, void** aArg
 
     const auto* record = reinterpret_cast<ScriptableTweakDBRecord*>(instance);
 
-    if (const auto svc = Core::Resolve<App::TweakService>())
+    if (const auto svc = Core::Resolve<TweakService>())
     {
         if (const auto value = svc->GetManager().GetFlat(record->recordID + context->appendix))
         {
@@ -323,14 +323,14 @@ bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordCla
         return false;
     }
 
-    const auto* type = Red::TweakDBUtil::GetType(aSpec->type);
+    const auto* type = Red::TweakDBUtil::GetFlatType(aSpec->type);
 
     if (!type)
     {
         return false;
     }
 
-    const auto closure = CreateClosure(aSpec->name, type);
+    const auto closure = CreateClosure(aSpec->appendix, type);
 
     if (!closure)
     {
@@ -361,8 +361,6 @@ void ScriptableRecordManager::InsertScriptableRecordDefaults(const Core::SharedP
     }
 
     const auto recordID = BuildRTDBID(aSpec->shortName);
-
-    CreateScriptableRecord(aManager->GetTweakDB(), aSpec->type, recordID);
 
     for (const auto& prop : aSpec->props | std::views::values)
     {
@@ -417,9 +415,7 @@ bool ScriptableRecordManager::UnregisterScriptableRecordSpec(const Core::SharedP
 
 Red::CName ScriptableRecordManager::RegisterPropertyFunctionName(const std::string& aName)
 {
-    std::string name = aName;
-    name[0] = static_cast<char>(std::toupper(name[0]));
-    return Red::CNamePool::Add(name.c_str());
+    return Red::CNamePool::Add(Red::TweakDBUtil::Capitalize(aName).c_str());
 }
 
 ScriptableRecordClass* ScriptableRecordManager::GetRecordClass(const uint32_t aHash) const
