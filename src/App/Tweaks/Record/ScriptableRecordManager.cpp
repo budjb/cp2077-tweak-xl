@@ -36,10 +36,8 @@ ScriptableRecordManager::~ScriptableRecordManager()
     }
 }
 
-#pragma region Closures
-
-ScriptableRecordManager::GetterFn ScriptableRecordManager::CreateClosure(const std::string& aName,
-                                                                         const Red::CBaseRTTIType* aType)
+Red::ScriptingFunction_t<void*> ScriptableRecordManager::CreateClosure(const std::string& aAppendix,
+                                                                       const Red::CBaseRTTIType* aType)
 {
     std::scoped_lock lock(m_closuresMutex);
 
@@ -54,8 +52,8 @@ ScriptableRecordManager::GetterFn ScriptableRecordManager::CreateClosure(const s
         m_cifReady = true;
     }
 
-    auto entry = Core::MakeUnique<Entry>();
-    entry->context.appendix = "." + aName;
+    auto entry = Core::MakeUnique<Closure>();
+    entry->context.appendix = aAppendix;
     entry->context.type = aType;
 
     entry->closure = static_cast<ffi_closure*>(ffi_closure_alloc(sizeof(ffi_closure), &entry->executable));
@@ -71,12 +69,12 @@ ScriptableRecordManager::GetterFn ScriptableRecordManager::CreateClosure(const s
         return nullptr;
     }
 
-    const auto function = reinterpret_cast<GetterFn>(entry->executable);
+    const auto function = reinterpret_cast<Red::ScriptingFunction_t<void*>>(entry->executable);
     m_closures.emplace_back(std::move(entry));
     return function;
 }
 
-bool ScriptableRecordManager::DestroyClosure(const Core::SharedPtr<Entry>& aClosure)
+bool ScriptableRecordManager::DestroyClosure(const Core::SharedPtr<Closure>& aClosure)
 {
     if (aClosure)
     {
@@ -137,7 +135,7 @@ void ScriptableRecordManager::FfiDispatch(ffi_cif* aCif, void* aRet, void** aArg
 
     stackFrame->code++;
 
-    const auto* record = reinterpret_cast<Red::ScriptableTweakDBRecord*>(instance);
+    const auto* record = reinterpret_cast<ScriptableTweakDBRecord*>(instance);
 
     if (const auto svc = Core::Resolve<App::TweakService>())
     {
@@ -155,16 +153,10 @@ void ScriptableRecordManager::FfiDispatch(ffi_cif* aCif, void* aRet, void** aArg
     }
 }
 
-#pragma endregion
-
-#pragma region Specs
-
 Red::CName ScriptableRecordManager::RegisterScriptableRecordType(const std::string& aName,
                                                                  const std::optional<std::string>& aParentName)
 {
-    const auto cname = Red::TweakDBUtil::GetRecordShortName<Red::CName>(aName);
-
-    if (GetRecordSpec(cname))
+    if (const auto cname = Red::TweakDBUtil::GetRecordShortName<Red::CName>(aName); GetRecordSpec(cname))
     {
         std::shared_lock lockR(m_specsMutex);
         if (const auto it = m_specs.find(Red::CName(aName.c_str())); it != m_specs.end())
@@ -311,13 +303,50 @@ bool ScriptableRecordManager::DescribeScriptableRecordSpec(const Core::SharedPtr
     }
     else
     {
-        aSpec->type->parent = Red::ScriptableTweakDBRecord::TYPE::GetClass();
+        aSpec->type->parent = ScriptableTweakDBRecord::TYPE::GetClass();
     }
 
     for (const auto& prop : aSpec->props | std::views::values)
     {
         DescribeScriptablePropertySpec(aSpec->type, prop);
     }
+
+    aSpec->isDescribed = true;
+    return true;
+}
+
+bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordClass* aClass,
+                                                             const Core::SharedPtr<ScriptablePropertySpec>& aSpec)
+{
+    if (aSpec->isDescribed)
+    {
+        return false;
+    }
+
+    const auto* type = Red::TweakDBUtil::GetType(aSpec->type);
+
+    if (!type)
+    {
+        return false;
+    }
+
+    const auto closure = CreateClosure(aSpec->name, type);
+
+    if (!closure)
+    {
+        return false;
+    }
+
+    if (aSpec->foreignName.has_value())
+    {
+        aSpec->foreignType = m_rtti->GetClass(Red::TweakDBUtil::GetRecordFullName<Red::CName>(*aSpec->foreignName));
+    }
+
+    // TODO: FKs are wrong and I need to fix
+    const auto name = RegisterPropertyFunctionName(aSpec->name);
+    auto* function = Red::CClassFunction::Create(aClass, name.ToString(), name.ToString(), closure);
+    function->SetReturnType(type->GetName());
+    aClass->RegisterFunction(function);
 
     aSpec->isDescribed = true;
     return true;
@@ -363,43 +392,6 @@ void ScriptableRecordManager::InsertScriptableRecordDefaults(const Red::CClass* 
     {
         InsertScriptableRecordDefaults(spec, aManager);
     }
-}
-
-bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordClass* aClass,
-                                                             const Core::SharedPtr<ScriptablePropertySpec>& aSpec)
-{
-    if (aSpec->isDescribed)
-    {
-        return false;
-    }
-
-    const auto* type = Red::TweakDBUtil::GetType(aSpec->type);
-
-    if (!type)
-    {
-        return false;
-    }
-
-    const auto closure = CreateClosure(aSpec->name, type);
-
-    if (!closure)
-    {
-        return false;
-    }
-
-    if (aSpec->foreignName.has_value())
-    {
-        aSpec->foreignType = m_rtti->GetClass(Red::TweakDBUtil::GetRecordFullName<Red::CName>(*aSpec->foreignName));
-    }
-
-    // TODO: FKs are wrong and I need to fix
-    const auto name = RegisterPropertyFunctionName(aSpec->name);
-    auto* function = Red::CClassFunction::Create(aClass, name.ToString(), name.ToString(), closure);
-    function->SetReturnType(type->GetName());
-    aClass->RegisterFunction(function);
-
-    aSpec->isDescribed = true;
-    return true;
 }
 
 bool ScriptableRecordManager::UnregisterScriptableRecordSpec(const Core::SharedPtr<ScriptableRecordSpec>& aSpec)
@@ -480,12 +472,11 @@ bool ScriptableRecordManager::DestroyRecordClass(ScriptableRecordClass* aClass)
 
     return false;
 }
-#pragma endregion
 
 bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, const uint32_t aHash,
                                                      Red::TweakDBID aRecordId)
 {
-    if (auto cls = GetRecordClass(aHash))
+    if (const auto cls = GetRecordClass(aHash))
     {
         return CreateScriptableRecord(aTweakDB, cls, aRecordId);
     }
@@ -500,7 +491,7 @@ bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, Scr
         return false;
     }
 
-    if (const auto instance = Red::MakeScriptedHandle<Red::ScriptableTweakDBRecord>(aClass))
+    if (const auto instance = Red::MakeScriptedHandle<ScriptableTweakDBRecord>(aClass))
     {
         instance->recordID = aRecordId;
         instance->nativeType = aClass;
@@ -538,7 +529,7 @@ void ScriptableRecordManager::TestScriptableRecord(const Core::SharedPtr<Red::Tw
     assert(aManager->SetFlat(recordID + barAppendix, cnameType::GetClass(), &barValue));
 
     const auto record =
-        reinterpret_cast<Red::ScriptableTweakDBRecord*>(aManager->GetTweakDB()->GetRecord(recordID).instance);
+        reinterpret_cast<ScriptableTweakDBRecord*>(aManager->GetTweakDB()->GetRecord(recordID).instance);
 
     assert(record);
 

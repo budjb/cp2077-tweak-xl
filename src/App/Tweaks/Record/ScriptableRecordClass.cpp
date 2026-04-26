@@ -3,8 +3,8 @@
 
 namespace
 {
-constexpr auto ScriptableRecordSize = sizeof(Red::ScriptableTweakDBRecord);
-constexpr auto ScriptableRecordAlignment = alignof(Red::ScriptableTweakDBRecord);
+constexpr auto ScriptableRecordSize = sizeof(App::ScriptableTweakDBRecord);
+constexpr auto ScriptableRecordAlignment = alignof(App::ScriptableTweakDBRecord);
 } // namespace
 
 namespace App
@@ -18,12 +18,12 @@ ScriptableRecordClass::ScriptableRecordClass(Red::CName aName, const uint32_t aH
 
 void ScriptableRecordClass::ConstructCls(void* aMemory) const
 {
-    new (aMemory) Red::ScriptableTweakDBRecord(this);
+    new (aMemory) ScriptableTweakDBRecord();
 }
 
 void ScriptableRecordClass::DestructCls(void* aMemory) const
 {
-    static_cast<Red::ScriptableTweakDBRecord*>(aMemory)->~ScriptableTweakDBRecord();
+    static_cast<ScriptableTweakDBRecord*>(aMemory)->~ScriptableTweakDBRecord();
 }
 
 void* ScriptableRecordClass::AllocMemory() const
@@ -50,6 +50,6 @@ const bool ScriptableRecordClass::IsEqual(const void* aLhs, const void* aRhs, co
 
 void ScriptableRecordClass::Assign(void* aLhs, const void* aRhs) const
 {
-    new (aLhs) Red::ScriptableTweakDBRecord(*static_cast<const Red::ScriptableTweakDBRecord*>(aRhs));
+    new (aLhs) ScriptableTweakDBRecord(*static_cast<const ScriptableTweakDBRecord*>(aRhs));
 }
 } // namespace App

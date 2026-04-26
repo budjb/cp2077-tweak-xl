@@ -2,32 +2,32 @@
 
 namespace Red::TweakDBUtil
 {
-CBaseRTTIType* GetType(const uint64_t aType);
-CBaseRTTIType* GetType(Red::CName aTypeName);
-CBaseRTTIType* GetArrayType(Red::CName aTypeName);
+CBaseRTTIType* GetType(uint64_t aType);
+CBaseRTTIType* GetType(CName aTypeName);
+CBaseRTTIType* GetArrayType(CName aTypeName);
 CBaseRTTIType* GetArrayType(const CBaseRTTIType* aType);
-CBaseRTTIType* GetElementType(Red::CName aTypeName);
+CBaseRTTIType* GetElementType(CName aTypeName);
 CBaseRTTIType* GetElementType(const CBaseRTTIType* aType);
-bool IsFlatType(Red::CName aTypeName);
+bool IsFlatType(CName aTypeName);
 bool IsFlatType(const CBaseRTTIType* aType);
-bool IsArrayType(Red::CName aTypeName);
+bool IsArrayType(CName aTypeName);
 bool IsArrayType(const CBaseRTTIType* aType);
-bool IsForeignKey(Red::CName aTypeName);
+bool IsForeignKey(CName aTypeName);
 bool IsForeignKey(const CBaseRTTIType* aType);
-bool IsForeignKeyArray(Red::CName aTypeName);
+bool IsForeignKeyArray(CName aTypeName);
 bool IsForeignKeyArray(const CBaseRTTIType* aType);
-bool IsResRefToken(Red::CName aTypeName);
+bool IsResRefToken(CName aTypeName);
 bool IsResRefToken(const CBaseRTTIType* aType);
-bool IsResRefTokenArray(Red::CName aTypeName);
+bool IsResRefTokenArray(CName aTypeName);
 bool IsResRefTokenArray(const CBaseRTTIType* aType);
-Red::CName GetArrayTypeName(Red::CName aTypeName);
-Red::CName GetArrayTypeName(const CBaseRTTIType* aType);
-Red::CName GetElementTypeName(Red::CName aTypeName);
-Red::CName GetElementTypeName(const CBaseRTTIType* aType);
-InstancePtr<> Construct(Red::CName aTypeName);
+CName GetArrayTypeName(CName aTypeName);
+CName GetArrayTypeName(const CBaseRTTIType* aType);
+CName GetElementTypeName(CName aTypeName);
+CName GetElementTypeName(const CBaseRTTIType* aType);
+InstancePtr<> Construct(CName aTypeName);
 InstancePtr<> Construct(const CBaseRTTIType* aType);
 ValuePtr<> ConstructValue(const CBaseRTTIType* aType);
-ValuePtr<> ConstructValue(Red::CName aTypeName);
+ValuePtr<> ConstructValue(CName aTypeName);
 
 CClass* GetRecordType(CName aTypeName);
 CClass* GetRecordType(const char* aTypeName);
@@ -118,7 +118,7 @@ CName GetRecordShortName(const char* aName);
 
 std::string GetPropertyFunctionName(CName aName);
 
-uint32_t GetRecordTypeHash(Red::CName aName);
+uint32_t GetRecordTypeHash(CName aName);
 uint32_t GetRecordTypeHash(const std::string& aName);
 uint32_t GetRecordTypeHash(const char* aName);
 uint32_t GetRecordTypeHash(const CClass* aType);
@@ -128,10 +128,10 @@ TweakDBID GetRTDBFlatID(CName aRecord, const std::string& aProp);
 TweakDBID GetRTDBFlatID(CName aRecord, const char* aProp);
 TweakDBID GetRTDBRecordID(CName aRecord);
 
-std::string Capitalize(Red::CName aName);
+std::string Capitalize(CName aName);
 std::string Capitalize(const std::string& aName);
 std::string Capitalize(const char* aName);
-std::string Decapitalize(Red::CName aName);
+std::string Decapitalize(CName aName);
 std::string Decapitalize(const std::string& aName);
 std::string Decapitalize(const char* aName);
 
