@@ -57,7 +57,7 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
     recordInfo->typeHash = TweakDBUtil::GetRecordTypeHash(aType);
     recordInfo->shortName = TweakDBUtil::GetRecordShortName<std::string>(aType->name);
 
-    if (const auto parentInfo = CollectRecordInfo(aType->parent))
+    if (const auto parentInfo = GetRecordInfo(aType->parent))
     {
         recordInfo->parent = aType->parent;
         recordInfo->props.insert(parentInfo->props.begin(), parentInfo->props.end());
