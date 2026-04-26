@@ -2,8 +2,8 @@
 
 namespace Red::TweakDBUtil
 {
-CBaseRTTIType* GetType(uint64_t aType);
-CBaseRTTIType* GetType(CName aTypeName);
+CBaseRTTIType* GetFlatType(uint64_t aType);
+CBaseRTTIType* GetFlatType(CName aTypeName);
 CBaseRTTIType* GetArrayType(CName aTypeName);
 CBaseRTTIType* GetArrayType(const CBaseRTTIType* aType);
 CBaseRTTIType* GetElementType(CName aTypeName);

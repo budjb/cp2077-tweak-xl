@@ -39,7 +39,7 @@ inline void ConvertScriptValueForFlatValue(Red::Variant& aVariant)
                 wrapper.primaryKey = Red::FNV1a64(value);
             }
 
-            aVariant.Fill(Red::TweakDBUtil::GetType(Red::ERTDBFlatType::LocKey), &wrapper);
+            aVariant.Fill(Red::TweakDBUtil::GetFlatType(Red::ERTDBFlatType::LocKey), &wrapper);
         }
     }
     else if (variantType->GetName() == Red::ERTDBFlatType::String)

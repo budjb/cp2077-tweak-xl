@@ -503,7 +503,7 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(App::TweakChangese
     }
     else
     {
-        state->resolvedType = Red::TweakDBUtil::GetType(GetFlatTypeName(aFlat));
+        state->resolvedType = Red::TweakDBUtil::GetFlatType(GetFlatTypeName(aFlat));
 
         if (state->resolvedType)
         {
