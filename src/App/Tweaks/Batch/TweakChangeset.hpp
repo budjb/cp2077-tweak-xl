@@ -60,11 +60,11 @@ public:
 
     struct SchemaEntry
     {
-        // TODO: default value
         struct PropertyEntry
         {
             std::string name;
-            std::string type;
+            Red::TweakDBUtil::PropertyFlatInfoPtr type;
+            Red::InstancePtr<> defaultValue;
         };
 
         std::string name;
@@ -80,7 +80,9 @@ public:
     bool UpdateRecord(Red::TweakDBID aRecordId);
 
     bool MakeSchema(const std::string& aName, const std::optional<std::string>& aParent);
-    bool MakeSchemaProperty(const std::string& aRecordName, const std::string& aPropName, const std::string& aType);
+    bool MakeSchemaProperty(const std::string& aRecordName, const std::string& aPropName,
+                            const Red::TweakDBUtil::PropertyFlatInfoPtr& aType,
+                            const Red::InstancePtr<>& aDefaultValue = {});
 
     bool AppendElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, const Red::InstancePtr<>& aValue,
                        bool aUnique = false);

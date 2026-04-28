@@ -10,7 +10,7 @@ constexpr auto PropModeKey = "$props";
 constexpr auto PropModeAuto = "AutoFlats";
 constexpr auto GameConditionKey = "$game";
 constexpr auto DLCConditionKey = "$dlc";
-constexpr auto SchemaTypeValue = "schema";
+constexpr auto SchemaTypeValue = "Schema";
 
 constexpr auto AppendOp = Red::FNV1a64("!append");
 constexpr auto AppendOnceOp = Red::FNV1a64("!append-once");
@@ -158,6 +158,11 @@ void App::YamlReader::HandleSchemaNode(TweakChangeset& aChangeset, const std::st
 
     const auto name = Red::TweakDBUtil::NormalizeRecordName(aRecordName);
 
+    if (name != aRecordName)
+    {
+        LogInfo("Normalizing record name {} to {}.", aRecordName, name);
+    }
+
     if (Red::CRTTISystem::Get()->GetClass(name.c_str()))
     {
         LogError("{}: Cannot create record schema, a record type with the same name already exists.", aRecordName);
@@ -185,16 +190,61 @@ void App::YamlReader::HandleSchemaNode(TweakChangeset& aChangeset, const std::st
 
     for (const auto& nodeIt : aNode)
     {
-        const auto nodeKey = nodeIt.first.Scalar();
-
-        if (nodeKey.empty() || nodeKey[0] == AttrSymbol)
-            continue;
-
-        if (!nodeIt.second.IsScalar())
-            continue;
-
-        aChangeset.MakeSchemaProperty(name, nodeKey, nodeIt.second.Scalar());
+        HandleSchemaPropertyNode(aChangeset, name, nodeIt.first.Scalar(), nodeIt.second);
     }
+}
+
+void App::YamlReader::HandleSchemaPropertyNode(TweakChangeset& aChangeset, const std::string& aRecordName,
+                                               const std::string& aPropName, const YAML::Node& aNode)
+{
+    if (aPropName.empty() || aPropName[0] == AttrSymbol)
+        return;
+
+    if (aNode.IsMap())
+    {
+        const auto typeAttr = aNode[TypeAttrKey];
+        const auto valueAttr = aNode[ValueAttrKey];
+
+        if (typeAttr.IsDefined() && valueAttr.IsDefined())
+        {
+            const auto typeInfo = ResolvePropertyFlatInfo(typeAttr);
+
+            if (!typeInfo)
+            {
+                LogError("{}: Invalid type {} for property type {}.", aRecordName, typeAttr.Scalar(), aPropName);
+                return;
+            }
+
+            const auto [propType, propInstance] = TryMakeValue(valueAttr);
+
+            if (propInstance && propType != typeInfo->flatTypeName)
+            {
+                LogError("{}: Invalid value type for property {}. Expected {}, got {}.", aRecordName, aPropName,
+                         typeInfo->flatTypeName.ToString(), propType.ToString());
+                return;
+            }
+
+            aChangeset.MakeSchemaProperty(aRecordName, aPropName, typeInfo, propInstance);
+            return;
+        }
+    }
+
+    if (const auto& [propType, propInstance] = TryMakeValue(aNode); propInstance)
+    {
+        if (Red::TweakDBUtil::IsForeignKey(propType) || Red::TweakDBUtil::IsForeignKeyArray(propType))
+        {
+            LogError("{}: Invalid type for property {}. Foreign keys must be defined as a map containing '$type' and "
+                     "'$value' keys.",
+                     aRecordName, aPropName);
+            return;
+        }
+
+        aChangeset.MakeSchemaProperty(aRecordName, aPropName,
+                                      Red::TweakDBUtil::GetPropertyFlatInfo(propType.ToString()), propInstance);
+        return;
+    }
+
+    LogError("{}: Unable to infer type for property {}.", aRecordName, aPropName);
 }
 
 void App::YamlReader::HandleTopNode(TweakChangeset& aChangeset, PropertyMode aPropMode, const std::string& aName,
