@@ -8,6 +8,8 @@
 
 namespace App
 {
+class TweakService;
+
 /**
  * @brief A manager for handling the registration and lifecycle of scriptable record types, their properties, and the
  * underlying components that allow them to function.
@@ -16,9 +18,12 @@ class ScriptableRecordManager : public Core::LoggingAgent
 {
 public:
     /**
-     * @brief Constructs a ScriptableRecordManager instance.
+     * @brief Retrieves the singleton instance of the ScriptableRecordManager. If the instance does not already exist,
+     * it will be created.
+     *
+     * @return A pointer to the singleton instance of the ScriptableRecordManager.
      */
-    ScriptableRecordManager();
+    static ScriptableRecordManager* Get();
 
     /**
      * @brief Destructs this ScriptableRecordManager instance and releases all resources owned by it, including
@@ -76,21 +81,11 @@ public:
     Red::CName RegisterScriptableRecordType(const std::string& aName,
                                             const std::optional<std::string>& aParentName = std::nullopt);
 
-    /**
-     * @brief Registers a scriptable property specification with this manager under the given record type.
-     *
-     * @param aRecordName The name of the record type to register the property under. This should correspond to the
-     * fully-qualified name of a registered scriptable record type.
-     * @param aPropertyName The name of the property to register. This should adhere to typical TweakDB property naming
-     * conventions, which are camelCase.
-     * @param aFlatType The flat type of the property to register. This should correspond to a valid TweakDB flat type.
-     * @param aForeignType The name of the foreign type of the property to register, if the property's flat type is a
-     * foreign key. This should correspond to the fully-qualified name of a valid TweakDB record type.
-     * @return The CName of the registered scriptable property, or @c Red::CName::Empty if registration failed for any
-     * reason.
-     */
-    Red::CName RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName, uint64_t aFlatType,
-                                          const std::optional<std::string>& aForeignType = std::nullopt);
+    Red::CName RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName,
+                                          const std::string& aType);
+
+    Red::CName RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName,
+                                          const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo);
 
     /**
      * @brief Creates and registers RTTI classes for all pending scriptable record specifications registered with this
@@ -142,11 +137,8 @@ private:
          */
         std::string appendix;
 
-        /**
-         * @brief The expected RTTI type of the property value. This is used for validating that the correct type is
-         * being retrieved from TweakDB.
-         */
-        const Red::CBaseRTTIType* type;
+        // TODO: doc this again
+        Red::TweakDBUtil::PropertyFlatInfoPtr typeInfo;
     };
 
     /**
@@ -193,25 +185,9 @@ private:
          */
         std::string appendix;
 
-        /**
-         * @brief The uint64_t hash of the RTTI type of the property.
-         *
-         * @see Red::ERTDBFlatType::*
-         */
-        uint64_t type;
+        std::string type;
 
-        /**
-         * @brief The name of the foreign type of the property, if the property's flat type is a foreign key. This
-         * should correspond to the short name of a valid TweakDB record type.
-         */
-        std::optional<std::string> foreignName;
-
-        /**
-         * @brief If the property's flat type is a foreign key, this is a pointer to the RTTI class of the foreign type.
-         * This property will be populated during RTTI registration and description, as some foreign types may be
-         * scriptable records that must be created first.
-         */
-        Red::CClass* foreignType;
+        Red::TweakDBUtil::PropertyFlatInfoPtr typeInfo;
 
         // TODO: default value
 
@@ -303,15 +279,26 @@ private:
     };
 
     /**
-     * Creates a new closure that will retrieve the value of a specific property. The appendix and type arguments are
-     * provided to invocations of the closure, and the rest of the details required are provided by the game engine.
+     * @brief Constructs a ScriptableRecordManager instance.
+     *
+     * @see ScriptableRecordManager::Get() to retrieve the singleton instance of this class.
+     */
+    ScriptableRecordManager();
+
+    /**
+     * Creates a new closure that will retrieve the value of a specific property. The appendix and type info arguments
+     * are provided to invocations of the closure, and the rest of the details required are provided by the game engine.
      *
      * @param aAppendix Appendix to apply to the TweakDB record instance's ID when retrieving property values.
-     * @param aType The expected RTTI type of the property value to retrieve.
+     * @param aTypeInfo Type information of the property representing both its TweakDB flat type details and the
+     * property type of the getter closure.
      * @return A pointer to the created closure's executable memory that conforms to the Red engine's required script
      * function signature, or @c nullptr if closure creation failed for any reason.
      */
-    Red::ScriptingFunction_t<void*> CreateClosure(const std::string& aAppendix, const Red::CBaseRTTIType* aType);
+    Red::ScriptingFunction_t<void*> CreateClosure(const std::string& aAppendix,
+                                                  const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo);
+
+    Red::ScriptingFunction_t<void*> CreateClosure(const Context& aContext);
 
     /**
      * @brief Destroys a closure created by this manager and removes it from the closure registry.
@@ -461,6 +448,13 @@ private:
      */
     bool DestroyRecordClass(ScriptableRecordClass* aClass);
 
+    template<Red::ERTTIType>
+    Red::ValuePtr<> ConvertValue(const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
+                                 const Core::SharedPtr<TweakService>& aService)
+    {
+        return Red::MakeValue<>(aValue.type, aValue.instance);
+    }
+
 #ifndef NDEBUG
     /**
      * @brief Registers a test scriptable record type for use in testing and validating scriptable record functionality
@@ -532,4 +526,19 @@ private:
      */
     Core::Map<uint32_t, Core::SharedPtr<ScriptableRecordClass>> m_classes;
 };
+
+template<>
+Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(
+    const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
+    const Core::SharedPtr<TweakService>& aService);
+
+template<>
+Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Handle>(
+    const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
+    const Core::SharedPtr<TweakService>& aService);
+
+template<>
+Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::WeakHandle>(
+    const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
+    const Core::SharedPtr<TweakService>& aService);
 } // namespace App

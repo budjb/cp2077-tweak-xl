@@ -3,6 +3,8 @@
 #include "App/Tweaks/Batch/TweakChangeset.hpp"
 #include "App/Tweaks/Declarative/TweakReader.hpp"
 #include "Core/Logging/LoggingAgent.hpp"
+#include "Red/TweakDB/Source/Source.hpp"
+#include "Red/TweakDB/Util.hpp"
 
 namespace App
 {
@@ -11,13 +13,15 @@ class YamlReader
     , public Core::LoggingAgent
 {
 public:
-    YamlReader(Core::SharedPtr<Red::TweakDBManager> aManager, Core::SharedPtr<App::TweakContext> aContext);
+    explicit YamlReader(const Core::SharedPtr<TweakContext>& aContext,
+                        const Core::SharedPtr<Red::TweakDBManager>& aManager = nullptr);
     ~YamlReader() override = default;
 
     bool Load(const std::filesystem::path& aPath) override;
     [[nodiscard]] bool IsLoaded() const override;
     void Unload() override;
-    void Read(TweakChangeset& aChangeset) override;
+    void ReadSchemas(TweakChangeset& aChangeset) override;
+    void ReadValues(TweakChangeset& aChangeset) override;
 
 private:
     enum class PropertyMode
@@ -25,6 +29,12 @@ private:
         Strict,
         Auto,
     };
+
+    // START : SCHEMA
+
+    void HandleSchemaNode(TweakChangeset& aChangeset, const std::string& aRecordName, const YAML::Node& aNode);
+
+    // END : SCHEMA
 
     void HandleTopNode(TweakChangeset& aChangeset, PropertyMode aPropMode, const std::string& aName,
                        const YAML::Node& aNode);
@@ -39,8 +49,9 @@ private:
                          const YAML::Node& aNode, const Red::CBaseRTTIType* aElementType);
     void UpdateFlatOwner(TweakChangeset& aChangeset, const std::string& aName);
 
-    bool CheckConditions(const YAML::Node& aNode);
+    bool CheckConditions(const YAML::Node& aNode) const;
     static PropertyMode ResolvePropertyMode(const YAML::Node& aNode, PropertyMode aDefault = PropertyMode::Strict);
+    Red::TweakDBUtil::PropertyFlatInfoPtr ResolvePropertyFlatInfo(const YAML::Node& aNode);
     const Red::CBaseRTTIType* ResolveFlatType(const YAML::Node& aNode);
     const Red::CBaseRTTIType* ResolveFlatType(Red::CName aName);
     const Red::CClass* ResolveRecordType(const YAML::Node& aNode);
@@ -67,5 +78,6 @@ private:
 
     std::filesystem::path m_path;
     YAML::Node m_data;
+    bool m_isLoaded = false;
 };
-}
+} // namespace App

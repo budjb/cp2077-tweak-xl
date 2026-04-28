@@ -1,9 +1,9 @@
 #include "RedReader.hpp"
 #include "Red/TweakDB/Source/Parser.hpp"
 
-App::RedReader::RedReader(Core::SharedPtr<Red::TweakDBManager> aManager, Core::SharedPtr<App::TweakContext> aContext)
-    : BaseTweakReader(std::move(aManager), std::move(aContext))
-    , m_path{}
+App::RedReader::RedReader(const Core::SharedPtr<TweakContext>& aContext,
+                          const Core::SharedPtr<Red::TweakDBManager>& aManager)
+    : BaseTweakReader(aContext, aManager)
 {
 }
 
@@ -26,7 +26,11 @@ void App::RedReader::Unload()
     m_source.reset();
 }
 
-void App::RedReader::Read(App::TweakChangeset& aChangeset)
+void App::RedReader::ReadSchemas(TweakChangeset& aChangeset)
+{
+}
+
+void App::RedReader::ReadValues(App::TweakChangeset& aChangeset)
 {
     if (!IsLoaded())
         return;
@@ -82,15 +86,11 @@ App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& a
     if (!groupState->isCompatible)
     {
         if (groupState->isRedefined)
-            LogError("{}: Record type {} doesn't match previous definition {}.",
-                     groupState->groupPath,
-                     ToName(groupState->resolvedType),
-                     ToName(groupState->requiredType));
+            LogError("{}: Record type {} doesn't match previous definition {}.", groupState->groupPath,
+                     ToName(groupState->resolvedType), ToName(groupState->requiredType));
         else
-            LogError("{}: Record type {} is not compatible with {}.",
-                     groupState->groupPath,
-                     ToName(groupState->resolvedType),
-                     ToName(groupState->requiredType));
+            LogError("{}: Record type {} is not compatible with {}.", groupState->groupPath,
+                     ToName(groupState->resolvedType), ToName(groupState->requiredType));
         return groupState;
     }
 
@@ -107,8 +107,8 @@ App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& a
 
     if (!recordInfo)
     {
-        LogError("{}: Cannot create record, the record type {} is abstract.",
-                 groupState->groupPath, ToName(groupState->resolvedType));
+        LogError("{}: Cannot create record, the record type {} is abstract.", groupState->groupPath,
+                 ToName(groupState->resolvedType));
         return groupState;
     }
 
@@ -127,8 +127,8 @@ App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& a
 
         if (propInfo)
         {
-            auto flatState = HandleFlat(aChangeset, flat, groupState->groupName, groupState->groupPath,
-                                        propInfo->type, propInfo->foreignType);
+            auto flatState = HandleFlat(aChangeset, flat, groupState->groupName, groupState->groupPath, propInfo->type,
+                                        propInfo->foreignType);
 
             if (flatState && flatState->isProcessed && groupState->isOriginalBase)
             {
@@ -150,8 +150,7 @@ App::RedReader::GroupStatePtr App::RedReader::HandleInline(App::TweakChangeset& 
                                                            const Red::TweakGroupPtr& aGroup,
                                                            const std::string& aParentName,
                                                            const std::string& aParentPath,
-                                                           const Red::CClass* aRequiredType,
-                                                           int32_t aInlineIndex)
+                                                           const Red::CClass* aRequiredType, int32_t aInlineIndex)
 {
     auto inlineState = ResolveGroupState(aChangeset, aGroup, aParentName, aParentPath, aRequiredType, aInlineIndex);
 
@@ -165,15 +164,11 @@ App::RedReader::GroupStatePtr App::RedReader::HandleInline(App::TweakChangeset& 
     if (!inlineState->isCompatible)
     {
         if (inlineState->isRedefined)
-            LogError("{}: Record type {} doesn't match previous definition {}.",
-                     inlineState->groupPath,
-                     ToName(inlineState->resolvedType),
-                     ToName(inlineState->requiredType));
+            LogError("{}: Record type {} doesn't match previous definition {}.", inlineState->groupPath,
+                     ToName(inlineState->resolvedType), ToName(inlineState->requiredType));
         else
-            LogError("{}: Record type {} is not compatible with {}.",
-                     inlineState->groupPath,
-                     ToName(inlineState->resolvedType),
-                     ToName(inlineState->requiredType));
+            LogError("{}: Record type {} is not compatible with {}.", inlineState->groupPath,
+                     ToName(inlineState->resolvedType), ToName(inlineState->requiredType));
 
         return inlineState;
     }
@@ -182,8 +177,8 @@ App::RedReader::GroupStatePtr App::RedReader::HandleInline(App::TweakChangeset& 
 
     if (!recordInfo)
     {
-        LogError("{}: Cannot create record, the record type {} is abstract.",
-                 inlineState->groupPath, ToName(inlineState->resolvedType));
+        LogError("{}: Cannot create record, the record type {} is abstract.", inlineState->groupPath,
+                 ToName(inlineState->resolvedType));
 
         return inlineState;
     }
@@ -203,8 +198,8 @@ App::RedReader::GroupStatePtr App::RedReader::HandleInline(App::TweakChangeset& 
 
             if (propInfo)
             {
-                flatState = HandleFlat(aChangeset, flat, inlineState->groupName, inlineState->groupPath,
-                                       propInfo->type, propInfo->foreignType);
+                flatState = HandleFlat(aChangeset, flat, inlineState->groupName, inlineState->groupPath, propInfo->type,
+                                       propInfo->foreignType);
             }
             else
             {
@@ -224,10 +219,8 @@ App::RedReader::GroupStatePtr App::RedReader::HandleInline(App::TweakChangeset& 
     return inlineState;
 }
 
-App::RedReader::FlatStatePtr App::RedReader::HandleFlat(App::TweakChangeset& aChangeset,
-                                                        const Red::TweakFlatPtr& aFlat,
-                                                        const std::string& aParentName,
-                                                        const std::string& aParentPath,
+App::RedReader::FlatStatePtr App::RedReader::HandleFlat(App::TweakChangeset& aChangeset, const Red::TweakFlatPtr& aFlat,
+                                                        const std::string& aParentName, const std::string& aParentPath,
                                                         const Red::CBaseRTTIType* aRequiredType,
                                                         const Red::CClass* aForeignType)
 {
@@ -245,8 +238,7 @@ App::RedReader::FlatStatePtr App::RedReader::HandleFlat(App::TweakChangeset& aCh
 
     if (!flatState->isCompatible)
     {
-        LogError("{}: Type {} doesn't match previous definition {}.",
-                 flatState->flatPath,
+        LogError("{}: Type {} doesn't match previous definition {}.", flatState->flatPath,
                  ToName(flatState->resolvedType, flatState->resolvedKey),
                  ToName(flatState->requiredType, flatState->requiredKey));
 
@@ -297,8 +289,7 @@ App::RedReader::FlatStatePtr App::RedReader::HandleFlat(App::TweakChangeset& aCh
 
             if (!flatValue)
             {
-                LogError("{}: Invalid value, expected \"{}\".",
-                         ComposePath(flatState->flatPath, index),
+                LogError("{}: Invalid value, expected \"{}\".", ComposePath(flatState->flatPath, index),
                          ToName(flatState->resolvedType));
 
                 return flatState;
@@ -339,8 +330,7 @@ App::RedReader::GroupStatePtr App::RedReader::ResolveGroupState(App::TweakChange
                                                                 const Red::TweakGroupPtr& aGroup,
                                                                 const std::string& aParentName,
                                                                 const std::string& aParentPath,
-                                                                const Red::CClass* aBaseType,
-                                                                int32_t aInlineIndex)
+                                                                const Red::CClass* aBaseType, int32_t aInlineIndex)
 {
     auto state = Core::MakeShared<GroupState>();
 
@@ -460,12 +450,9 @@ App::RedReader::GroupStatePtr App::RedReader::ResolveGroupState(App::TweakChange
     return state;
 }
 
-App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(App::TweakChangeset& aChangeset,
-                                                              const Red::TweakFlatPtr& aFlat,
-                                                              const std::string& aParentName,
-                                                              const std::string& aParentPath,
-                                                              const Red::CBaseRTTIType* aRequiredType,
-                                                              const Red::CClass* aForeignType)
+App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(
+    App::TweakChangeset& aChangeset, const Red::TweakFlatPtr& aFlat, const std::string& aParentName,
+    const std::string& aParentPath, const Red::CBaseRTTIType* aRequiredType, const Red::CClass* aForeignType)
 {
     auto state = Core::MakeShared<FlatState>();
 
@@ -495,10 +482,9 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(App::TweakChangese
         {
             state->isResolved = true;
             state->isCompatible = !state->requiredType || state->resolvedType == state->requiredType;
-            state->isArray = Red::TweakDBUtil::IsArrayType( state->resolvedType);
-            state->isForeignKey = state->isArray
-                ? Red::TweakDBUtil::IsForeignKeyArray( state->resolvedType)
-                : Red::TweakDBUtil::IsForeignKey( state->resolvedType);
+            state->isArray = Red::TweakDBUtil::IsArrayType(state->resolvedType);
+            state->isForeignKey = state->isArray ? Red::TweakDBUtil::IsForeignKeyArray(state->resolvedType)
+                                                 : Red::TweakDBUtil::IsForeignKey(state->resolvedType);
         }
     }
     else
@@ -508,10 +494,9 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(App::TweakChangese
         if (state->resolvedType)
         {
             state->isResolved = true;
-            state->isArray = Red::TweakDBUtil::IsArrayType( state->resolvedType);
-            state->isForeignKey = state->isArray
-                ? Red::TweakDBUtil::IsForeignKeyArray( state->resolvedType)
-                : Red::TweakDBUtil::IsForeignKey( state->resolvedType);
+            state->isArray = Red::TweakDBUtil::IsArrayType(state->resolvedType);
+            state->isForeignKey = state->isArray ? Red::TweakDBUtil::IsForeignKeyArray(state->resolvedType)
+                                                 : Red::TweakDBUtil::IsForeignKey(state->resolvedType);
 
             if (instanceType)
             {

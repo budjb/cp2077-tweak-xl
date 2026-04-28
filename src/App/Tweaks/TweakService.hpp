@@ -8,7 +8,6 @@
 #include "Core/Hooking/HookingAgent.hpp"
 #include "Core/Logging/LoggingAgent.hpp"
 #include "Core/Runtime/HostImage.hpp"
-#include "Record/ScriptableRecordManager.hpp"
 #include "Red/TweakDB/Manager.hpp"
 #include "Red/TweakDB/Raws.hpp"
 #include "Red/TweakDB/Reflection.hpp"
@@ -50,6 +49,7 @@ protected:
     void ApplyPatches();
     void InsertScriptableRecordDefaults();
     void SetupScriptableRecords();
+    void SetupTweakImporter();
 
     std::filesystem::path m_gameDir;
     std::filesystem::path m_tweaksDir;
@@ -64,6 +64,5 @@ protected:
     Core::SharedPtr<App::TweakImporter> m_importer;
     Core::SharedPtr<App::TweakExecutor> m_executor;
     Core::SharedPtr<App::TweakContext> m_context;
-    Core::SharedPtr<App::ScriptableRecordManager> m_scriptableRecordManager;
 };
 } // namespace App

@@ -85,3 +85,4 @@ target("wil")
     add_includedirs("vendor/wil/include/", { public = true })
 
 add_rules("plugin.vsxmake.autoupdate")
+add_rules("plugin.compile_commands.autoupdate")

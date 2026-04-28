@@ -1,5 +1,7 @@
 #include "TweakChangeset.hpp"
 
+#include "App/Tweaks/Record/ScriptableRecordManager.hpp"
+
 namespace
 {
 constexpr auto StringTypeName = Red::GetTypeName<Red::CString>();
@@ -30,8 +32,7 @@ bool App::TweakChangeset::ReinheritFlat(Red::TweakDBID aFlatId, Red::TweakDBID a
     return true;
 }
 
-bool App::TweakChangeset::MakeRecord(Red::TweakDBID aRecordId, const Red::CClass* aType,
-                                     Red::TweakDBID aSourceId)
+bool App::TweakChangeset::MakeRecord(Red::TweakDBID aRecordId, const Red::CClass* aType, Red::TweakDBID aSourceId)
 {
     if (!aRecordId.IsValid() || !aType)
         return false;
@@ -59,6 +60,73 @@ bool App::TweakChangeset::UpdateRecord(Red::TweakDBID aRecordId)
         m_pendingRecords.insert({aRecordId, {}});
         m_orderedRecords.push_back(aRecordId);
     }
+
+    return true;
+}
+
+bool App::TweakChangeset::MakeSchema(const std::string& aName, const std::optional<std::string>& aParent)
+{
+    if (aName.empty())
+    {
+        LogError("Cannot create record schema, its name is empty");
+        return false;
+    }
+
+    const auto cname = aName.c_str();
+
+    if (m_pendingSchemas.contains(cname))
+    {
+        LogError("Cannot create record schema, another with the same name already exists");
+        return false;
+    }
+
+    auto& entry = m_pendingSchemas[cname];
+    entry.name = aName;
+    entry.parent = aParent;
+
+    return true;
+}
+
+bool App::TweakChangeset::MakeSchemaProperty(const std::string& aRecordName, const std::string& aPropName,
+                                             const std::string& aType)
+{
+    if (aRecordName.empty())
+    {
+        LogError("Cannot add property {} to record schema, the record name is empty.", aPropName);
+        return false;
+    }
+
+    if (aPropName.empty())
+    {
+        LogError("Cannot add property to record schema {}, the property name is empty.", aRecordName);
+        return false;
+    }
+
+    if (aType.empty())
+    {
+        LogError("Cannot add property {} to record schema {}, the property type is empty.", aPropName, aRecordName);
+        return false;
+    }
+
+    auto& schemaEntry = m_pendingSchemas[aRecordName.c_str()];
+
+    if (schemaEntry.name.empty())
+    {
+        LogError("Cannot add property {} to record schema {}, the record schema doesn't exist.", aPropName,
+                 aRecordName);
+        return false;
+    }
+
+    if (schemaEntry.props.contains(aPropName.c_str()))
+    {
+        LogError("Cannot add property {} to record schema {}, the property already exists.", aPropName, aRecordName);
+        return false;
+    }
+
+    auto& [name, typeInfo] = schemaEntry.props[aPropName.c_str()];
+
+    name = aPropName;
+    typeInfo = aType;
 
     return true;
 }
@@ -176,592 +244,618 @@ bool App::TweakChangeset::HasRecord(Red::TweakDBID aRecordId)
 
 bool App::TweakChangeset::IsEmpty()
 {
-    return m_pendingFlats.empty() && m_pendingRecords.empty() && m_pendingMutations.empty() && m_pendingNames.empty();
+    return m_pendingSchemas.empty() && m_pendingFlats.empty() && m_pendingRecords.empty() &&
+           m_pendingMutations.empty() && m_pendingNames.empty();
 }
 
 void App::TweakChangeset::Commit(const Core::SharedPtr<Red::TweakDBManager>& aManager,
                                  const Core::SharedPtr<App::TweakChangelog>& aChangelog)
 {
-    if (!aManager || !IsCommitFinished())
+    if (!IsCommitFinished())
         return;
 
     StartCommitJob();
 
-    if (aChangelog)
+    // TODO: move rollback out of here and make explicit
+    // if (aChangelog)
+    // {
+    //     aChangelog->RevertChanges(aManager);
+    //     aChangelog->ForgetForeignKeys();
+    //     aChangelog->ForgetResourcePaths();
+    // }
+
+    // TODO: handle changelog integration for schemas (classes, record instances, default flat entries)
+    if (!m_pendingSchemas.empty())
     {
-        aChangelog->RevertChanges(aManager);
-        aChangelog->ForgetForeignKeys();
-        aChangelog->ForgetResourcePaths();
-    }
+        LogDebug("Registering record schemas...");
 
-    if (!m_pendingNames.empty())
-    {
-        StartAsyncCommitJob([&]() {
-            for (const auto& [id, name] : m_pendingNames)
-            {
-                aManager->RegisterName(id, name, GetRecordType(id));
-            }
-        });
-    }
+        auto* manager = ScriptableRecordManager::Get();
 
-    LogDebug("Resolving inheritance...");
-
-    if (!m_reinheritedProps.empty())
-    {
-        Core::Set<Red::TweakDBID> convertedToMutation;
-
-        auto reinheritedProps = std::move(m_reinheritedProps);
-        while (!reinheritedProps.empty())
+        for (const auto& record : m_pendingSchemas | std::views::values)
         {
-            auto items = std::move(reinheritedProps);
-            for (const auto& item : items)
+            const auto name = manager->RegisterScriptableRecordType(record.name, record.parent);
+
+            for (const auto& property : record.props | std::views::values)
             {
-                const auto& sourceId = item.second.sourceId;
+                manager->RegisterScriptableProperty(name, property.name, property.type);
+            }
+        }
+    }
 
-                if (!aManager->IsRecordExists(sourceId))
-                    continue;
-
-                const auto& sourceFlatId = item.first;
-                const auto sourceFlatValue = aManager->GetFlat(sourceFlatId);
-                const auto& appendix = item.second.appendix;
-
-#ifndef NDEBUG
-                const auto sourceName = aManager->GetReflection()->ToString(sourceId);
-                const auto sourceFlatName = sourceName + appendix;
-#endif
-
-                if (!sourceFlatValue)
-                    continue;
-
-                const auto isAssignment = m_pendingFlats.contains(sourceFlatId);
-                const auto isMutation = m_pendingMutations.contains(sourceFlatId);
-                auto isConvertedToMutation = false;
-
-                for (const auto& descendantId : aManager->GetReflection()->GetOriginalDescendants(sourceId))
+    if (aManager)
+    {
+        if (!m_pendingNames.empty())
+        {
+            StartAsyncCommitJob([&]() {
+                for (const auto& [id, name] : m_pendingNames)
                 {
-                    if (!aManager->IsRecordExists(descendantId))
+                    aManager->RegisterName(id, name, GetRecordType(id));
+                }
+            });
+        }
+
+        LogDebug("Resolving inheritance...");
+
+        if (!m_reinheritedProps.empty())
+        {
+            Core::Set<Red::TweakDBID> convertedToMutation;
+
+            auto reinheritedProps = std::move(m_reinheritedProps);
+            while (!reinheritedProps.empty())
+            {
+                auto items = std::move(reinheritedProps);
+                for (const auto& item : items)
+                {
+                    const auto& sourceId = item.second.sourceId;
+
+                    if (!aManager->IsRecordExists(sourceId))
                         continue;
 
-                    const auto descendantFlatId = Red::TweakDBID(descendantId, appendix);
+                    const auto& sourceFlatId = item.first;
+                    const auto sourceFlatValue = aManager->GetFlat(sourceFlatId);
+                    const auto& appendix = item.second.appendix;
 
 #ifndef NDEBUG
-                    const auto descendantName = aManager->GetReflection()->ToString(descendantId);
-                    const auto descendantFlatName = descendantName + appendix;
+                    const auto sourceName = aManager->GetReflection()->ToString(sourceId);
+                    const auto sourceFlatName = sourceName + appendix;
 #endif
 
-                    if (m_pendingFlats.contains(descendantFlatId))
+                    if (!sourceFlatValue)
                         continue;
 
-                    if (isAssignment)
-                    {
-                        auto descendantFlatValue = aManager->GetFlat(descendantFlatId);
+                    const auto isAssignment = m_pendingFlats.contains(sourceFlatId);
+                    const auto isMutation = m_pendingMutations.contains(sourceFlatId);
+                    auto isConvertedToMutation = false;
 
-                        if (!descendantFlatValue)
+                    for (const auto& descendantId : aManager->GetReflection()->GetOriginalDescendants(sourceId))
+                    {
+                        if (!aManager->IsRecordExists(descendantId))
                             continue;
 
-                        if (descendantFlatValue == sourceFlatValue)
-                        {
-                            auto& clonedAssignment = m_pendingFlats[descendantFlatId];
-                            const auto& sourceAssignment = m_pendingFlats[sourceFlatId];
+                        const auto descendantFlatId = Red::TweakDBID(descendantId, appendix);
 
-                            clonedAssignment.type = sourceAssignment.type;
-                            clonedAssignment.value = Red::TweakDBUtil::Construct(clonedAssignment.type);
-                            clonedAssignment.type->Assign(clonedAssignment.value.get(), sourceAssignment.value.get());
+#ifndef NDEBUG
+                        const auto descendantName = aManager->GetReflection()->ToString(descendantId);
+                        const auto descendantFlatName = descendantName + appendix;
+#endif
 
-                            UpdateRecord(descendantId);
-                        }
-                        else if (Red::TweakDBUtil::IsArrayType(sourceFlatValue.type))
+                        if (m_pendingFlats.contains(descendantFlatId))
+                            continue;
+
+                        if (isAssignment)
                         {
-                            if (!isConvertedToMutation)
+                            auto descendantFlatValue = aManager->GetFlat(descendantFlatId);
+
+                            if (!descendantFlatValue)
+                                continue;
+
+                            if (descendantFlatValue == sourceFlatValue)
                             {
+                                auto& clonedAssignment = m_pendingFlats[descendantFlatId];
                                 const auto& sourceAssignment = m_pendingFlats[sourceFlatId];
-                                auto& sourceMutation = m_pendingMutations[sourceFlatId];
 
-                                sourceMutation.deleteAll = true;
+                                clonedAssignment.type = sourceAssignment.type;
+                                clonedAssignment.value = Red::TweakDBUtil::Construct(clonedAssignment.type);
+                                clonedAssignment.type->Assign(clonedAssignment.value.get(),
+                                                              sourceAssignment.value.get());
 
-                                auto* sourceType = reinterpret_cast<const Red::CRTTIArrayType*>(sourceAssignment.type);
-                                auto* elementType = sourceType->innerType;
-                                auto* sourceArray = reinterpret_cast<Red::DynArray<void>*>(sourceAssignment.value.get());
-                                auto sourceLength = sourceType->GetLength(sourceArray);
-
-                                for (uint32_t sourceIndex = 0; sourceIndex < sourceLength; ++sourceIndex)
+                                UpdateRecord(descendantId);
+                            }
+                            else if (Red::TweakDBUtil::IsArrayType(sourceFlatValue.type))
+                            {
+                                if (!isConvertedToMutation)
                                 {
-                                    auto sourceValuePtr = sourceType->GetElement(sourceArray, sourceIndex);
-                                    auto clonedValue = Red::TweakDBUtil::Construct(elementType);
-                                    elementType->Assign(clonedValue.get(), sourceValuePtr);
+                                    const auto& sourceAssignment = m_pendingFlats[sourceFlatId];
+                                    auto& sourceMutation = m_pendingMutations[sourceFlatId];
 
-                                    sourceMutation.prependings.push_back({elementType, std::move(clonedValue)});
+                                    sourceMutation.deleteAll = true;
+
+                                    auto* sourceType =
+                                        reinterpret_cast<const Red::CRTTIArrayType*>(sourceAssignment.type);
+                                    auto* elementType = sourceType->innerType;
+                                    auto* sourceArray =
+                                        reinterpret_cast<Red::DynArray<void>*>(sourceAssignment.value.get());
+                                    auto sourceLength = sourceType->GetLength(sourceArray);
+
+                                    for (uint32_t sourceIndex = 0; sourceIndex < sourceLength; ++sourceIndex)
+                                    {
+                                        auto sourceValuePtr = sourceType->GetElement(sourceArray, sourceIndex);
+                                        auto clonedValue = Red::TweakDBUtil::Construct(elementType);
+                                        elementType->Assign(clonedValue.get(), sourceValuePtr);
+
+                                        sourceMutation.prependings.push_back({elementType, std::move(clonedValue)});
+                                    }
+
+                                    convertedToMutation.insert(sourceFlatId);
+                                    isConvertedToMutation = true;
                                 }
 
-                                convertedToMutation.insert(sourceFlatId);
-                                isConvertedToMutation = true;
+                                m_pendingMutations[descendantFlatId].baseId = sourceFlatId;
+
+                                UpdateRecord(descendantId);
+                            }
+                        }
+                        else if (isMutation)
+                        {
+                            auto descendantFlatValue = aManager->GetFlat(descendantFlatId);
+
+                            if (!descendantFlatValue)
+                                continue;
+
+                            if (descendantFlatValue != sourceFlatValue)
+                            {
+                                auto* sourceArray = reinterpret_cast<Red::DynArray<uint8_t>*>(sourceFlatValue.instance);
+                                auto* descendantArray =
+                                    reinterpret_cast<Red::DynArray<uint8_t>*>(descendantFlatValue.instance);
+
+                                if (sourceArray->Size() > descendantArray->Size())
+                                    continue;
+
+                                auto* sourceType = reinterpret_cast<const Red::CRTTIArrayType*>(sourceFlatValue.type);
+                                auto* elementType = sourceType->innerType;
+
+                                if (elementType->GetName() == StringTypeName)
+                                {
+                                    const auto sourceHash = Red::TweakDBBuffer::ComputeHash(
+                                        sourceFlatValue.type, sourceFlatValue.instance, sourceArray->Size());
+                                    const auto descendantHash = Red::TweakDBBuffer::ComputeHash(
+                                        descendantFlatValue.type, descendantFlatValue.instance, sourceArray->Size());
+
+                                    if (sourceHash != descendantHash)
+                                        continue;
+                                }
+                                else
+                                {
+                                    auto dataSize = sourceArray->Size() * elementType->GetSize();
+
+                                    if (std::memcmp(sourceArray->Data(), descendantArray->Data(), dataSize) != 0)
+                                        continue;
+                                }
                             }
 
                             m_pendingMutations[descendantFlatId].baseId = sourceFlatId;
 
                             UpdateRecord(descendantId);
                         }
-                    }
-                    else if (isMutation)
-                    {
-                        auto descendantFlatValue = aManager->GetFlat(descendantFlatId);
-
-                        if (!descendantFlatValue)
-                            continue;
-
-                        if (descendantFlatValue != sourceFlatValue)
+                        else
                         {
-                            auto* sourceArray = reinterpret_cast<Red::DynArray<uint8_t>*>(sourceFlatValue.instance);
-                            auto* descendantArray = reinterpret_cast<Red::DynArray<uint8_t>*>(descendantFlatValue.instance);
-
-                            if (sourceArray->Size() > descendantArray->Size())
-                                continue;
-
-                            auto* sourceType = reinterpret_cast<const Red::CRTTIArrayType*>(sourceFlatValue.type);
-                            auto* elementType = sourceType->innerType;
-
-                            if (elementType->GetName() == StringTypeName)
-                            {
-                                const auto sourceHash = Red::TweakDBBuffer::ComputeHash(sourceFlatValue.type,
-                                                                                        sourceFlatValue.instance,
-                                                                                        sourceArray->Size());
-                                const auto descendantHash = Red::TweakDBBuffer::ComputeHash(descendantFlatValue.type,
-                                                                                            descendantFlatValue.instance,
-                                                                                            sourceArray->Size());
-
-                                if (sourceHash != descendantHash)
-                                    continue;
-                            }
-                            else
-                            {
-                                auto dataSize = sourceArray->Size() * elementType->GetSize();
-
-                                if (std::memcmp(sourceArray->Data(), descendantArray->Data(), dataSize) != 0)
-                                    continue;
-                            }
+                            continue;
                         }
 
-                        m_pendingMutations[descendantFlatId].baseId = sourceFlatId;
-
-                        UpdateRecord(descendantId);
+                        if (aManager->GetReflection()->IsOriginalBaseRecord(descendantId))
+                        {
+                            auto& chainEntry = reinheritedProps[descendantFlatId]; // NOLINT(bugprone-use-after-move)
+                            chainEntry.sourceId = descendantId;
+                            chainEntry.appendix = appendix;
+                        }
                     }
-                    else
+                }
+            }
+
+            for (const auto& flatId : convertedToMutation)
+            {
+                m_pendingFlats.erase(flatId);
+            }
+        }
+
+        for (const auto& [recordId, recordEntry] : m_pendingRecords)
+        {
+            if (!recordEntry.sourceId)
+                continue;
+
+            if (aManager->GetReflection()->IsOriginalRecord(recordId))
+            {
+                const_cast<RecordEntry&>(recordEntry).sourceId.value = 0;
+                continue;
+            }
+
+            const auto recordInfo = aManager->GetReflection()->GetRecordInfo(recordEntry.type);
+
+            for (const auto& propInfo : recordInfo->props | std::views::values)
+            {
+                if (propInfo->isArray)
+                {
+                    auto targetPropId = recordId + propInfo->appendix;
+                    if (m_pendingFlats.contains(targetPropId))
+                        continue;
+
+                    auto sourcePropId = recordEntry.sourceId + propInfo->appendix;
+                    if (!m_pendingMutations.contains(sourcePropId))
+                        continue;
+
+                    auto& mutationEntry = m_pendingMutations[targetPropId];
+                    mutationEntry.baseId = sourcePropId;
+                }
+            }
+        }
+
+        LogDebug("Resolving mutations...");
+
+        for (const auto& [flatId, mutation] : m_pendingMutations)
+        {
+            if (!mutation.deleteAll)
+                continue;
+
+            auto flatData = aManager->GetFlat(flatId);
+
+            if (!flatData.instance || flatData.type->GetType() != Red::ERTTIType::Array)
+                continue;
+
+            auto* targetType = reinterpret_cast<const Red::CRTTIArrayType*>(flatData.type);
+            auto* elementType = targetType->innerType;
+
+            auto* sourceArray = reinterpret_cast<Red::DynArray<void>*>(flatData.instance);
+            auto sourceLength = targetType->GetLength(sourceArray);
+
+            for (uint32_t sourceIndex = 0; sourceIndex < sourceLength; ++sourceIndex)
+            {
+                auto sourceValuePtr = targetType->GetElement(sourceArray, sourceIndex);
+                auto clonedValue = Red::TweakDBUtil::Construct(elementType);
+                elementType->Assign(clonedValue.get(), sourceValuePtr);
+
+                const_cast<MutationEntry&>(mutation).deletions.push_back({elementType, std::move(clonedValue)});
+            }
+
+            const_cast<MutationEntry&>(mutation).deleteAll = false;
+        }
+
+        {
+            LogDebug("Preparing records...");
+
+            const auto batch = aManager->StartBatch();
+
+            for (const auto& recordId : m_orderedRecords)
+            {
+                if (!aManager->IsRecordExists(recordId))
+                {
+                    const auto& entry = m_pendingRecords[recordId];
+                    const auto success = aManager->CreateRecord(batch, recordId, entry.type);
+
+                    if (!success)
                     {
+                        LogError("Cannot create record {}.", aManager->GetName(recordId));
                         continue;
                     }
 
-                    if (aManager->GetReflection()->IsOriginalBaseRecord(descendantId))
+                    if (aChangelog)
                     {
-                        auto& chainEntry = reinheritedProps[descendantFlatId]; // NOLINT(bugprone-use-after-move)
-                        chainEntry.sourceId = descendantId;
-                        chainEntry.appendix = appendix;
+                        aChangelog->RegisterRecord(recordId);
                     }
                 }
             }
+
+            LogDebug("Committing changes...");
+
+            aManager->CommitBatch(batch);
         }
 
-        for (const auto& flatId : convertedToMutation)
         {
-            m_pendingFlats.erase(flatId);
-        }
-    }
+            LogDebug("Preparing flats...");
 
-    for (const auto& [recordId, recordEntry] : m_pendingRecords)
-    {
-        if (!recordEntry.sourceId)
-            continue;
+            const auto batch = aManager->StartBatch();
 
-        if (aManager->GetReflection()->IsOriginalRecord(recordId))
-        {
-            const_cast<RecordEntry&>(recordEntry).sourceId.value = 0;
-            continue;
-        }
-
-        const auto recordInfo = aManager->GetReflection()->GetRecordInfo(recordEntry.type);
-
-        for (const auto& propInfo : recordInfo->props | std::views::values)
-        {
-            if (propInfo->isArray)
+            for (const auto& item : m_pendingFlats)
             {
-                auto targetPropId = recordId + propInfo->appendix;
-                if (m_pendingFlats.contains(targetPropId))
-                    continue;
-
-                auto sourcePropId = recordEntry.sourceId + propInfo->appendix;
-                if (!m_pendingMutations.contains(sourcePropId))
-                    continue;
-
-                auto& mutationEntry = m_pendingMutations[targetPropId];
-                mutationEntry.baseId = sourcePropId;
-            }
-        }
-    }
-
-    LogDebug("Resolving mutations...");
-
-    for (const auto& [flatId, mutation] : m_pendingMutations)
-    {
-        if (!mutation.deleteAll)
-            continue;
-
-        auto flatData = aManager->GetFlat(flatId);
-
-        if (!flatData.instance || flatData.type->GetType() != Red::ERTTIType::Array)
-            continue;
-
-        auto* targetType = reinterpret_cast<const Red::CRTTIArrayType*>(flatData.type);
-        auto* elementType = targetType->innerType;
-
-        auto* sourceArray = reinterpret_cast<Red::DynArray<void>*>(flatData.instance);
-        auto sourceLength = targetType->GetLength(sourceArray);
-
-        for (uint32_t sourceIndex = 0; sourceIndex < sourceLength; ++sourceIndex)
-        {
-            auto sourceValuePtr = targetType->GetElement(sourceArray, sourceIndex);
-            auto clonedValue = Red::TweakDBUtil::Construct(elementType);
-            elementType->Assign(clonedValue.get(), sourceValuePtr);
-
-            const_cast<MutationEntry&>(mutation).deletions.push_back({elementType, std::move(clonedValue)});
-        }
-
-        const_cast<MutationEntry&>(mutation).deleteAll = false;
-    }
-
-    {
-        LogDebug("Preparing records...");
-
-        const auto batch = aManager->StartBatch();
-
-        for (const auto& recordId : m_orderedRecords)
-        {
-            if (!aManager->IsRecordExists(recordId))
-            {
-                const auto& entry = m_pendingRecords[recordId];
-                const auto success = aManager->CreateRecord(batch, recordId, entry.type);
-
-                if (!success)
-                {
-                    LogError("Cannot create record {}.", aManager->GetName(recordId));
-                    continue;
-                }
+                const auto& flatId = item.first;
+                const auto& flatType = item.second.type;
+                const auto& flatValue = item.second.value.get();
 
                 if (aChangelog)
                 {
-                    aChangelog->RegisterRecord(recordId);
-                }
-            }
-        }
-
-        LogDebug("Committing changes...");
-
-        aManager->CommitBatch(batch);
-    }
-
-    {
-        LogDebug("Preparing flats...");
-
-        const auto batch = aManager->StartBatch();
-
-        for (const auto& item : m_pendingFlats)
-        {
-            const auto& flatId = item.first;
-            const auto& flatType = item.second.type;
-            const auto& flatValue = item.second.value.get();
-
-            if (aChangelog)
-            {
-                if (Red::TweakDBUtil::IsForeignKey(flatType))
-                {
-                    const auto foreignKey = reinterpret_cast<Red::TweakDBID*>(flatValue);
-                    aChangelog->RegisterForeignKey(*foreignKey, flatId);
-                }
-                else if (Red::TweakDBUtil::IsForeignKeyArray(flatType))
-                {
-                    const auto foreignKeyList = reinterpret_cast<Red::DynArray<Red::TweakDBID>*>(flatValue);
-                    for (const auto& foreignKey : *foreignKeyList)
+                    if (Red::TweakDBUtil::IsForeignKey(flatType))
                     {
-                        aChangelog->RegisterForeignKey(foreignKey, flatId);
+                        const auto foreignKey = reinterpret_cast<Red::TweakDBID*>(flatValue);
+                        aChangelog->RegisterForeignKey(*foreignKey, flatId);
+                    }
+                    else if (Red::TweakDBUtil::IsForeignKeyArray(flatType))
+                    {
+                        const auto foreignKeyList = reinterpret_cast<Red::DynArray<Red::TweakDBID>*>(flatValue);
+                        for (const auto& foreignKey : *foreignKeyList)
+                        {
+                            aChangelog->RegisterForeignKey(foreignKey, flatId);
+                        }
+                    }
+                    else if (Red::TweakDBUtil::IsResRefToken(flatType))
+                    {
+                        const auto resRef = reinterpret_cast<Red::ResourceAsyncReference<>*>(flatValue);
+                        aChangelog->RegisterResourcePath(resRef->path, flatId);
+                    }
+                    else if (Red::TweakDBUtil::IsResRefTokenArray(flatType))
+                    {
+                        const auto resRefList =
+                            reinterpret_cast<Red::DynArray<Red::ResourceAsyncReference<>>*>(flatValue);
+                        for (const auto& resRef : *resRefList)
+                        {
+                            aChangelog->RegisterResourcePath(resRef.path, flatId);
+                        }
                     }
                 }
-                else if (Red::TweakDBUtil::IsResRefToken(flatType))
-                {
-                    const auto resRef = reinterpret_cast<Red::ResourceAsyncReference<>*>(flatValue);
-                    aChangelog->RegisterResourcePath(resRef->path, flatId);
-                }
-                else if (Red::TweakDBUtil::IsResRefTokenArray(flatType))
-                {
-                    const auto resRefList = reinterpret_cast<Red::DynArray<Red::ResourceAsyncReference<>>*>(flatValue);
-                    for (const auto& resRef : *resRefList)
-                    {
-                        aChangelog->RegisterResourcePath(resRef.path, flatId);
-                    }
-                }
-            }
 
-            const auto success = aManager->SetFlat(batch, flatId, flatType, flatValue);
-
-            if (!success)
-            {
-                LogError("Can't assign flat {}.", aManager->GetName(flatId));
-                continue;
-            }
-        }
-
-        for (const auto& recordId : m_orderedRecords)
-        {
-            const auto& entry = m_pendingRecords[recordId];
-
-            if (entry.sourceId)
-            {
-                const auto success = aManager->InheritProps(batch, recordId, entry.sourceId);
+                const auto success = aManager->SetFlat(batch, flatId, flatType, flatValue);
 
                 if (!success)
                 {
-                    LogError("Cannot clone record {} from {}.", aManager->GetName(recordId), aManager->GetName(entry.sourceId));
+                    LogError("Can't assign flat {}.", aManager->GetName(flatId));
                     continue;
                 }
             }
+
+            for (const auto& recordId : m_orderedRecords)
+            {
+                const auto& entry = m_pendingRecords[recordId];
+
+                if (entry.sourceId)
+                {
+                    const auto success = aManager->InheritProps(batch, recordId, entry.sourceId);
+
+                    if (!success)
+                    {
+                        LogError("Cannot clone record {} from {}.", aManager->GetName(recordId),
+                                 aManager->GetName(entry.sourceId));
+                        continue;
+                    }
+                }
+            }
+
+            if (aChangelog)
+            {
+                for (const auto& flatId : aManager->GetFlats(batch))
+                {
+                    auto flatOld = aManager->GetFlat(flatId);
+                    auto flatNew = aManager->GetFlat(batch, flatId);
+
+                    if (!flatOld.instance)
+                    {
+                        flatOld = aManager->GetDefault(flatNew.type);
+                    }
+                    else if (flatOld.type != flatNew.type)
+                    {
+                        LogWarning("Type mismatch for {} assignment.", aManager->GetName(flatId));
+                        continue;
+                    }
+
+                    aChangelog->RegisterAssignment(flatId, flatOld.instance, flatNew.instance);
+                }
+            }
+
+            LogDebug("Committing changes...");
+
+            aManager->CommitBatch(batch);
         }
 
-        if (aChangelog)
-        {
-            for (const auto& flatId : aManager->GetFlats(batch))
-            {
-                auto flatOld = aManager->GetFlat(flatId);
-                auto flatNew = aManager->GetFlat(batch, flatId);
+        LogDebug("Applying mutations...");
 
-                if (!flatOld.instance)
+        for (const auto& [flatId, mutation] : m_pendingMutations)
+        {
+            auto flatData = aManager->GetFlat(flatId);
+
+            if (!flatData.instance)
+            {
+                auto* elementType = !mutation.prependings.empty()
+                                        ? mutation.prependings.front().type
+                                        : (!mutation.appendings.empty() ? mutation.appendings.front().type : nullptr);
+
+                if (!elementType)
                 {
-                    flatOld = aManager->GetDefault(flatNew.type);
-                }
-                else if (flatOld.type != flatNew.type)
-                {
-                    LogWarning("Type mismatch for {} assignment.", aManager->GetName(flatId));
+                    LogError("Cannot modify {}, the flat doesn't exist.", aManager->GetName(flatId));
                     continue;
                 }
 
-                aChangelog->RegisterAssignment(flatId, flatOld.instance, flatNew.instance);
+                flatData.type = Red::TweakDBUtil::GetArrayType(elementType);
             }
-        }
-
-        LogDebug("Committing changes...");
-
-        aManager->CommitBatch(batch);
-    }
-
-    LogDebug("Applying mutations...");
-
-    for (const auto& [flatId, mutation] : m_pendingMutations)
-    {
-        auto flatData = aManager->GetFlat(flatId);
-
-        if (!flatData.instance)
-        {
-            auto* elementType = !mutation.prependings.empty()
-                                    ? mutation.prependings.front().type
-                                    : (!mutation.appendings.empty()
-                                           ? mutation.appendings.front().type
-                                           : nullptr);
-
-            if (!elementType)
+            else if (flatData.type->GetType() != Red::ERTTIType::Array)
             {
-                LogError("Cannot modify {}, the flat doesn't exist.", aManager->GetName(flatId));
+                LogError("Cannot modify {}, it's not an array.", aManager->GetName(flatId));
                 continue;
             }
 
-            flatData.type = Red::TweakDBUtil::GetArrayType(elementType);
-        }
-        else if (flatData.type->GetType() != Red::ERTTIType::Array)
-        {
-            LogError("Cannot modify {}, it's not an array.", aManager->GetName(flatId));
-            continue;
-        }
-
 #ifndef NDEBUG
-        const auto targetFlatName = aManager->GetReflection()->ToString(flatId);
+            const auto targetFlatName = aManager->GetReflection()->ToString(flatId);
 #endif
 
-        auto* targetType = reinterpret_cast<const Red::CRTTIArrayType*>(flatData.type);
-        auto* elementType = targetType->innerType;
+            auto* targetType = reinterpret_cast<const Red::CRTTIArrayType*>(flatData.type);
+            auto* elementType = targetType->innerType;
 
-        // The data returned by manager is a pointer to the TweakDB flat buffer,
-        // we must make a copy of the original array for modifications.
-        auto targetArray = Red::TweakDBUtil::Construct(targetType);
+            // The data returned by manager is a pointer to the TweakDB flat buffer,
+            // we must make a copy of the original array for modifications.
+            auto targetArray = Red::TweakDBUtil::Construct(targetType);
 
-        if (flatData.instance)
-            targetType->Assign(targetArray.get(), flatData.instance);
+            if (flatData.instance)
+                targetType->Assign(targetArray.get(), flatData.instance);
 
-        Core::Vector<ElementChange> skips;
-        Core::SortedSet<ElementChange, ElementIndexComparator> deletions;
-        Core::Vector<ElementChange> insertions;
-        Core::Vector<decltype(&mutation)> chain;
+            Core::Vector<ElementChange> skips;
+            Core::SortedSet<ElementChange, ElementIndexComparator> deletions;
+            Core::Vector<ElementChange> insertions;
+            Core::Vector<decltype(&mutation)> chain;
 
-        {
-            chain.push_back(&mutation);
-
-            auto baseId = mutation.baseId;
-            while (baseId.IsValid())
             {
-                auto& entry = m_pendingMutations[baseId];
-                chain.push_back(&entry);
+                chain.push_back(&mutation);
+
+                auto baseId = mutation.baseId;
+                while (baseId.IsValid())
+                {
+                    auto& entry = m_pendingMutations[baseId];
+                    chain.push_back(&entry);
 #ifndef NDEBUG
-                const auto baseFlatName = aManager->GetReflection()->ToString(baseId);
+                    const auto baseFlatName = aManager->GetReflection()->ToString(baseId);
 #endif
-                baseId = entry.baseId;
+                    baseId = entry.baseId;
+                }
+
+                std::reverse(chain.begin(), chain.end());
             }
 
-            std::reverse(chain.begin(), chain.end());
-        }
-
-        {
-            auto chainLevel = 0;
-
-            for (const auto& entry : chain)
             {
-                for (const auto& deletion : entry->deletions)
-                {
-                    const auto deletionValue = deletion.value;
-                    const auto deletionIndex = FindElement(targetType, targetArray.get(), deletionValue.get());
+                auto chainLevel = 0;
 
-                    if (deletionIndex >= 0)
+                for (const auto& entry : chain)
+                {
+                    for (const auto& deletion : entry->deletions)
                     {
-                        deletions.emplace(deletionIndex, deletionValue);
+                        const auto deletionValue = deletion.value;
+                        const auto deletionIndex = FindElement(targetType, targetArray.get(), deletionValue.get());
+
+                        if (deletionIndex >= 0)
+                        {
+                            deletions.emplace(deletionIndex, deletionValue);
+                        }
+
+                        skips.emplace_back(chainLevel, deletionValue);
                     }
 
-                    skips.emplace_back(chainLevel, deletionValue);
+                    ++chainLevel;
                 }
 
-                ++chainLevel;
-            }
-
-            if (!deletions.empty())
-            {
-                for (const auto& [deletionIndex, deletionEntry] : deletions | std::views::reverse)
+                if (!deletions.empty())
                 {
-                    targetType->RemoveAt(targetArray.get(), deletionIndex);
-                }
-            }
-        }
-
-        {
-            auto chainLevel = 0;
-            auto insertionIndex = 0;
-
-            auto performInsertions = [&, flatId = flatId](const Core::Vector<InsertionEntry>& aInsertions,
-                                                          const Core::Vector<MergingEntry>& aMerges)
-            {
-                for (const auto& insertion : aInsertions)
-                {
-                    const auto& insertionValue = insertion.value;
-
-                    if (insertion.unique && InArray(targetType, targetArray.get(), insertionValue.get()))
-                        continue;
-
-                    if (IsSkip(targetType, insertionValue.get(), chainLevel, skips))
-                        continue;
-
-                    targetType->InsertAt(targetArray.get(), insertionIndex);
-                    elementType->Assign(targetType->GetElement(targetArray.get(), insertionIndex), insertionValue.get());
-
-                    insertions.emplace_back(insertionIndex, insertionValue);
-
-                    ++insertionIndex;
-                }
-
-                for (const auto& merge : aMerges)
-                {
-                    const auto sourceData = aManager->GetFlat(merge.sourceId);
-
-                    if (!sourceData.instance || sourceData.type != targetType)
+                    for (const auto& [deletionIndex, deletionEntry] : deletions | std::views::reverse)
                     {
-                        LogError("Cannot merge {} with {} because it's not an array.",
-                                 aManager->GetName(merge.sourceId), aManager->GetName(flatId));
-                        continue;
+                        targetType->RemoveAt(targetArray.get(), deletionIndex);
                     }
+                }
+            }
 
-                    auto* sourceArray = reinterpret_cast<Red::DynArray<void>*>(sourceData.instance);
-                    const auto sourceLength = targetType->GetLength(sourceArray);
+            {
+                auto chainLevel = 0;
+                auto insertionIndex = 0;
 
-                    for (uint32_t sourceIndex = 0; sourceIndex < sourceLength; ++sourceIndex)
+                auto performInsertions = [&, flatId = flatId](const Core::Vector<InsertionEntry>& aInsertions,
+                                                              const Core::Vector<MergingEntry>& aMerges) {
+                    for (const auto& insertion : aInsertions)
                     {
-                        const auto insertionValuePtr = targetType->GetElement(sourceArray, sourceIndex);
+                        const auto& insertionValue = insertion.value;
 
-                        if (InArray(targetType, targetArray.get(), insertionValuePtr))
+                        if (insertion.unique && InArray(targetType, targetArray.get(), insertionValue.get()))
                             continue;
 
-                        if (IsSkip(targetType, insertionValuePtr, chainLevel, skips))
+                        if (IsSkip(targetType, insertionValue.get(), chainLevel, skips))
                             continue;
 
                         targetType->InsertAt(targetArray.get(), insertionIndex);
-                        elementType->Assign(targetType->GetElement(targetArray.get(), insertionIndex), insertionValuePtr);
+                        elementType->Assign(targetType->GetElement(targetArray.get(), insertionIndex),
+                                            insertionValue.get());
 
-                        auto clonedValue = Red::TweakDBUtil::Construct(elementType);
-                        elementType->Assign(clonedValue.get(), insertionValuePtr);
-
-                        insertions.emplace_back(insertionIndex, clonedValue);
+                        insertions.emplace_back(insertionIndex, insertionValue);
 
                         ++insertionIndex;
                     }
-                }
-            };
 
-            chainLevel = 0;
+                    for (const auto& merge : aMerges)
+                    {
+                        const auto sourceData = aManager->GetFlat(merge.sourceId);
 
-            for (const auto& entry : chain)
-            {
-                performInsertions(entry->prependings, entry->prependingMerges);
-                ++chainLevel;
-            }
+                        if (!sourceData.instance || sourceData.type != targetType)
+                        {
+                            LogError("Cannot merge {} with {} because it's not an array.",
+                                     aManager->GetName(merge.sourceId), aManager->GetName(flatId));
+                            continue;
+                        }
 
-            chainLevel = 0;
-            insertionIndex = static_cast<int32_t>(targetType->GetLength(targetArray.get()));
+                        auto* sourceArray = reinterpret_cast<Red::DynArray<void>*>(sourceData.instance);
+                        const auto sourceLength = targetType->GetLength(sourceArray);
 
-            for (const auto& entry : chain)
-            {
-                performInsertions(entry->appendings, entry->appendingMerges);
-                ++chainLevel;
-            }
-        }
+                        for (uint32_t sourceIndex = 0; sourceIndex < sourceLength; ++sourceIndex)
+                        {
+                            const auto insertionValuePtr = targetType->GetElement(sourceArray, sourceIndex);
 
-        const auto success = aManager->SetFlat(flatId, targetType, targetArray.get());
+                            if (InArray(targetType, targetArray.get(), insertionValuePtr))
+                                continue;
 
-        if (!success)
-        {
-            LogError("Cannot assign flat value {}.", aManager->GetName(flatId));
-            continue;
-        }
+                            if (IsSkip(targetType, insertionValuePtr, chainLevel, skips))
+                                continue;
 
-        if (aChangelog)
-        {
-            const auto isForeignKey = Red::TweakDBUtil::IsForeignKeyArray(targetType);
+                            targetType->InsertAt(targetArray.get(), insertionIndex);
+                            elementType->Assign(targetType->GetElement(targetArray.get(), insertionIndex),
+                                                insertionValuePtr);
 
-            for (const auto& [deletionIndex, deletionValue] : deletions)
-            {
-                aChangelog->RegisterDeletion(flatId, deletionIndex, deletionValue);
-            }
+                            auto clonedValue = Red::TweakDBUtil::Construct(elementType);
+                            elementType->Assign(clonedValue.get(), insertionValuePtr);
 
-            for (const auto& [insertionIndex, insertionValue] : insertions)
-            {
-                aChangelog->RegisterInsertion(flatId, insertionIndex, insertionValue);
+                            insertions.emplace_back(insertionIndex, clonedValue);
 
-                if (isForeignKey)
+                            ++insertionIndex;
+                        }
+                    }
+                };
+
+                chainLevel = 0;
+
+                for (const auto& entry : chain)
                 {
-                    const auto foreignKey = reinterpret_cast<Red::TweakDBID*>(insertionValue.get());
-                    aChangelog->RegisterForeignKey(*foreignKey, flatId);
+                    performInsertions(entry->prependings, entry->prependingMerges);
+                    ++chainLevel;
+                }
+
+                chainLevel = 0;
+                insertionIndex = static_cast<int32_t>(targetType->GetLength(targetArray.get()));
+
+                for (const auto& entry : chain)
+                {
+                    performInsertions(entry->appendings, entry->appendingMerges);
+                    ++chainLevel;
+                }
+            }
+
+            const auto success = aManager->SetFlat(flatId, targetType, targetArray.get());
+
+            if (!success)
+            {
+                LogError("Cannot assign flat value {}.", aManager->GetName(flatId));
+                continue;
+            }
+
+            if (aChangelog)
+            {
+                const auto isForeignKey = Red::TweakDBUtil::IsForeignKeyArray(targetType);
+
+                for (const auto& [deletionIndex, deletionValue] : deletions)
+                {
+                    aChangelog->RegisterDeletion(flatId, deletionIndex, deletionValue);
+                }
+
+                for (const auto& [insertionIndex, insertionValue] : insertions)
+                {
+                    aChangelog->RegisterInsertion(flatId, insertionIndex, insertionValue);
+
+                    if (isForeignKey)
+                    {
+                        const auto foreignKey = reinterpret_cast<Red::TweakDBID*>(insertionValue.get());
+                        aChangelog->RegisterForeignKey(*foreignKey, flatId);
+                    }
                 }
             }
         }
-    }
 
-    LogDebug("Updating records...");
+        LogDebug("Updating records...");
 
-    for (const auto& recordId : m_orderedRecords)
-    {
-        const auto success = aManager->UpdateRecord(recordId);
-
-        if (!success)
+        for (const auto& recordId : m_orderedRecords)
         {
-            LogError("Cannot update record {}.", aManager->GetName(recordId));
+            const auto success = aManager->UpdateRecord(recordId);
+
+            if (!success)
+            {
+                LogError("Cannot update record {}.", aManager->GetName(recordId));
+            }
         }
     }
 
