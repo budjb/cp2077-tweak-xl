@@ -10,6 +10,7 @@ constexpr auto PropModeKey = "$props";
 constexpr auto PropModeAuto = "AutoFlats";
 constexpr auto GameConditionKey = "$game";
 constexpr auto DLCConditionKey = "$dlc";
+constexpr auto SchemaTypeValue = "schema";
 
 constexpr auto AppendOp = Red::FNV1a64("!append");
 constexpr auto AppendOnceOp = Red::FNV1a64("!append-once");
@@ -22,21 +23,13 @@ constexpr auto RemoveOp = Red::FNV1a64("!remove");
 constexpr auto RemoveAllOp = Red::FNV1a64("!remove-all");
 
 constexpr auto UIIconType = Red::CName("gamedataUIIcon_Record");
-constexpr auto StringType = Red::CName("String");
 
 constexpr auto PropSeparator = ".";
+} // namespace
 
-constexpr auto LegacyGroupsNodeKey = "groups";
-constexpr auto LegacyMembersNodeKey = "members";
-constexpr auto LegacyFlatsNodeKey = "flats";
-constexpr auto LegacyTypeNodeKey = "type";
-constexpr auto LegacyValueNodeKey = "value";
-}
-
-App::YamlReader::YamlReader(Core::SharedPtr<Red::TweakDBManager> aManager, Core::SharedPtr<App::TweakContext> aContext)
-    : BaseTweakReader(std::move(aManager), std::move(aContext))
-    , m_path{}
-    , m_data{}
+App::YamlReader::YamlReader(const Core::SharedPtr<TweakContext>& aContext,
+                            const Core::SharedPtr<Red::TweakDBManager>& aManager)
+    : BaseTweakReader(aContext, aManager)
 {
 }
 
@@ -45,7 +38,22 @@ bool App::YamlReader::Load(const std::filesystem::path& aPath)
     m_path = aPath;
     m_data = YAML::LoadFile(aPath.string());
 
-    return IsLoaded();
+    if (!m_data.IsDefined() || m_data.IsNull())
+        return false;
+
+    if (!m_data.IsMap())
+    {
+        LogError("Bad format in path {}: Unexpected data at the top level.", m_path.string());
+        return false;
+    }
+
+    if (!CheckConditions(m_data))
+        return false;
+
+    ProcessTemplates(m_data);
+
+    m_isLoaded = true;
+    return true;
 }
 
 bool App::YamlReader::IsLoaded() const
@@ -59,24 +67,23 @@ void App::YamlReader::Unload()
     m_data = YAML::Node();
 }
 
-void App::YamlReader::Read(App::TweakChangeset& aChangeset)
+void App::YamlReader::ReadSchemas(TweakChangeset& aChangeset)
 {
     if (!IsLoaded())
         return;
 
-    if (!m_data.IsMap())
+    for (const auto& it : m_data)
     {
-        LogError("Bad format. Unexpected data at the top level.");
-        return;
+        HandleSchemaNode(aChangeset, it.first.Scalar(), it.second);
     }
+}
 
-    if (!CheckConditions(m_data))
+void App::YamlReader::ReadValues(TweakChangeset& aChangeset)
+{
+    if (!IsLoaded())
         return;
 
-    // ConvertLegacyNodes();
-    ProcessTemplates(m_data);
-
-    auto propMode = ResolvePropertyMode(m_data);
+    const auto propMode = ResolvePropertyMode(m_data);
 
     for (const auto& it : m_data)
     {
@@ -84,40 +91,32 @@ void App::YamlReader::Read(App::TweakChangeset& aChangeset)
     }
 }
 
-bool App::YamlReader::CheckConditions(const YAML::Node& aNode)
+bool App::YamlReader::CheckConditions(const YAML::Node& aNode) const
 {
+    if (const auto& gameConditionAttr = aNode[GameConditionKey]; gameConditionAttr.IsDefined())
     {
-        const auto& gameConditionAttr = aNode[GameConditionKey];
-        if (gameConditionAttr.IsDefined())
-        {
-            if (!gameConditionAttr.IsScalar())
-                return false;
+        if (!gameConditionAttr.IsScalar())
+            return false;
 
-            if (!m_context->CheckGameVersion(gameConditionAttr.Scalar()))
-                return false;
-        }
+        if (!m_context->CheckGameVersion(gameConditionAttr.Scalar()))
+            return false;
     }
 
+    if (const auto& dlcConditionAttr = aNode[DLCConditionKey]; dlcConditionAttr.IsDefined())
     {
-        const auto& dlcConditionAttr = aNode[DLCConditionKey];
-        if (dlcConditionAttr.IsDefined())
-        {
-            if (!dlcConditionAttr.IsScalar())
-                return false;
+        if (!dlcConditionAttr.IsScalar())
+            return false;
 
-            if (!m_context->CheckInstalledDLC(dlcConditionAttr.Scalar()))
-                return false;
-        }
+        if (!m_context->CheckInstalledDLC(dlcConditionAttr.Scalar()))
+            return false;
     }
 
     return true;
 }
 
-App::YamlReader::PropertyMode App::YamlReader::ResolvePropertyMode(const YAML::Node& aNode, PropertyMode aDefault)
+App::YamlReader::PropertyMode App::YamlReader::ResolvePropertyMode(const YAML::Node& aNode, const PropertyMode aDefault)
 {
-    const auto& modeAttr = aNode[PropModeKey];
-
-    if (modeAttr.IsDefined() && modeAttr.Scalar() == PropModeAuto)
+    if (const auto& modeAttr = aNode[PropModeKey]; modeAttr.IsDefined() && modeAttr.Scalar() == PropModeAuto)
     {
         return PropertyMode::Auto;
     }
@@ -125,8 +124,81 @@ App::YamlReader::PropertyMode App::YamlReader::ResolvePropertyMode(const YAML::N
     return aDefault;
 }
 
-void App::YamlReader::HandleTopNode(App::TweakChangeset& aChangeset, PropertyMode aPropMode,
-                                    const std::string& aName, const YAML::Node& aNode)
+void App::YamlReader::HandleSchemaNode(TweakChangeset& aChangeset, const std::string& aRecordName,
+                                       const YAML::Node& aNode)
+{
+    if (aRecordName.empty())
+    {
+        LogError("Bad format in path {}: The top element must have a name.", m_path.string());
+        return;
+    }
+
+    if (aRecordName[0] == AttrSymbol)
+        return;
+
+    if (aNode.Type() != YAML::NodeType::Map)
+        return;
+
+    if (!CheckConditions(aNode))
+        return;
+
+    const auto typeAttr = aNode[TypeAttrKey];
+
+    if (!typeAttr.IsDefined())
+        return;
+
+    if (!typeAttr.IsScalar())
+    {
+        LogError("{}: Invalid $type value.", aRecordName);
+        return;
+    }
+
+    if (typeAttr.Scalar() != SchemaTypeValue)
+        return;
+
+    const auto name = Red::TweakDBUtil::NormalizeRecordName(aRecordName);
+
+    if (Red::CRTTISystem::Get()->GetClass(name.c_str()))
+    {
+        LogError("{}: Cannot create record schema, a record type with the same name already exists.", aRecordName);
+        return;
+    }
+
+    std::optional<std::string> parent = std::nullopt;
+
+    if (const auto baseAttr = aNode[BaseAttrKey]; baseAttr.IsDefined())
+    {
+        if (!baseAttr.IsScalar())
+        {
+            LogError("{}: Invalid base record name.", aRecordName);
+            return;
+        }
+
+        if (const auto& val = baseAttr.Scalar(); !val.empty())
+        {
+            parent = val;
+        }
+    }
+
+    if (!aChangeset.MakeSchema(name, parent))
+        return;
+
+    for (const auto& nodeIt : aNode)
+    {
+        const auto nodeKey = nodeIt.first.Scalar();
+
+        if (nodeKey.empty() || nodeKey[0] == AttrSymbol)
+            continue;
+
+        if (!nodeIt.second.IsScalar())
+            continue;
+
+        aChangeset.MakeSchemaProperty(name, nodeKey, nodeIt.second.Scalar());
+    }
+}
+
+void App::YamlReader::HandleTopNode(TweakChangeset& aChangeset, PropertyMode aPropMode, const std::string& aName,
+                                    const YAML::Node& aNode)
 {
     if (aName.empty())
     {
@@ -144,55 +216,9 @@ void App::YamlReader::HandleTopNode(App::TweakChangeset& aChangeset, PropertyMod
     {
     case YAML::NodeType::Map:
     {
+        if (const auto recordType = ResolveRecordInstanceType(aChangeset, targetId))
         {
-            const auto recordType = ResolveRecordInstanceType(aChangeset, targetId);
-
-            if (recordType)
-            {
-                auto cloneAttr = aNode[BaseAttrKey];
-
-                if (cloneAttr.IsDefined())
-                {
-                    const auto sourceId = ResolveTweakDBID(cloneAttr);
-                    const auto sourceType = ResolveRecordInstanceType(aChangeset, sourceId);
-
-                    if (!sourceType)
-                    {
-                        LogError("{}: Cannot clone {}, the record doesn't exist.", aName, cloneAttr.Scalar());
-                        break;
-                    }
-
-                    if (sourceType != recordType)
-                    {
-                        LogError("{}: Cannot clone {}, the record has incompatible type.", aName, cloneAttr.Scalar());
-                        break;
-                    }
-
-                    HandleRecordNode(aChangeset, aPropMode, aName, aName, aNode, recordType, sourceId);
-                }
-                else
-                {
-                    HandleRecordNode(aChangeset, aPropMode, aName, aName, aNode, recordType);
-                }
-                break;
-            }
-        }
-
-        {
-            const auto flatType = ResolveFlatInstanceType(aChangeset, targetId);
-
-            if (flatType)
-            {
-                const auto& valueAttr = aNode[ValueAttrKey];
-                HandleFlatNode(aChangeset, aName, valueAttr.IsDefined() ? valueAttr : aNode, flatType);
-                break;
-            }
-        }
-
-        {
-            auto cloneAttr = aNode[BaseAttrKey];
-
-            if (cloneAttr.IsDefined())
+            if (auto cloneAttr = aNode[BaseAttrKey]; cloneAttr.IsDefined())
             {
                 const auto sourceId = ResolveTweakDBID(cloneAttr);
                 const auto sourceType = ResolveRecordInstanceType(aChangeset, sourceId);
@@ -203,45 +229,69 @@ void App::YamlReader::HandleTopNode(App::TweakChangeset& aChangeset, PropertyMod
                     break;
                 }
 
-                HandleRecordNode(aChangeset, aPropMode, aName, aName, aNode, sourceType, sourceId);
-                break;
+                if (sourceType != recordType)
+                {
+                    LogError("{}: Cannot clone {}, the record has incompatible type.", aName, cloneAttr.Scalar());
+                    break;
+                }
+
+                HandleRecordNode(aChangeset, aPropMode, aName, aName, aNode, recordType, sourceId);
             }
+            else
+            {
+                HandleRecordNode(aChangeset, aPropMode, aName, aName, aNode, recordType);
+            }
+            break;
         }
 
+        if (const auto flatType = ResolveFlatInstanceType(aChangeset, targetId))
         {
-            const auto typeAttr = aNode[TypeAttrKey];
+            const auto& valueAttr = aNode[ValueAttrKey];
+            HandleFlatNode(aChangeset, aName, valueAttr.IsDefined() ? valueAttr : aNode, flatType);
+            break;
+        }
 
-            if (typeAttr.IsDefined())
+        if (auto cloneAttr = aNode[BaseAttrKey]; cloneAttr.IsDefined())
+        {
+            const auto sourceId = ResolveTweakDBID(cloneAttr);
+            const auto sourceType = ResolveRecordInstanceType(aChangeset, sourceId);
+
+            if (!sourceType)
             {
-                const auto valueAttr = aNode[ValueAttrKey];
-
-                if (valueAttr.IsDefined())
-                {
-                    const auto flatType = ResolveFlatType(typeAttr);
-
-                    if (!flatType)
-                    {
-                        LogWarning("{}: Invalid value type {}.", aName, typeAttr.Scalar());
-                        break;
-                    }
-
-                    HandleFlatNode(aChangeset, aName, valueAttr, flatType);
-                    break;
-                }
-                else
-                {
-                    const auto recordType = ResolveRecordType(typeAttr);
-
-                    if (!recordType)
-                    {
-                        LogWarning("{}: Invalid record type {}.", aName, typeAttr.Scalar());
-                        break;
-                    }
-
-                    HandleRecordNode(aChangeset, aPropMode, aName, aName, aNode, recordType);
-                    break;
-                }
+                LogError("{}: Cannot clone {}, the record doesn't exist.", aName, cloneAttr.Scalar());
+                break;
             }
+
+            HandleRecordNode(aChangeset, aPropMode, aName, aName, aNode, sourceType, sourceId);
+            break;
+        }
+
+        if (const auto typeAttr = aNode[TypeAttrKey]; typeAttr.IsDefined())
+        {
+            if (const auto valueAttr = aNode[ValueAttrKey]; valueAttr.IsDefined())
+            {
+                const auto flatType = ResolveFlatType(typeAttr);
+
+                if (!flatType)
+                {
+                    LogWarning("{}: Invalid value type {}.", aName, typeAttr.Scalar());
+                    break;
+                }
+
+                HandleFlatNode(aChangeset, aName, valueAttr, flatType);
+                break;
+            }
+
+            const auto recordType = ResolveRecordType(typeAttr);
+
+            if (!recordType)
+            {
+                LogWarning("{}: Invalid record type {}.", aName, typeAttr.Scalar());
+                break;
+            }
+
+            HandleRecordNode(aChangeset, aPropMode, aName, aName, aNode, recordType);
+            break;
         }
 
         // Try to infer the flat based on the content
@@ -360,7 +410,8 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
             LogError("{}: Cannot create record, the record type {} is abstract.", aRecordPath,
                      Red::TweakDBUtil::GetRecordShortName<std::string>(aRecordType->GetName()));
         else
-            LogError("{}: Cannot create record, {} is not a record type.", aRecordPath, aRecordType->GetName().ToString());
+            LogError("{}: Cannot create record, {} is not a record type.", aRecordPath,
+                     aRecordType->GetName().ToString());
         return;
     }
 
@@ -500,7 +551,8 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
 
         if (!propValue)
         {
-            LogError("{}.{}: Invalid value, expected \"{}\".", aRecordPath, nodeKey, propInfo->type->GetName().ToString());
+            LogError("{}.{}: Invalid value, expected \"{}\".", aRecordPath, nodeKey,
+                     propInfo->type->GetName().ToString());
             continue;
         }
 
@@ -536,16 +588,12 @@ bool App::YamlReader::ResolveInlineNode(App::TweakChangeset& aChangeset, const s
                     aForeignType = sourceType;
                     return true;
                 }
-                else
-                {
-                    LogError("{}: Cannot inline from {}, the record has incompatible type.",
-                             aPath, cloneAttr.Scalar());
-                }
+
+                LogError("{}: Cannot inline from {}, the record has incompatible type.", aPath, cloneAttr.Scalar());
             }
             else
             {
-                LogError("{}: Cannot clone from {}, the record doesn't exist.",
-                         aPath, cloneAttr.Scalar());
+                LogError("{}: Cannot clone from {}, the record doesn't exist.", aPath, cloneAttr.Scalar());
             }
 
             return false;
@@ -566,17 +614,14 @@ bool App::YamlReader::ResolveInlineNode(App::TweakChangeset& aChangeset, const s
                     aForeignType = suggestedType;
                     return true;
                 }
-                else
-                {
-                    LogError("{}: Cannot be inlined, provided type {} is incompatible with property type.",
-                             aPath, typeAttr.Scalar());
-                }
+
+                LogError("{}: Cannot be inlined, provided type {} is incompatible with property type.", aPath,
+                         typeAttr.Scalar());
             }
             else
             {
-                LogError("{}: Cannot be inlined, provided type {} is not a known record type or abstract.",
-                         aPath, typeAttr.Scalar());
-
+                LogError("{}: Cannot be inlined, provided type {} is not a known record type or abstract.", aPath,
+                         typeAttr.Scalar());
             }
 
             return false;
@@ -586,9 +631,8 @@ bool App::YamlReader::ResolveInlineNode(App::TweakChangeset& aChangeset, const s
     return true;
 }
 
-bool App::YamlReader::HandleMutations(TweakChangeset& aChangeset, const std::string& aPath,
-                                      const std::string& aName, const YAML::Node& aNode,
-                                      const Red::CBaseRTTIType* aElementType)
+bool App::YamlReader::HandleMutations(TweakChangeset& aChangeset, const std::string& aPath, const std::string& aName,
+                                      const YAML::Node& aNode, const Red::CBaseRTTIType* aElementType)
 {
     if (!aNode.IsSequence())
         return false;
@@ -619,8 +663,8 @@ bool App::YamlReader::HandleMutations(TweakChangeset& aChangeset, const std::str
 
             if (!itemValue)
             {
-                LogError("{}.{}: Invalid value, expected \"{}\".",
-                         aPath, std::to_string(itemIndex), aElementType->GetName().ToString());
+                LogError("{}.{}: Invalid value, expected \"{}\".", aPath, std::to_string(itemIndex),
+                         aElementType->GetName().ToString());
                 continue;
             }
 
@@ -635,8 +679,8 @@ bool App::YamlReader::HandleMutations(TweakChangeset& aChangeset, const std::str
 
             if (!itemValue)
             {
-                LogError("{}.{}: Invalid value, expected \"{}\".",
-                         aPath, std::to_string(itemIndex), aElementType->GetName().ToString());
+                LogError("{}.{}: Invalid value, expected \"{}\".", aPath, std::to_string(itemIndex),
+                         aElementType->GetName().ToString());
                 continue;
             }
 
@@ -679,8 +723,8 @@ bool App::YamlReader::HandleMutations(TweakChangeset& aChangeset, const std::str
 
             if (!itemValue)
             {
-                LogError("{}.{}: Invalid value, expected \"{}\".",
-                         aPath, std::to_string(itemIndex), aElementType->GetName().ToString());
+                LogError("{}.{}: Invalid value, expected \"{}\".", aPath, std::to_string(itemIndex),
+                         aElementType->GetName().ToString());
                 continue;
             }
 
@@ -704,10 +748,19 @@ bool App::YamlReader::HandleMutations(TweakChangeset& aChangeset, const std::str
     if (isMutation && isAssignment)
     {
         LogWarning("{}: Mixed definition of array replacement and mutations. "
-                   "Only mutations will take effect.", aPath);
+                   "Only mutations will take effect.",
+                   aPath);
     }
 
     return isMutation;
+}
+
+Red::TweakDBUtil::PropertyFlatInfoPtr App::YamlReader::ResolvePropertyFlatInfo(const YAML::Node& aNode)
+{
+    if (!aNode.IsScalar())
+        return nullptr;
+
+    return Red::TweakDBUtil::GetPropertyFlatInfo(aNode.Scalar());
 }
 
 const Red::CBaseRTTIType* App::YamlReader::ResolveFlatType(const YAML::Node& aNode)

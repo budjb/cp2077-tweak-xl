@@ -58,18 +58,35 @@ public:
         std::string appendix;
     };
 
+    struct SchemaEntry
+    {
+        // TODO: default value
+        struct PropertyEntry
+        {
+            std::string name;
+            std::string type;
+        };
+
+        std::string name;
+        std::optional<std::string> parent;
+
+        Core::Map<Red::CName, PropertyEntry> props;
+    };
+
     bool SetFlat(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, const Red::InstancePtr<>& aValue);
     bool ReinheritFlat(Red::TweakDBID aFlatId, Red::TweakDBID aSourceId, const std::string& aAppendix);
 
     bool MakeRecord(Red::TweakDBID aRecordId, const Red::CClass* aType, Red::TweakDBID aSourceId = {});
     bool UpdateRecord(Red::TweakDBID aRecordId);
 
-    bool AppendElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType,
-                       const Red::InstancePtr<>& aValue, bool aUnique = false);
-    bool PrependElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType,
-                        const Red::InstancePtr<>& aValue, bool aUnique = false);
-    bool RemoveElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType,
-                       const Red::InstancePtr<>& aValue);
+    bool MakeSchema(const std::string& aName, const std::optional<std::string>& aParent);
+    bool MakeSchemaProperty(const std::string& aRecordName, const std::string& aPropName, const std::string& aType);
+
+    bool AppendElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, const Red::InstancePtr<>& aValue,
+                       bool aUnique = false);
+    bool PrependElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, const Red::InstancePtr<>& aValue,
+                        bool aUnique = false);
+    bool RemoveElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, const Red::InstancePtr<>& aValue);
     bool RemoveAllElements(Red::TweakDBID aFlatId);
     bool AppendFrom(Red::TweakDBID aFlatId, Red::TweakDBID aSourceId);
     bool PrependFrom(Red::TweakDBID aFlatId, Red::TweakDBID aSourceId);
@@ -107,7 +124,7 @@ private:
         StartCommitJob();
         Red::JobQueue jobQueue;
         jobQueue.Dispatch(std::forward<J>(aJob));
-        jobQueue.Dispatch([self = ToShared()]{ self->FinishCommitJob(); });
+        jobQueue.Dispatch([self = ToShared()] { self->FinishCommitJob(); });
     }
 
     static int32_t FindElement(const Red::CRTTIArrayType* aArrayType, void* aArray, void* aValue);
@@ -122,9 +139,10 @@ private:
     Core::Map<Red::TweakDBID, FlatEntry> m_pendingFlats;
     Core::Map<Red::TweakDBID, ReinheritanceEntry> m_reinheritedProps;
     Core::Map<Red::TweakDBID, std::string> m_pendingNames;
+    Core::Map<Red::CName, SchemaEntry> m_pendingSchemas;
 
     std::mutex m_commitMutex;
     int32_t m_totalCommitChunks{0};
     int32_t m_finishedCommitChunks{0};
 };
-}
+} // namespace App

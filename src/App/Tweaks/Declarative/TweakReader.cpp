@@ -15,14 +15,19 @@ constexpr auto IndexClose = "]";
 
 constexpr auto ForeignKeyOpen = "<";
 constexpr auto ForeignKeyClose = ">";
+} // namespace
+
+App::BaseTweakReader::BaseTweakReader(const Core::SharedPtr<TweakContext>& aContext,
+                                      const Core::SharedPtr<Red::TweakDBManager>& aManager)
+    : m_manager(aManager)
+    , m_context(aContext)
+{
 }
 
-App::BaseTweakReader::BaseTweakReader(Core::SharedPtr<Red::TweakDBManager> aManager,
-                                      Core::SharedPtr<App::TweakContext> aContext)
-    : m_manager(std::move(aManager))
-    , m_reflection(m_manager->GetReflection())
-    , m_context(std::move(aContext))
+void App::BaseTweakReader::SetManager(const Core::SharedPtr<Red::TweakDBManager>& aManager)
 {
+    m_manager = aManager;
+    m_reflection = m_manager->GetReflection();
 }
 
 bool App::BaseTweakReader::IsOriginalBaseRecord(Red::TweakDBID aRecordId)

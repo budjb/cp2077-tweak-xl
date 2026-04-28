@@ -12,13 +12,14 @@ class RedReader
     , public Core::LoggingAgent
 {
 public:
-    RedReader(Core::SharedPtr<Red::TweakDBManager> aManager, Core::SharedPtr<App::TweakContext> aContext);
+    explicit RedReader(const Core::SharedPtr<TweakContext>& aContext, const Core::SharedPtr<Red::TweakDBManager>& aManager = nullptr);
     ~RedReader() override = default;
 
     bool Load(const std::filesystem::path& aPath) override;
     [[nodiscard]] bool IsLoaded() const override;
     void Unload() override;
-    void Read(TweakChangeset& aChangeset) override;
+    void ReadSchemas(TweakChangeset& aChangeset) override;
+    void ReadValues(TweakChangeset& aChangeset) override;
 
     static Red::CName GetFlatTypeName(const Red::TweakFlatPtr& aFlat);
 

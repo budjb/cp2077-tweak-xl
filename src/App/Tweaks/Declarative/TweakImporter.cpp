@@ -1,90 +1,138 @@
 #include "TweakImporter.hpp"
-#include "App/Tweaks/Batch/TweakChangeset.hpp"
-#include "App/Tweaks/Declarative/Yaml/YamlReader.hpp"
-#include "App/Tweaks/Declarative/Red/RedReader.hpp"
 
-App::TweakImporter::TweakImporter(Core::SharedPtr<Red::TweakDBManager> aManager,
-                                  Core::SharedPtr<App::TweakContext> aContext)
-    : m_manager(std::move(aManager))
-    , m_context(std::move(aContext))
+#include "App/Tweaks/Batch/TweakChangeset.hpp"
+#include "App/Tweaks/Declarative/Red/RedReader.hpp"
+#include "App/Tweaks/Declarative/Yaml/YamlReader.hpp"
+#include "App/Tweaks/TweakService.hpp"
+
+App::TweakImporter::TweakImporter(const Core::SharedPtr<TweakContext>& aContext)
+    : m_context(aContext)
 {
 }
 
-void App::TweakImporter::ImportTweaks(const Core::Vector<std::filesystem::path>& aImportPaths,
-                                      const Core::SharedPtr<App::TweakChangelog>& aChangelog,
-                                      bool aDryRun)
+void App::TweakImporter::SetManager(const Core::SharedPtr<Red::TweakDBManager>& aManager)
+{
+    m_manager = aManager;
+
+    for (const auto& reader : m_readers)
+    {
+        reader->SetManager(m_manager);
+    }
+}
+
+void App::TweakImporter::Load(const Core::Vector<std::filesystem::path>& aImportPaths)
+{
+    LogInfo("Scanning for tweak files...");
+
+    Core::Vector<std::pair<std::filesystem::path, std::filesystem::path>> firstPriorityPaths;
+    Core::Vector<std::pair<std::filesystem::path, std::filesystem::path>> secondPriorityPaths;
+    Core::Vector<std::pair<std::filesystem::path, std::filesystem::path>> lastPriorityPaths;
+    std::error_code error;
+
+    for (const auto& importPath : aImportPaths)
+    {
+        if (std::filesystem::is_directory(importPath, error))
+        {
+            const auto dirIt = std::filesystem::recursive_directory_iterator(
+                importPath, std::filesystem::directory_options::follow_directory_symlink);
+            for (const auto& entry : dirIt)
+            {
+                if (entry.is_regular_file())
+                {
+                    if (IsFirstPriority(entry.path()))
+                    {
+                        firstPriorityPaths.emplace_back(entry.path(), importPath);
+                    }
+                    else if (IsLastPriority(entry.path()))
+                    {
+                        lastPriorityPaths.emplace_back(entry.path(), importPath);
+                    }
+                    else
+                    {
+                        secondPriorityPaths.emplace_back(entry.path(), importPath);
+                    }
+                }
+            }
+            continue;
+        }
+
+        if (std::filesystem::is_regular_file(importPath, error))
+        {
+            if (IsFirstPriority(importPath))
+            {
+                firstPriorityPaths.emplace_back(importPath, importPath.parent_path());
+            }
+            else if (IsLastPriority(importPath))
+            {
+                lastPriorityPaths.emplace_back(importPath, importPath.parent_path());
+            }
+            else
+            {
+                secondPriorityPaths.emplace_back(importPath, importPath.parent_path());
+            }
+            continue;
+        }
+
+        LogWarning("Can't import \"{}\".", importPath.string());
+    }
+
+    for (const auto& [importPath, importDir] : firstPriorityPaths)
+    {
+        if (auto reader = Load(importPath, importDir))
+        {
+            m_readers.emplace_back(std::move(reader));
+        }
+    }
+
+    for (const auto& [importPath, importDir] : secondPriorityPaths)
+    {
+        if (auto reader = Load(importPath, importDir))
+        {
+            m_readers.emplace_back(std::move(reader));
+        }
+    }
+
+    for (const auto& [importPath, importDir] : lastPriorityPaths)
+    {
+        if (auto reader = Load(importPath, importDir))
+        {
+            m_readers.emplace_back(std::move(reader));
+        }
+    }
+}
+
+void App::TweakImporter::ImportSchemas(const Core::SharedPtr<TweakChangelog>& aChangelog, const bool aDryRun)
+{
+    LogInfo("Scanning tweak files for schemas...");
+
+    auto changeset = Core::MakeShared<TweakChangeset>();
+
+    for (const auto& reader : m_readers)
+    {
+        if (reader->IsLoaded())
+        {
+            reader->ReadSchemas(*changeset);
+        }
+    }
+
+    if (!aDryRun)
+    {
+        Apply(changeset, aChangelog);
+    }
+}
+
+void App::TweakImporter::ImportValues(const Core::SharedPtr<TweakChangelog>& aChangelog, const bool aDryRun)
 {
     try
     {
-        LogInfo("Scanning for tweaks...");
+        const auto changeset = Core::MakeShared<TweakChangeset>();
 
-        auto changeset = Core::MakeShared<TweakChangeset>();
-
-        Core::Vector<std::pair<std::filesystem::path, std::filesystem::path>> firstPriorityPaths;
-        Core::Vector<std::pair<std::filesystem::path, std::filesystem::path>> secondPriorityPaths;
-        Core::Vector<std::pair<std::filesystem::path, std::filesystem::path>> lastPriorityPaths;
-        std::error_code error;
-
-        for (const auto& importPath : aImportPaths)
+        for (const auto& reader : m_readers)
         {
-            if (std::filesystem::is_directory(importPath, error))
+            if (reader->IsLoaded())
             {
-                const auto dirIt = std::filesystem::recursive_directory_iterator(
-                    importPath, std::filesystem::directory_options::follow_directory_symlink);
-                for (const auto& entry : dirIt)
-                {
-                    if (entry.is_regular_file())
-                    {
-                        if (IsFirstPriority(entry.path()))
-                        {
-                            firstPriorityPaths.emplace_back(entry.path(), importPath);
-                        }
-                        else if (IsLastPriority(entry.path()))
-                        {
-                            lastPriorityPaths.emplace_back(entry.path(), importPath);
-                        }
-                        else
-                        {
-                            secondPriorityPaths.emplace_back(entry.path(), importPath);
-                        }
-                    }
-                }
-                continue;
+                reader->ReadValues(*changeset);
             }
-
-            if (std::filesystem::is_regular_file(importPath, error))
-            {
-                if (IsFirstPriority(importPath))
-                {
-                    firstPriorityPaths.emplace_back(importPath, importPath.parent_path());
-                }
-                else if (IsLastPriority(importPath))
-                {
-                    lastPriorityPaths.emplace_back(importPath, importPath.parent_path());
-                }
-                else
-                {
-                    secondPriorityPaths.emplace_back(importPath, importPath.parent_path());
-                }
-                continue;
-            }
-
-            LogWarning("Can't import \"{}\".", importPath.string());
-        }
-
-        for (const auto& [importPath, importDir] : firstPriorityPaths)
-        {
-            Read(changeset, importPath, importDir);
-        }
-
-        for (const auto& [importPath, importDir] : secondPriorityPaths)
-        {
-            Read(changeset, importPath, importDir);
-        }
-
-        for (const auto& [importPath, importDir] : lastPriorityPaths)
-        {
-            Read(changeset, importPath, importDir);
         }
 
         if (!aDryRun)
@@ -102,9 +150,59 @@ void App::TweakImporter::ImportTweaks(const Core::Vector<std::filesystem::path>&
     }
 }
 
+Core::SharedPtr<App::ITweakReader> App::TweakImporter::Load(const std::filesystem::path& aPath,
+                                                            const std::filesystem::path& aDir)
+{
+    Core::SharedPtr<ITweakReader> reader;
+
+    {
+        if (const auto ext = aPath.extension(); ext == L".yaml" || ext == L".yml")
+        {
+            reader = Core::MakeShared<YamlReader>(m_context);
+        }
+        else if (ext == L".tweak")
+        {
+            reader = Core::MakeShared<RedReader>(m_context);
+        }
+    }
+
+    if (!reader)
+    {
+        return nullptr;
+    }
+
+    try
+    {
+        std::error_code error;
+        auto path = std::filesystem::relative(aPath, aDir, error);
+        if (path.empty())
+        {
+            path = std::filesystem::absolute(aPath, error);
+            path = std::filesystem::relative(path, aDir, error);
+        }
+
+        LogInfo("Reading \"{}\"...", path.string());
+
+        if (reader->Load(aPath))
+        {
+            return reader;
+        }
+    }
+    catch (const std::exception& ex)
+    {
+        LogError(ex.what());
+    }
+    catch (...)
+    {
+        LogError("An unknown error occurred.");
+    }
+
+    return nullptr;
+}
+
+// TODO: refactor to just reading tweak _values_.
 bool App::TweakImporter::Read(const Core::SharedPtr<App::TweakChangeset>& aChangeset,
-                              const std::filesystem::path& aPath,
-                              const std::filesystem::path& aDir)
+                              const std::filesystem::path& aPath, const std::filesystem::path& aDir)
 {
     Core::SharedPtr<ITweakReader> reader;
 
@@ -113,11 +211,11 @@ bool App::TweakImporter::Read(const Core::SharedPtr<App::TweakChangeset>& aChang
 
         if (ext == L".yaml" || ext == L".yml")
         {
-            reader = Core::MakeShared<YamlReader>(m_manager, m_context);
+            reader = Core::MakeShared<YamlReader>(m_context, m_manager);
         }
         else if (ext == L".tweak")
         {
-            reader = Core::MakeShared<RedReader>(m_manager, m_context);
+            reader = Core::MakeShared<RedReader>(m_context, m_manager);
         }
     }
 
@@ -140,7 +238,7 @@ bool App::TweakImporter::Read(const Core::SharedPtr<App::TweakChangeset>& aChang
 
         if (reader->Load(aPath))
         {
-            reader->Read(*aChangeset);
+            reader->ReadValues(*aChangeset);
         }
     }
     catch (const std::exception& ex)

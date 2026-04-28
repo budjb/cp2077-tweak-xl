@@ -19,10 +19,112 @@ constexpr auto BaseRecordTypeName = Red::GetTypeName<Red::TweakDBRecord>();
 
 constexpr auto NameSeparator = Red::TweakGrammar::Name::Separator;
 constexpr auto PropSeparator = std::string_view(NameSeparator);
+
+constexpr auto FKArrayShorthandPrefix = "array:";
+constexpr auto FKArrayShorthandPrefixSize = std::char_traits<char>::length(FKArrayShorthandPrefix);
+
+// TODO: change these to weak handles
+constexpr auto FKArrayPrefix = "array:whandle:";
+constexpr auto FKArrayPrefixSize = std::char_traits<char>::length(FKArrayPrefix);
+
+// TODO: change these to weak handles
+constexpr auto FKPrefix = "handle:";
+constexpr auto FKPrefixSize = std::char_traits<char>::length(FKPrefix);
 } // namespace
 
 namespace Red::TweakDBUtil
 {
+// TODO: move this into manager
+PropertyFlatInfoPtr GetPropertyFlatInfo(const std::string& aValue)
+{
+    // Attempt to load info for non-foreign-key types
+    if (auto info = GetPropertyFlatInfo(CName(aValue.c_str())))
+    {
+        return info;
+    }
+
+    // Attempt to look up foreign key arrays using shorthand syntax (e.g. "array:SomeType")
+    if (aValue.starts_with(FKArrayShorthandPrefix) && aValue.length() > FKArrayShorthandPrefixSize)
+    {
+        return GetPropertyFlatInfo(ERTDBFlatType::TweakDBIDArray, aValue.substr(FKArrayShorthandPrefixSize));
+    }
+
+    // Attempt to look up foreign key arrays using full syntax (e.g. "array:handle:gamedataSomeType_Record")
+    if (aValue.starts_with(FKArrayPrefix) && aValue.length() > FKArrayPrefixSize)
+    {
+        return GetPropertyFlatInfo(ERTDBFlatType::TweakDBIDArray, aValue.substr(FKArrayPrefixSize));
+    }
+
+    // Attempt to look up foreign key types using full syntax (e.g. "handle:SomeType")
+    if (aValue.starts_with(FKPrefix) && aValue.length() > FKPrefixSize)
+    {
+        return GetPropertyFlatInfo(ERTDBFlatType::TweakDBID, aValue.substr(FKPrefixSize));
+    }
+
+    // Assume the name is a foreign key type using shorthand (e.g. "SomeType")
+    return GetPropertyFlatInfo(ERTDBFlatType::TweakDBID, aValue);
+}
+
+// TODO: move this into manager
+PropertyFlatInfoPtr GetPropertyFlatInfo(const uint64_t aHash, const std::optional<std::string>& aForeignType)
+{
+    static CRTTISystem* rtti = CRTTISystem::Get();
+
+    // Attempt to load info for non-foreign-key types
+    if (IsFlatType(aHash))
+    {
+        const auto isArray = IsArrayType(aHash);
+        const auto isForeignKey = isArray ? IsForeignKeyArray(aHash) : IsForeignKey(aHash);
+
+        if (isForeignKey && !aForeignType.has_value())
+        {
+            return nullptr;
+        }
+
+        if (!isForeignKey && aForeignType.has_value())
+        {
+            return nullptr;
+        }
+
+        auto info = Core::MakeShared<PropertyFlatInfo>();
+        info->flatType = GetFlatType(aHash);
+        info->flatTypeName = aHash;
+        info->isArray = isArray;
+
+        if (isForeignKey)
+        {
+            const auto foreignName = NormalizeRecordName(*aForeignType);
+            const auto foreignCName = foreignName.c_str();
+            const auto* foreignType = rtti->GetClass(foreignCName);
+
+            if (!foreignType)
+                return nullptr;
+
+            const auto propertyTypeName =
+                isArray ? GetClassHandleArrayName(foreignName) : GetClassHandleName(foreignName);
+
+            info->isForeignKey = true;
+
+            info->propertyTypeCName = CNamePool::Add(propertyTypeName.c_str());
+            info->propertyType = rtti->GetType(info->propertyTypeCName);
+
+            if (!info->propertyType)
+                return nullptr;
+
+            info->foreignTypeCName = foreignCName;
+            info->foreignType = foreignType;
+        }
+        else
+        {
+            info->propertyType = info->flatType;
+            info->propertyTypeCName = info->flatTypeName;
+        }
+
+        return info;
+    }
+
+    return nullptr;
+}
 
 CBaseRTTIType* GetFlatType(const uint64_t aType)
 {
@@ -62,12 +164,7 @@ CBaseRTTIType* GetFlatType(const uint64_t aType)
 
 CBaseRTTIType* GetFlatType(CName aTypeName)
 {
-    CBaseRTTIType* type = CRTTISystem::Get()->GetType(aTypeName);
-
-    if (!IsFlatType(type))
-        return nullptr;
-
-    return type;
+    return GetFlatType(aTypeName.hash);
 }
 
 CBaseRTTIType* GetArrayType(CName aTypeName)
@@ -348,6 +445,47 @@ bool IsRecordType(const CClass* aType)
     static CBaseRTTIType* s_baseRecordType = CRTTISystem::Get()->GetClass(BaseRecordTypeName);
 
     return aType && aType != s_baseRecordType && aType->IsA(s_baseRecordType);
+}
+
+CBaseRTTIType* GetInnerType(const CBaseRTTIType* aType)
+{
+    if (!aType)
+        return nullptr;
+
+    switch (aType->GetType())
+    {
+    case ERTTIType::Array:
+        if (IsResRefTokenArray(aType))
+        {
+            return GetFlatType(ERTDBFlatType::ResRef);
+        }
+        return reinterpret_cast<const CRTTIArrayType*>(aType)->innerType;
+    case ERTTIType::Handle:
+        return reinterpret_cast<const CRTTIHandleType*>(aType)->innerType;
+    case ERTTIType::WeakHandle:
+        return reinterpret_cast<const CRTTIWeakHandleType*>(aType)->innerType;
+    default:
+        return nullptr;
+    }
+}
+
+std::string GetClassHandleName(const std::string& aName)
+{
+    std::string name = FKPrefix;
+    name.append(GetRecordFullName<std::string>(aName));
+    return name;
+}
+
+std::string GetClassHandleArrayName(const std::string& aName)
+{
+    std::string name = FKArrayPrefix;
+    name.append(GetRecordFullName<std::string>(aName));
+    return name;
+}
+
+std::string NormalizeRecordName(const std::string& aName)
+{
+    return GetRecordFullName<std::string>(Capitalize(GetRecordShortName<std::string>(aName)));
 }
 
 template<>

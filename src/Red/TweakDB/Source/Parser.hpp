@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Red/TweakDB/Source/Grammar.hpp"
 #include "Red/TweakDB/Source/Errors.hpp"
+#include "Red/TweakDB/Source/Grammar.hpp"
 #include "Red/TweakDB/Source/Source.hpp"
 
 namespace Red
@@ -10,6 +10,7 @@ class TweakParser
 {
 public:
     static Core::SharedPtr<TweakSource> Parse(const std::filesystem::path& aPath);
+    static Core::SharedPtr<FlatType> ParseFlatType(const std::string& aType);
 
 private:
     struct ParseState
@@ -29,11 +30,20 @@ private:
         bool hasType = false;
     };
 
+    struct FlatTypeState
+    {
+        std::string flatType;
+        std::string foreignType;
+        bool isArray = false;
+    };
+
     template<typename Rule>
     using ParseControl = tao::pegtl::must_if<TweakError>::control<Rule>;
 
     template<typename Rule>
-    struct ParseAction {};
+    struct ParseAction
+    {
+    };
 
     static ETweakFlatType ResolveType(const std::string& aInput);
     static ETweakFlatOp ResolveOperation(const std::string& aInput);
@@ -41,4 +51,4 @@ private:
     static std::string FormatError(const std::filesystem::path& aPath, const tao::pegtl::position& aPosition,
                                    const std::string_view& aMessage);
 };
-}
+} // namespace Red

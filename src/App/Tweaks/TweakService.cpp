@@ -3,6 +3,7 @@
 #include "App/Tweaks/Executable/TweakExecutor.hpp"
 #include "App/Tweaks/Metadata/MetadataExporter.hpp"
 #include "App/Tweaks/Metadata/MetadataImporter.hpp"
+#include "Record/ScriptableRecordManager.hpp"
 #include "Red/TweakDB/Raws.hpp"
 
 App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesystem::path aGameDir,
@@ -14,7 +15,9 @@ App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesyste
     , m_inheritanceMapPath(std::move(aInheritanceMapPath))
     , m_extraFlatsPath(std::move(aExtraFlatsPath))
     , m_productVer(aProductVer)
-    , m_scriptableRecordManager(Core::MakeShared<App::ScriptableRecordManager>())
+    , m_changelog(Core::MakeShared<TweakChangelog>())
+    , m_importer(Core::MakeShared<TweakImporter>(m_context))
+    , m_context(Core::MakeShared<TweakContext>(aProductVer))
 {
     m_importPaths.push_back(m_tweaksDir);
 }
@@ -25,15 +28,17 @@ void App::TweakService::OnBootstrap()
 
     SetupScriptableRecords();
 
+    SetupTweakImporter();
+
     HookAfter<Raw::TryLoadTweakDB>([&](bool& aSuccess) {
         if (aSuccess)
         {
             m_reflection = Core::MakeShared<Red::TweakDBReflection>(Red::TweakDB::Get());
             m_manager = Core::MakeShared<Red::TweakDBManager>(m_reflection);
-            m_context = Core::MakeShared<App::TweakContext>(m_productVer);
-            m_importer = Core::MakeShared<App::TweakImporter>(m_manager, m_context);
             m_executor = Core::MakeShared<App::TweakExecutor>(m_manager);
             m_changelog = Core::MakeShared<App::TweakChangelog>();
+
+            m_importer->SetManager(m_manager);
 
             if (ImportMetadata())
             {
@@ -44,7 +49,7 @@ void App::TweakService::OnBootstrap()
             }
 
 #ifndef NDEBUG
-            m_scriptableRecordManager->TestScriptableRecord(m_manager);
+            ScriptableRecordManager::Get()->TestScriptableRecord(m_manager);
 #endif
         }
     });
@@ -56,7 +61,7 @@ void App::TweakService::OnBootstrap()
 
     HookWrap<Raw::CreateRecord>([&](const CreateRecordFunction aOriginal, Red::TweakDB* aTweakDB,
                                     const uint32_t aTypeHash, const Red::TweakDBID aTweakDBID) {
-        if (!m_scriptableRecordManager->CreateScriptableRecord(aTweakDB, aTypeHash, aTweakDBID))
+        if (!ScriptableRecordManager::Get()->CreateScriptableRecord(aTweakDB, aTypeHash, aTweakDBID))
         {
             aOriginal(aTweakDB, aTypeHash, aTweakDBID);
         }
@@ -67,7 +72,7 @@ void App::TweakService::LoadTweaks(bool aCheckForIssues)
 {
     if (m_manager)
     {
-        m_importer->ImportTweaks(m_importPaths, m_changelog);
+        m_importer->ImportValues(m_changelog);
         m_executor->ExecuteTweaks();
 
         if (aCheckForIssues)
@@ -81,7 +86,7 @@ void App::TweakService::ImportTweaks()
 {
     if (m_manager)
     {
-        m_importer->ImportTweaks(m_importPaths, m_changelog);
+        m_importer->ImportValues(m_changelog);
     }
 }
 
@@ -229,9 +234,9 @@ App::TweakChangelog& App::TweakService::GetChangelog()
 
 void App::TweakService::InsertScriptableRecordDefaults()
 {
-    if (m_manager && m_scriptableRecordManager)
+    if (m_manager)
     {
-        m_scriptableRecordManager->InsertScriptableRecordDefaults(m_manager);
+        ScriptableRecordManager::Get()->InsertScriptableRecordDefaults(m_manager);
     }
 }
 
@@ -239,8 +244,19 @@ void App::TweakService::SetupScriptableRecords()
 {
     static auto rtti = Red::CRTTISystem::Get();
 
-    rtti->AddRegisterCallback(Red::Callback<void (*)()>{m_scriptableRecordManager.get(),
-                                                        &ScriptableRecordManager::RegisterScriptableRecordSpecs});
-    rtti->AddPostRegisterCallback(Red::Callback<void (*)()>{m_scriptableRecordManager.get(),
-                                                            &ScriptableRecordManager::DescribeScriptableRecordSpecs});
+    rtti->AddPostRegisterCallback(Red::Callback<void (*)()>([] {}));
+}
+
+void App::TweakService::SetupTweakImporter()
+{
+    static auto rtti = Red::CRTTISystem::Get();
+
+    rtti->AddPostRegisterCallback(Red::Callback<void (*)()>{[&]() {
+        m_importer->Load(m_importPaths);
+        m_importer->ImportSchemas();
+
+        auto* manager = ScriptableRecordManager::Get();
+        manager->RegisterScriptableRecordSpecs();
+        manager->DescribeScriptableRecordSpecs();
+    }});
 }

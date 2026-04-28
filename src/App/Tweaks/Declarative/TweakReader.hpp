@@ -9,16 +9,21 @@ class ITweakReader
 {
 public:
     virtual ~ITweakReader() = default;
+    virtual void SetManager(const Core::SharedPtr<Red::TweakDBManager>& aManager) = 0;
     virtual bool Load(const std::filesystem::path& aPath) = 0;
     [[nodiscard]] virtual bool IsLoaded() const = 0;
     virtual void Unload() = 0;
-    virtual void Read(TweakChangeset& aChangeset) = 0;
+    virtual void ReadSchemas(TweakChangeset& aChangeset) = 0;
+    virtual void ReadValues(TweakChangeset& aChangeset) = 0;
 };
 
 class BaseTweakReader : public ITweakReader
 {
 public:
-    BaseTweakReader(Core::SharedPtr<Red::TweakDBManager> aManager, Core::SharedPtr<App::TweakContext> aContext);
+    explicit BaseTweakReader(const Core::SharedPtr<TweakContext>& aContext,
+                             const Core::SharedPtr<Red::TweakDBManager>& aManager = nullptr);
+
+    void SetManager(const Core::SharedPtr<Red::TweakDBManager>& aManager) override;
 
 protected:
     static std::string ComposePath(const std::string& aParentPath, const std::string& aItemName);
@@ -42,4 +47,4 @@ protected:
     Core::SharedPtr<App::TweakContext> m_context;
     Core::Map<std::string, int32_t> m_inlineIndexSuffix;
 };
-}
+} // namespace App

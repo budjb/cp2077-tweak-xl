@@ -23,6 +23,12 @@ ScriptableRecordManager::ScriptableRecordManager()
 {
 }
 
+ScriptableRecordManager* ScriptableRecordManager::Get()
+{
+    static auto instance = ScriptableRecordManager();
+    return &instance;
+}
+
 ScriptableRecordManager::~ScriptableRecordManager()
 {
     for (auto& spec : m_specs | std::views::values)
@@ -36,8 +42,9 @@ ScriptableRecordManager::~ScriptableRecordManager()
     }
 }
 
-Red::ScriptingFunction_t<void*> ScriptableRecordManager::CreateClosure(const std::string& aAppendix,
-                                                                       const Red::CBaseRTTIType* aType)
+// TODO: Handle additional functions depending on the type. See Reflection.cpp during introspection for skipped
+// functions.
+Red::ScriptingFunction_t<void*> ScriptableRecordManager::CreateClosure(const Context& aContext)
 {
     std::scoped_lock lock(m_closuresMutex);
 
@@ -53,9 +60,7 @@ Red::ScriptingFunction_t<void*> ScriptableRecordManager::CreateClosure(const std
     }
 
     auto entry = Core::MakeUnique<Closure>();
-    entry->context.appendix = aAppendix;
-    entry->context.type = aType;
-
+    entry->context = aContext;
     entry->closure = static_cast<ffi_closure*>(ffi_closure_alloc(sizeof(ffi_closure), &entry->executable));
 
     if (!entry->closure)
@@ -72,6 +77,12 @@ Red::ScriptingFunction_t<void*> ScriptableRecordManager::CreateClosure(const std
     const auto function = reinterpret_cast<Red::ScriptingFunction_t<void*>>(entry->executable);
     m_closures.emplace_back(std::move(entry));
     return function;
+}
+
+Red::ScriptingFunction_t<void*> ScriptableRecordManager::CreateClosure(
+    const std::string& aAppendix, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo)
+{
+    return CreateClosure({aAppendix, aTypeInfo});
 }
 
 bool ScriptableRecordManager::DestroyClosure(const Core::SharedPtr<Closure>& aClosure)
@@ -124,6 +135,11 @@ void ScriptableRecordManager::FfiDispatch(ffi_cif* aCif, void* aRet, void** aArg
 
     const auto* context = static_cast<Context*>(aUserData);
 
+    if (!context)
+    {
+        return;
+    }
+
     auto* instance = *static_cast<Red::IScriptable**>(aArgs[0]);
     auto* stackFrame = *static_cast<Red::CStackFrame**>(aArgs[1]);
     auto* out = *static_cast<void**>(aArgs[2]);
@@ -136,43 +152,91 @@ void ScriptableRecordManager::FfiDispatch(ffi_cif* aCif, void* aRet, void** aArg
     stackFrame->code++;
 
     const auto* record = reinterpret_cast<ScriptableTweakDBRecord*>(instance);
+    const auto& [appendix, typeInfo] = *context;
 
-    if (const auto svc = Core::Resolve<TweakService>())
+    if (!typeInfo || !typeInfo->propertyType || !typeInfo->flatType)
     {
-        if (const auto value = svc->GetManager().GetFlat(record->recordID + context->appendix))
-        {
-            if (value.type == context->type)
-            {
-                value.type->Assign(out, value);
-            }
-            else
-            {
-                // TODO: log error
-            }
-        }
+        return;
     }
+
+    const auto svc = Core::Resolve<TweakService>();
+
+    if (!svc)
+    {
+        return;
+    }
+
+    auto& tweakDbManager = svc->GetManager();
+    const auto value = tweakDbManager.GetFlat(record->recordID + appendix);
+
+    if (!value)
+    {
+        return;
+    }
+
+    if (value.type == typeInfo->propertyType)
+    {
+        value.type->Assign(out, value.instance);
+        return;
+    }
+
+    if (value.type != typeInfo->flatType || !typeInfo->isForeignKey)
+    {
+        LogError(
+            "Type mismatch when retrieving property value for {}. Expected property type {} or flat type {}, got {}.",
+            appendix, typeInfo->propertyType->GetName().ToString(), typeInfo->flatType->GetName().ToString(),
+            value.type->GetName().ToString());
+        return;
+    }
+
+    auto* scriptableRecordManager = Get();
+    Red::ValuePtr<> converted;
+
+    switch (typeInfo->propertyType->GetType())
+    {
+    case Red::ERTTIType::Array:
+        converted = scriptableRecordManager->ConvertValue<Red::ERTTIType::Array>(value, typeInfo, svc);
+        break;
+    case Red::ERTTIType::Handle:
+        converted = scriptableRecordManager->ConvertValue<Red::ERTTIType::Handle>(value, typeInfo, svc);
+        break;
+    case Red::ERTTIType::WeakHandle:
+        converted = scriptableRecordManager->ConvertValue<Red::ERTTIType::WeakHandle>(value, typeInfo, svc);
+        break;
+    default:
+        LogError("Unsupported foreign-key return type {} for {}.", typeInfo->propertyType->GetName().ToString(),
+                 appendix);
+        return;
+    }
+
+    if (!converted)
+    {
+        LogError("Failed to convert foreign-key value for {} from {} to {}.", appendix,
+                 value.type->GetName().ToString(), typeInfo->propertyType->GetName().ToString());
+        return;
+    }
+
+    typeInfo->propertyType->Assign(out, converted->instance);
 }
 
 Red::CName ScriptableRecordManager::RegisterScriptableRecordType(const std::string& aName,
                                                                  const std::optional<std::string>& aParentName)
 {
-    if (const auto cname = Red::TweakDBUtil::GetRecordShortName<Red::CName>(aName); GetRecordSpec(cname))
+    const auto cname = aName.c_str();
+
+    if (GetRecordSpec(cname))
     {
-        std::shared_lock lockR(m_specsMutex);
-        if (const auto it = m_specs.find(Red::CName(aName.c_str())); it != m_specs.end())
-        {
-            return {};
-        }
+        return {};
     }
 
-    if (m_rtti->GetClass(Red::CName(aName.c_str())))
+    if (m_rtti->GetClass(cname))
     {
         return {};
     }
 
     const auto spec = Core::MakeShared<ScriptableRecordSpec>();
 
-    spec->name = Red::TweakDBUtil::GetRecordFullName<std::string>(aName);
+    spec->name = aName;
     spec->aliasName = Red::TweakDBUtil::GetRecordAliasName<std::string>(aName);
     spec->shortName = Red::TweakDBUtil::GetRecordShortName<std::string>(aName);
 
@@ -192,8 +256,7 @@ Red::CName ScriptableRecordManager::RegisterScriptableRecordType(const std::stri
 }
 
 Red::CName ScriptableRecordManager::RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName,
-                                                               const uint64_t aFlatType,
-                                                               const std::optional<std::string>& aForeignType)
+                                                               const std::string& aType)
 {
     const auto cname = Red::CName{aPropertyName.c_str()};
 
@@ -207,16 +270,10 @@ Red::CName ScriptableRecordManager::RegisterScriptableProperty(Red::CName aRecor
         return {};
     }
 
-    if (!Red::TweakDBUtil::IsFlatType(aFlatType))
-    {
-        return {};
-    }
-
     const auto propertyInfo = Core::MakeShared<ScriptablePropertySpec>();
     propertyInfo->name = aPropertyName;
     propertyInfo->appendix = "." + aPropertyName;
-    propertyInfo->type = aFlatType;
-    propertyInfo->foreignName = aForeignType;
+    propertyInfo->type = aType;
     propertyInfo->cname = Red::CName{aPropertyName.c_str()};
 
     recordInfo->props[propertyInfo->cname] = propertyInfo;
@@ -323,31 +380,28 @@ bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordCla
         return false;
     }
 
-    const auto* type = Red::TweakDBUtil::GetFlatType(aSpec->type);
+    const auto typeInfo = Red::TweakDBUtil::GetPropertyFlatInfo(aSpec->type);
 
-    if (!type)
+    if (!typeInfo)
     {
+        LogError("Failed to describe property {} of record type {}, the property type {} does not exist.", aSpec->name,
+                 aClass->GetName().ToString(), aSpec->type);
         return false;
     }
 
-    const auto closure = CreateClosure(aSpec->appendix, type);
+    const auto closure = CreateClosure(aSpec->appendix, typeInfo);
 
     if (!closure)
     {
         return false;
     }
 
-    if (aSpec->foreignName.has_value())
-    {
-        aSpec->foreignType = m_rtti->GetClass(Red::TweakDBUtil::GetRecordFullName<Red::CName>(*aSpec->foreignName));
-    }
-
-    // TODO: FKs are wrong and I need to fix
     const auto name = RegisterPropertyFunctionName(aSpec->name);
     auto* function = Red::CClassFunction::Create(aClass, name.ToString(), name.ToString(), closure);
-    function->SetReturnType(type->GetName());
+    function->SetReturnType(typeInfo->propertyTypeCName);
     aClass->RegisterFunction(function);
 
+    aSpec->typeInfo = typeInfo;
     aSpec->isDescribed = true;
     return true;
 }
@@ -364,10 +418,18 @@ void ScriptableRecordManager::InsertScriptableRecordDefaults(const Core::SharedP
 
     for (const auto& prop : aSpec->props | std::views::values)
     {
+        if (!prop->isDescribed)
+            continue;
+
         // TODO: default values other than empty
         const auto flatID = recordID + std::string_view(".") + prop->name;
-        auto instance = Red::MakeValue(prop->type);
-        [[maybe_unused]] bool success = aManager->SetFlat(flatID, *instance);
+        const auto instance = Red::MakeValue(prop->typeInfo->flatType);
+
+        if (!aManager->SetFlat(flatID, *instance))
+        {
+            LogError("Failed to insert default value for property {} of record type {}, failed to set flat in TweakDB.",
+                     prop->name, aSpec->name);
+        }
     }
 
     if (aSpec->type->parent)
@@ -504,9 +566,9 @@ bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, Scr
 
 void ScriptableRecordManager::RegisterTestScriptableRecord()
 {
-    const auto name = RegisterScriptableRecordType("TweakXLTest");
-    RegisterScriptableProperty(name, "foo", Red::ERTDBFlatType::CName);
-    RegisterScriptableProperty(name, "bar", Red::ERTDBFlatType::CName);
+    const auto name = RegisterScriptableRecordType(Red::TweakDBUtil::NormalizeRecordName("TweakXLTest"));
+    RegisterScriptableProperty(name, "foo", "CName");
+    RegisterScriptableProperty(name, "bar", "CName");
 }
 
 void ScriptableRecordManager::TestScriptableRecord(const Core::SharedPtr<Red::TweakDBManager>& aManager)
@@ -545,5 +607,106 @@ void ScriptableRecordManager::TestScriptableRecord(const Core::SharedPtr<Red::Tw
 }
 
 #endif
+
+template<>
+Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(
+    const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
+    const Core::SharedPtr<TweakService>& aService)
+{
+    if (!aTypeInfo || !aService || !aTypeInfo->propertyType || !aTypeInfo->foreignType || !aTypeInfo->isForeignKey ||
+        !aTypeInfo->isArray || !aValue || aValue.type->GetName() != Red::ERTDBFlatType::TweakDBIDArray)
+    {
+        return {};
+    }
+
+    if (aTypeInfo->propertyType->GetType() != Red::ERTTIType::Array)
+        return {};
+
+    auto* arrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(aTypeInfo->propertyType);
+    const auto* innerType = arrayType->GetInnerType();
+
+    if (!innerType ||
+        (innerType->GetType() != Red::ERTTIType::Handle && innerType->GetType() != Red::ERTTIType::WeakHandle))
+    {
+        return {};
+    }
+
+    const auto* ids = static_cast<const Red::DynArray<Red::TweakDBID>*>(aValue.instance);
+    auto converted = Red::MakeValue(aTypeInfo->propertyType);
+
+    for (uint32_t i = 0; i < ids->Size(); ++i)
+    {
+        arrayType->InsertAt(converted->instance, static_cast<int32_t>(i));
+        auto* dst = arrayType->GetElement(converted->instance, i);
+        const auto record = aService->GetManager().GetRecord(ids->At(i));
+
+        if (innerType->GetType() == Red::ERTTIType::Handle)
+        {
+            Red::Handle<Red::TweakDBRecord> handle{};
+            if (record && record->GetType()->IsA(aTypeInfo->foreignType))
+                handle = record;
+
+            innerType->Assign(dst, &handle);
+        }
+        else
+        {
+            Red::WeakHandle<Red::TweakDBRecord> weakHandle{};
+            if (record && record->GetType()->IsA(aTypeInfo->foreignType))
+                weakHandle = record;
+
+            innerType->Assign(dst, &weakHandle);
+        }
+    }
+
+    return converted;
+}
+
+template<>
+Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Handle>(
+    const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
+    const Core::SharedPtr<TweakService>& aService)
+{
+    if (!aTypeInfo || !aService || !aTypeInfo->propertyType || !aTypeInfo->foreignType || !aTypeInfo->isForeignKey ||
+        aTypeInfo->isArray || !aValue || aValue.type->GetName() != Red::ERTDBFlatType::TweakDBID ||
+        aTypeInfo->propertyType->GetType() != Red::ERTTIType::Handle)
+    {
+        return {};
+    }
+
+    const auto& id = *static_cast<const Red::TweakDBID*>(aValue.instance);
+    const auto record = aService->GetManager().GetRecord(id);
+
+    if (!record || !record->GetType()->IsA(aTypeInfo->foreignType))
+        return {};
+
+    auto converted = Red::MakeValue(aTypeInfo->propertyType);
+    const Red::Handle<Red::TweakDBRecord> handle = record;
+    aTypeInfo->propertyType->Assign(converted->instance, &handle);
+    return converted;
+}
+
+template<>
+Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::WeakHandle>(
+    const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
+    const Core::SharedPtr<TweakService>& aService)
+{
+    if (!aTypeInfo || !aService || !aTypeInfo->propertyType || !aTypeInfo->foreignType || !aTypeInfo->isForeignKey ||
+        aTypeInfo->isArray || !aValue || aValue.type->GetName() != Red::ERTDBFlatType::TweakDBID ||
+        aTypeInfo->propertyType->GetType() != Red::ERTTIType::WeakHandle)
+    {
+        return {};
+    }
+
+    const auto& id = *static_cast<const Red::TweakDBID*>(aValue.instance);
+    const auto record = aService->GetManager().GetRecord(id);
+
+    if (!record || !record->GetType()->IsA(aTypeInfo->foreignType))
+        return {};
+
+    auto converted = Red::MakeValue(aTypeInfo->propertyType);
+    const Red::WeakHandle weakHandle = record;
+    aTypeInfo->propertyType->Assign(converted->instance, &weakHandle);
+    return converted;
+}
 
 } // namespace App
