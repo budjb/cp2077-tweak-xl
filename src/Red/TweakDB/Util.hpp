@@ -4,8 +4,10 @@ namespace Red::TweakDBUtil
 {
 struct PropertyFlatInfo
 {
+    std::string originalName;
+
     const CBaseRTTIType* propertyType{};
-    CName propertyTypeCName{};
+    CName propertyTypeName{};
 
     const CBaseRTTIType* flatType{};
     CName flatTypeName;
@@ -14,15 +16,16 @@ struct PropertyFlatInfo
     bool isForeignKey{};
 
     const CClass* foreignType{};
-    std::optional<CName> foreignTypeCName{};
+    std::optional<CName> foreignTypeName{};
 };
 
-RED4EXT_ASSERT_SIZE(PropertyFlatInfo, 0x40);
+RED4EXT_ASSERT_SIZE(PropertyFlatInfo, 0x68);
 
 using PropertyFlatInfoPtr = Core::SharedPtr<PropertyFlatInfo>;
 
 PropertyFlatInfoPtr GetPropertyFlatInfo(const std::string& aValue);
-PropertyFlatInfoPtr GetPropertyFlatInfo(uint64_t aHash, const std::optional<std::string>& aForeignType = std::nullopt);
+PropertyFlatInfoPtr GetPropertyFlatInfo(const std::string& aValue, uint64_t aHash,
+                                        const std::optional<std::string>& aForeignType = std::nullopt);
 
 CBaseRTTIType* GetFlatType(uint64_t aType);
 CBaseRTTIType* GetFlatType(CName aTypeName);

@@ -88,7 +88,8 @@ bool App::TweakChangeset::MakeSchema(const std::string& aName, const std::option
 }
 
 bool App::TweakChangeset::MakeSchemaProperty(const std::string& aRecordName, const std::string& aPropName,
-                                             const std::string& aType)
+                                             const Red::TweakDBUtil::PropertyFlatInfoPtr& aType,
+                                             const Red::InstancePtr<>& aDefaultValue)
 {
     if (aRecordName.empty())
     {
@@ -102,9 +103,9 @@ bool App::TweakChangeset::MakeSchemaProperty(const std::string& aRecordName, con
         return false;
     }
 
-    if (aType.empty())
+    if (!aType)
     {
-        LogError("Cannot add property {} to record schema {}, the property type is empty.", aPropName, aRecordName);
+        LogError("Cannot add property {} to record schema {}, the property type is unknown.", aPropName, aRecordName);
         return false;
     }
 
@@ -123,10 +124,11 @@ bool App::TweakChangeset::MakeSchemaProperty(const std::string& aRecordName, con
         return false;
     }
 
-    auto& [name, typeInfo] = schemaEntry.props[aPropName.c_str()];
+    auto& [name, typeInfo, defaultVal] = schemaEntry.props[aPropName.c_str()];
 
     name = aPropName;
     typeInfo = aType;
+    defaultVal = aDefaultValue;
 
     return true;
 }
@@ -277,7 +279,7 @@ void App::TweakChangeset::Commit(const Core::SharedPtr<Red::TweakDBManager>& aMa
 
             for (const auto& property : record.props | std::views::values)
             {
-                manager->RegisterScriptableProperty(name, property.name, property.type);
+                manager->RegisterScriptableProperty(name, property.name, property.type, property.defaultValue);
             }
         }
     }

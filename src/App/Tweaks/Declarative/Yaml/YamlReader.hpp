@@ -33,7 +33,8 @@ private:
     // START : SCHEMA
 
     void HandleSchemaNode(TweakChangeset& aChangeset, const std::string& aRecordName, const YAML::Node& aNode);
-
+    void HandleSchemaPropertyNode(TweakChangeset& aChangeset, const std::string& aRecordName,
+                                  const std::string& aPropName, const YAML::Node& aNode);
     // END : SCHEMA
 
     void HandleTopNode(TweakChangeset& aChangeset, PropertyMode aPropMode, const std::string& aName,

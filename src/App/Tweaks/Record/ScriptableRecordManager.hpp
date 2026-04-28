@@ -82,10 +82,8 @@ public:
                                             const std::optional<std::string>& aParentName = std::nullopt);
 
     Red::CName RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName,
-                                          const std::string& aType);
-
-    Red::CName RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName,
-                                          const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo);
+                                          const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
+                                          const Red::InstancePtr<>& aDefaultValue = nullptr);
 
     /**
      * @brief Creates and registers RTTI classes for all pending scriptable record specifications registered with this
@@ -185,11 +183,9 @@ private:
          */
         std::string appendix;
 
-        std::string type;
-
         Red::TweakDBUtil::PropertyFlatInfoPtr typeInfo;
 
-        // TODO: default value
+        Red::InstancePtr<> defaultValue;
 
         /**
          * @brief Whether this property has been described, or had its RTTI class property created and set up.

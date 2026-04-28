@@ -256,7 +256,8 @@ Red::CName ScriptableRecordManager::RegisterScriptableRecordType(const std::stri
 }
 
 Red::CName ScriptableRecordManager::RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName,
-                                                               const std::string& aType)
+                                                               const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
+                                                               const Red::InstancePtr<>& aDefaultValue)
 {
     const auto cname = Red::CName{aPropertyName.c_str()};
 
@@ -273,8 +274,9 @@ Red::CName ScriptableRecordManager::RegisterScriptableProperty(Red::CName aRecor
     const auto propertyInfo = Core::MakeShared<ScriptablePropertySpec>();
     propertyInfo->name = aPropertyName;
     propertyInfo->appendix = "." + aPropertyName;
-    propertyInfo->type = aType;
+    propertyInfo->typeInfo = aTypeInfo;
     propertyInfo->cname = Red::CName{aPropertyName.c_str()};
+    propertyInfo->defaultValue = aDefaultValue;
 
     recordInfo->props[propertyInfo->cname] = propertyInfo;
 
@@ -380,13 +382,37 @@ bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordCla
         return false;
     }
 
-    const auto typeInfo = Red::TweakDBUtil::GetPropertyFlatInfo(aSpec->type);
+    const auto& typeInfo = aSpec->typeInfo;
 
-    if (!typeInfo)
+    if (typeInfo->isForeignKey)
     {
-        LogError("Failed to describe property {} of record type {}, the property type {} does not exist.", aSpec->name,
-                 aClass->GetName().ToString(), aSpec->type);
-        return false;
+        if (!typeInfo->foreignType)
+        {
+            if (const auto* type = m_rtti->GetClass(*typeInfo->foreignTypeName))
+            {
+                typeInfo->foreignType = type;
+            }
+            else
+            {
+                LogError("Failed to describe property {} of record type {}, the foreign type {} does not exist.",
+                         aSpec->name, aClass->GetName().ToString(), typeInfo->originalName);
+                return false;
+            }
+        }
+    }
+
+    if (!typeInfo->propertyType)
+    {
+        if (const auto* type = m_rtti->GetType(typeInfo->propertyTypeName))
+        {
+            typeInfo->propertyType = type;
+        }
+        else
+        {
+            LogError("Failed to describe property {} of record type {}, the property type {} does not exist.",
+                     aSpec->name, aClass->GetName().ToString(), typeInfo->originalName);
+            return false;
+        }
     }
 
     const auto closure = CreateClosure(aSpec->appendix, typeInfo);
@@ -398,10 +424,9 @@ bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordCla
 
     const auto name = RegisterPropertyFunctionName(aSpec->name);
     auto* function = Red::CClassFunction::Create(aClass, name.ToString(), name.ToString(), closure);
-    function->SetReturnType(typeInfo->propertyTypeCName);
+    function->SetReturnType(typeInfo->propertyTypeName);
     aClass->RegisterFunction(function);
 
-    aSpec->typeInfo = typeInfo;
     aSpec->isDescribed = true;
     return true;
 }
@@ -423,9 +448,14 @@ void ScriptableRecordManager::InsertScriptableRecordDefaults(const Core::SharedP
 
         // TODO: default values other than empty
         const auto flatID = recordID + std::string_view(".") + prop->name;
-        const auto instance = Red::MakeValue(prop->typeInfo->flatType);
+        auto instance = prop->defaultValue;
 
-        if (!aManager->SetFlat(flatID, *instance))
+        if (!instance)
+        {
+            instance = Red::TweakDBUtil::Construct(prop->typeInfo->flatType);
+        }
+
+        if (!aManager->SetFlat(flatID, prop->typeInfo->flatType, instance.get()))
         {
             LogError("Failed to insert default value for property {} of record type {}, failed to set flat in TweakDB.",
                      prop->name, aSpec->name);
@@ -567,8 +597,10 @@ bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, Scr
 void ScriptableRecordManager::RegisterTestScriptableRecord()
 {
     const auto name = RegisterScriptableRecordType(Red::TweakDBUtil::NormalizeRecordName("TweakXLTest"));
-    RegisterScriptableProperty(name, "foo", "CName");
-    RegisterScriptableProperty(name, "bar", "CName");
+    const auto info = Red::TweakDBUtil::GetPropertyFlatInfo("CName");
+
+    RegisterScriptableProperty(name, "foo", info);
+    RegisterScriptableProperty(name, "bar", info);
 }
 
 void ScriptableRecordManager::TestScriptableRecord(const Core::SharedPtr<Red::TweakDBManager>& aManager)
