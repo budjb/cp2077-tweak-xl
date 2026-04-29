@@ -203,4 +203,26 @@ private:
      */
     SharedPtr<SharedPtr<T>> m_slot;
 };
+
+/**
+ * @brief A helper function to create a DeferredPtr instance with a new shared pointer created from the given arguments.
+ * This function simplifies the creation of a DeferredPtr by allowing for the construction of the underlying instance
+ * directly from the provided arguments, without needing to manually create a shared pointer first.
+ *
+ * The function forwards the given arguments to the constructor of T to create a new instance, which is then wrapped in
+ * a shared pointer and assigned to a new DeferredPtr instance. This allows for convenient syntax such as `auto ptr =
+ * MakeDeferred<T>(args...);` to create a DeferredPtr with a new instance of T constructed from the provided arguments.
+ *
+ * @tparam T The type of the underlying pointer that the DeferredPtr will hold.
+ * @tparam Args The types of the arguments to forward to the constructor of T when creating the underlying instance.
+ * @param aArgs The arguments to forward to the constructor of T when creating the underlying instance.
+ * @return A DeferredPtr instance that holds a new shared pointer to an instance of T constructed from the provided
+ * arguments.
+ */
+template<typename T, typename... Args>
+auto MakeDeferred(Args&&... aArgs)
+{
+    return DeferredPtr<T>{std::allocate_shared<T>(TiltedPhoques::StlAllocator<T>(), std::forward<Args>(aArgs)...)};
+}
+
 } // namespace Core
