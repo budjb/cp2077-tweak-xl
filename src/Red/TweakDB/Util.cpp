@@ -75,7 +75,7 @@ PropertyFlatInfoPtr GetPropertyFlatInfo(const std::string& aValue, const uint64_
         return nullptr;
 
     auto info = Core::MakeShared<PropertyFlatInfo>();
-    info->originalName = aValue;
+    info->foreignName = aValue;
     info->flatType = GetFlatType(aHash);
     info->flatTypeName = aHash;
     info->isArray = isArray;
@@ -419,28 +419,6 @@ bool IsRecordType(const CClass* aType)
     static CBaseRTTIType* s_baseRecordType = CRTTISystem::Get()->GetClass(BaseRecordTypeName);
 
     return aType && aType != s_baseRecordType && aType->IsA(s_baseRecordType);
-}
-
-CBaseRTTIType* GetInnerType(const CBaseRTTIType* aType)
-{
-    if (!aType)
-        return nullptr;
-
-    switch (aType->GetType())
-    {
-    case ERTTIType::Array:
-        if (IsResRefTokenArray(aType))
-        {
-            return GetFlatType(ERTDBFlatType::ResRef);
-        }
-        return reinterpret_cast<const CRTTIArrayType*>(aType)->innerType;
-    case ERTTIType::Handle:
-        return reinterpret_cast<const CRTTIHandleType*>(aType)->innerType;
-    case ERTTIType::WeakHandle:
-        return reinterpret_cast<const CRTTIWeakHandleType*>(aType)->innerType;
-    default:
-        return nullptr;
-    }
 }
 
 std::string GetClassHandleName(const std::string& aName)
