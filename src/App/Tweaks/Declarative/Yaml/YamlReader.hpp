@@ -31,13 +31,9 @@ private:
         Auto,
     };
 
-    // START : SCHEMA
-
     void HandleSchemaNode(const std::string& aRecordName, const YAML::Node& aNode);
     void HandleSchemaPropertyNode(const std::string& aRecordName, const std::string& aPropName,
                                   const YAML::Node& aNode);
-    // END : SCHEMA
-
     void HandleTopNode(TweakChangeset& aChangeset, PropertyMode aPropMode, const std::string& aName,
                        const YAML::Node& aNode);
     void HandleFlatNode(TweakChangeset& aChangeset, const std::string& aName, const YAML::Node& aNode,

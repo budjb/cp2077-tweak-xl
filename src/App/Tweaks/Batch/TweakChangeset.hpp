@@ -64,11 +64,12 @@ public:
     bool MakeRecord(Red::TweakDBID aRecordId, const Red::CClass* aType, Red::TweakDBID aSourceId = {});
     bool UpdateRecord(Red::TweakDBID aRecordId);
 
-    bool AppendElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, const Red::InstancePtr<>& aValue,
-                       bool aUnique = false);
-    bool PrependElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, const Red::InstancePtr<>& aValue,
-                        bool aUnique = false);
-    bool RemoveElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, const Red::InstancePtr<>& aValue);
+    bool AppendElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType,
+                       const Red::InstancePtr<>& aValue, bool aUnique = false);
+    bool PrependElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType,
+                        const Red::InstancePtr<>& aValue, bool aUnique = false);
+    bool RemoveElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType,
+                       const Red::InstancePtr<>& aValue);
     bool RemoveAllElements(Red::TweakDBID aFlatId);
     bool AppendFrom(Red::TweakDBID aFlatId, Red::TweakDBID aSourceId);
     bool PrependFrom(Red::TweakDBID aFlatId, Red::TweakDBID aSourceId);
@@ -106,7 +107,7 @@ private:
         StartCommitJob();
         Red::JobQueue jobQueue;
         jobQueue.Dispatch(std::forward<J>(aJob));
-        jobQueue.Dispatch([self = ToShared()] { self->FinishCommitJob(); });
+        jobQueue.Dispatch([self = ToShared()]{ self->FinishCommitJob(); });
     }
 
     static int32_t FindElement(const Red::CRTTIArrayType* aArrayType, void* aArray, void* aValue);
@@ -126,4 +127,4 @@ private:
     int32_t m_totalCommitChunks{0};
     int32_t m_finishedCommitChunks{0};
 };
-} // namespace App
+}

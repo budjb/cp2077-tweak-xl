@@ -89,12 +89,6 @@ struct Red::TweakParser::ParseAction<Red::TweakGrammar::type_base_name>
     {
         state.flatType = in.string();
     }
-
-    template<typename ParseInput>
-    static void apply(const ParseInput& in, FlatTypeState& state, FlatType& flat)
-    {
-        state.flatType = in.string();
-    }
 };
 
 template<>
@@ -105,12 +99,6 @@ struct Red::TweakParser::ParseAction<Red::TweakGrammar::type_fk_name>
     {
         state.foreignType = in.string();
     }
-
-    template<typename ParseInput>
-    static void apply(const ParseInput& in, FlatTypeState& state, FlatType& flat)
-    {
-        state.foreignType = in.string();
-    }
 };
 
 template<>
@@ -118,12 +106,6 @@ struct Red::TweakParser::ParseAction<Red::TweakGrammar::type_array_sfx>
 {
     template<typename ParseInput>
     static void apply(const ParseInput& in, ParseState& state, TweakSource& package)
-    {
-        state.isArray = true;
-    }
-
-    template<typename ParseInput>
-    static void apply(const ParseInput& in, FlatTypeState& state, FlatType& flat)
     {
         state.isArray = true;
     }
@@ -139,26 +121,6 @@ struct Red::TweakParser::ParseAction<Red::TweakGrammar::array_begin>
         {
             state.flat->isArray = true;
         }
-    }
-};
-
-template<>
-struct Red::TweakParser::ParseAction<Red::TweakGrammar::type_expr>
-{
-    template<typename ParseInput>
-    static void apply(const ParseInput& in, FlatTypeState& state, FlatType& flat)
-    {
-        if (!state.foreignType.empty())
-        {
-            flat.type = ETweakFlatType::ForeignKey;
-            flat.foreignType = state.foreignType;
-        }
-        else
-        {
-            flat.type = ResolveType(state.flatType);
-        }
-
-        flat.isArray = state.isArray;
     }
 };
 
@@ -372,7 +334,6 @@ struct Red::TweakParser::ParseAction<Red::TweakGrammar::inline_base>
 
 Red::ETweakFlatType Red::TweakParser::ResolveType(const std::string& aInput)
 {
-    // clang-format off
     switch (CName(aInput.c_str()))
     {
     case CName(TweakGrammar::Type::Int): return ETweakFlatType::Int;
@@ -387,25 +348,25 @@ Red::ETweakFlatType Red::TweakParser::ResolveType(const std::string& aInput)
     case CName(TweakGrammar::Type::Vector3): return ETweakFlatType::Vector3;
     case CName(TweakGrammar::Type::Vector2): return ETweakFlatType::Vector2;
     case CName(TweakGrammar::Type::Color): return ETweakFlatType::Color;
-    default: return ETweakFlatType::Undefined;
     }
-    // clang-format ofn
+
+    return ETweakFlatType::Undefined;
 }
 
 Red::ETweakFlatOp Red::TweakParser::ResolveOperation(const std::string& aInput)
 {
-    // clang-format off
     switch (CName(aInput.c_str()))
     {
     case CName(TweakGrammar::Op::Assign): return ETweakFlatOp::Assign;
     case CName(TweakGrammar::Op::Append): return ETweakFlatOp::Append;
     case CName(TweakGrammar::Op::Remove): return ETweakFlatOp::Remove;
-    default: return Red::ETweakFlatOp::Undefined;
     }
-    // clang-format on
+
+    return Red::ETweakFlatOp::Undefined;
 }
 
-std::string Red::TweakParser::FormatError(const std::filesystem::path& aPath, const tao::pegtl::position& aPosition,
+std::string Red::TweakParser::FormatError(const std::filesystem::path& aPath,
+                                          const tao::pegtl::position& aPosition,
                                           const std::string_view& aMessage)
 {
     return std::format("{}:{}:{}: {}", aPath.filename().string(), aPosition.line, aPosition.column, aMessage);
@@ -435,28 +396,4 @@ Core::SharedPtr<Red::TweakSource> Red::TweakParser::Parse(const std::filesystem:
     }
 
     return Core::MakeShared<TweakSource>(std::move(package));
-}
-
-Core::SharedPtr<Red::FlatType> Red::TweakParser::ParseFlatType(const std::string& aType)
-{
-    tao::pegtl::string_input input(aType, "flat_type");
-    FlatType flat;
-
-    try
-    {
-        FlatTypeState state;
-
-        const bool success = tao::pegtl::parse<TweakGrammar::type_expr, ParseAction, ParseControl>(input, state, flat);
-
-        if (!success || !input.empty())
-        {
-            return nullptr;
-        }
-    }
-    catch (const tao::pegtl::parse_error&)
-    {
-        return nullptr;
-    }
-
-    return Core::MakeShared<FlatType>(std::move(flat));
 }
