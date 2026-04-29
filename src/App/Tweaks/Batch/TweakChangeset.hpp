@@ -58,31 +58,11 @@ public:
         std::string appendix;
     };
 
-    struct SchemaEntry
-    {
-        struct PropertyEntry
-        {
-            std::string name;
-            Red::TweakDBUtil::PropertyFlatInfoPtr type;
-            Red::InstancePtr<> defaultValue;
-        };
-
-        std::string name;
-        std::optional<std::string> parent;
-
-        Core::Map<Red::CName, PropertyEntry> props;
-    };
-
     bool SetFlat(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, const Red::InstancePtr<>& aValue);
     bool ReinheritFlat(Red::TweakDBID aFlatId, Red::TweakDBID aSourceId, const std::string& aAppendix);
 
     bool MakeRecord(Red::TweakDBID aRecordId, const Red::CClass* aType, Red::TweakDBID aSourceId = {});
     bool UpdateRecord(Red::TweakDBID aRecordId);
-
-    bool MakeSchema(const std::string& aName, const std::optional<std::string>& aParent);
-    bool MakeSchemaProperty(const std::string& aRecordName, const std::string& aPropName,
-                            const Red::TweakDBUtil::PropertyFlatInfoPtr& aType,
-                            const Red::InstancePtr<>& aDefaultValue = {});
 
     bool AppendElement(Red::TweakDBID aFlatId, const Red::CBaseRTTIType* aType, const Red::InstancePtr<>& aValue,
                        bool aUnique = false);
@@ -141,7 +121,6 @@ private:
     Core::Map<Red::TweakDBID, FlatEntry> m_pendingFlats;
     Core::Map<Red::TweakDBID, ReinheritanceEntry> m_reinheritedProps;
     Core::Map<Red::TweakDBID, std::string> m_pendingNames;
-    Core::Map<Red::CName, SchemaEntry> m_pendingSchemas;
 
     std::mutex m_commitMutex;
     int32_t m_totalCommitChunks{0};

@@ -105,19 +105,12 @@ void App::TweakImporter::ImportSchemas(const Core::SharedPtr<TweakChangelog>& aC
 {
     LogInfo("Scanning tweak files for schemas...");
 
-    auto changeset = Core::MakeShared<TweakChangeset>();
-
     for (const auto& reader : m_readers)
     {
         if (reader->IsLoaded())
         {
-            reader->ReadSchemas(*changeset);
+            reader->ReadSchemas();
         }
-    }
-
-    if (!aDryRun)
-    {
-        Apply(changeset, aChangelog);
     }
 }
 

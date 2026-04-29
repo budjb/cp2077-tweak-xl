@@ -39,83 +39,65 @@ PropertyFlatInfoPtr GetPropertyFlatInfo(const std::string& aValue)
 {
     // Attempt to load info for non-foreign-key types
     if (auto info = GetPropertyFlatInfo(aValue, CName(aValue.c_str())))
-    {
         return info;
-    }
 
     // Attempt to look up foreign key arrays using shorthand syntax (e.g. "array:SomeType")
     if (aValue.starts_with(FKArrayShorthandPrefix) && aValue.length() > FKArrayShorthandPrefixSize)
-    {
         return GetPropertyFlatInfo(aValue, ERTDBFlatType::TweakDBIDArray, aValue.substr(FKArrayShorthandPrefixSize));
-    }
 
     // Attempt to look up foreign key arrays using full syntax (e.g. "array:handle:gamedataSomeType_Record")
     if (aValue.starts_with(FKArrayPrefix) && aValue.length() > FKArrayPrefixSize)
-    {
         return GetPropertyFlatInfo(aValue, ERTDBFlatType::TweakDBIDArray, aValue.substr(FKArrayPrefixSize));
-    }
 
     // Attempt to look up foreign key types using full syntax (e.g. "handle:SomeType")
     if (aValue.starts_with(FKPrefix) && aValue.length() > FKPrefixSize)
-    {
         return GetPropertyFlatInfo(aValue, ERTDBFlatType::TweakDBID, aValue.substr(FKPrefixSize));
-    }
 
     // Assume the name is a foreign key type using shorthand (e.g. "SomeType")
     return GetPropertyFlatInfo(aValue, ERTDBFlatType::TweakDBID, aValue);
 }
 
-// TODO: move this into manager
 PropertyFlatInfoPtr GetPropertyFlatInfo(const std::string& aValue, const uint64_t aHash,
                                         const std::optional<std::string>& aForeignType)
 {
     static CRTTISystem* rtti = CRTTISystem::Get();
 
-    // Attempt to load info for non-foreign-key types
-    if (IsFlatType(aHash))
+    if (!IsFlatType(aHash))
+        return nullptr;
+
+    const auto isArray = IsArrayType(aHash);
+    const auto isForeignKey = isArray ? IsForeignKeyArray(aHash) : IsForeignKey(aHash);
+
+    if (isForeignKey && !aForeignType.has_value())
+        return nullptr;
+
+    if (!isForeignKey && aForeignType.has_value())
+        return nullptr;
+
+    auto info = Core::MakeShared<PropertyFlatInfo>();
+    info->originalName = aValue;
+    info->flatType = GetFlatType(aHash);
+    info->flatTypeName = aHash;
+    info->isArray = isArray;
+
+    if (isForeignKey)
     {
-        const auto isArray = IsArrayType(aHash);
-        const auto isForeignKey = isArray ? IsForeignKeyArray(aHash) : IsForeignKey(aHash);
+        const auto foreignName = NormalizeRecordName(*aForeignType);
+        const auto propertyTypeName = isArray ? GetClassHandleArrayName(foreignName) : GetClassHandleName(foreignName);
 
-        if (isForeignKey && !aForeignType.has_value())
-        {
-            return nullptr;
-        }
-
-        if (!isForeignKey && aForeignType.has_value())
-        {
-            return nullptr;
-        }
-
-        auto info = Core::MakeShared<PropertyFlatInfo>();
-        info->originalName = aValue;
-        info->flatType = GetFlatType(aHash);
-        info->flatTypeName = aHash;
-        info->isArray = isArray;
-
-        if (isForeignKey)
-        {
-            const auto foreignName = NormalizeRecordName(*aForeignType);
-
-            const auto propertyTypeName =
-                isArray ? GetClassHandleArrayName(foreignName) : GetClassHandleName(foreignName);
-
-            info->isForeignKey = true;
-            info->propertyTypeName = CNamePool::Add(propertyTypeName.c_str());
-            info->propertyType = rtti->GetType(info->propertyTypeName);
-            info->foreignTypeName = CNamePool::Add(foreignName.c_str());
-            info->foreignType = rtti->GetClass(*info->foreignTypeName);
-        }
-        else
-        {
-            info->propertyType = info->flatType;
-            info->propertyTypeName = info->flatTypeName;
-        }
-
-        return info;
+        info->isForeignKey = true;
+        info->propertyTypeName = CNamePool::Add(propertyTypeName.c_str());
+        info->propertyType = rtti->GetType(info->propertyTypeName);
+        info->foreignTypeName = CNamePool::Add(foreignName.c_str());
+        info->foreignType = rtti->GetClass(*info->foreignTypeName);
+    }
+    else
+    {
+        info->propertyType = info->flatType;
+        info->propertyTypeName = info->flatTypeName;
     }
 
-    return nullptr;
+    return info;
 }
 
 CBaseRTTIType* GetFlatType(const uint64_t aType)

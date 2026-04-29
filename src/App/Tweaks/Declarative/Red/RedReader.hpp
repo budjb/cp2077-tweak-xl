@@ -12,13 +12,14 @@ class RedReader
     , public Core::LoggingAgent
 {
 public:
-    explicit RedReader(const Core::SharedPtr<TweakContext>& aContext, const Core::SharedPtr<Red::TweakDBManager>& aManager = nullptr);
+    explicit RedReader(const Core::SharedPtr<TweakContext>& aContext,
+                       const Core::SharedPtr<Red::TweakDBManager>& aManager = nullptr);
     ~RedReader() override = default;
 
     bool Load(const std::filesystem::path& aPath) override;
     [[nodiscard]] bool IsLoaded() const override;
     void Unload() override;
-    void ReadSchemas(TweakChangeset& aChangeset) override;
+    void ReadSchemas() override;
     void ReadValues(TweakChangeset& aChangeset) override;
 
     static Red::CName GetFlatTypeName(const Red::TweakFlatPtr& aFlat);
@@ -65,6 +66,10 @@ private:
     using GroupStatePtr = Core::SharedPtr<GroupState>;
     using FlatStatePtr = Core::SharedPtr<FlatState>;
 
+    void HandleSchemaGroup(const Red::TweakGroupPtr& aGroup);
+
+    void HandleSchemaProperty(const std::string& aRecordName, const Red::TweakFlatPtr& aFlat);
+
     GroupStatePtr HandleGroup(App::TweakChangeset& aChangeset, const Red::TweakGroupPtr& aGroup,
                               const std::string& aParentName, const std::string& aParentPath);
 
@@ -88,10 +93,12 @@ private:
 
     Red::InstancePtr<> MakeValue(const FlatStatePtr& aState, const Red::TweakValuePtr& aValue);
     Red::InstancePtr<> MakeValue(const FlatStatePtr& aState, const Core::Vector<Red::TweakValuePtr>& aValues = {});
+    Red::InstancePtr<> MakeValue(const Red::CBaseRTTIType* aType, const Red::TweakValuePtr& aValue);
+    Red::InstancePtr<> MakeValue(const Red::CBaseRTTIType* aType, const Core::Vector<Red::TweakValuePtr>& aValues);
 
     bool CheckConditions(const Core::Vector<std::string>& aTags);
 
     std::filesystem::path m_path;
     Red::TweakSourcePtr m_source;
 };
-}
+} // namespace App

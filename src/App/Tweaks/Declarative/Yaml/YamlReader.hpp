@@ -20,7 +20,7 @@ public:
     bool Load(const std::filesystem::path& aPath) override;
     [[nodiscard]] bool IsLoaded() const override;
     void Unload() override;
-    void ReadSchemas(TweakChangeset& aChangeset) override;
+    void ReadSchemas() override;
     void ReadValues(TweakChangeset& aChangeset) override;
 
 private:
@@ -32,9 +32,9 @@ private:
 
     // START : SCHEMA
 
-    void HandleSchemaNode(TweakChangeset& aChangeset, const std::string& aRecordName, const YAML::Node& aNode);
-    void HandleSchemaPropertyNode(TweakChangeset& aChangeset, const std::string& aRecordName,
-                                  const std::string& aPropName, const YAML::Node& aNode);
+    void HandleSchemaNode(const std::string& aRecordName, const YAML::Node& aNode);
+    void HandleSchemaPropertyNode(const std::string& aRecordName, const std::string& aPropName,
+                                  const YAML::Node& aNode);
     // END : SCHEMA
 
     void HandleTopNode(TweakChangeset& aChangeset, PropertyMode aPropMode, const std::string& aName,

@@ -226,11 +226,13 @@ Red::CName ScriptableRecordManager::RegisterScriptableRecordType(const std::stri
 
     if (GetRecordSpec(cname))
     {
+        // TODO: log error
         return {};
     }
 
     if (m_rtti->GetClass(cname))
     {
+        // TODO: log error
         return {};
     }
 
