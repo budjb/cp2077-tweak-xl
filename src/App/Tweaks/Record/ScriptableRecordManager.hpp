@@ -16,7 +16,9 @@ class TweakService;
  * @brief A manager for handling the registration and lifecycle of scriptable record types, their properties, and the
  * underlying components that allow them to function.
  */
-class ScriptableRecordManager : public Core::LoggingAgent
+class ScriptableRecordManager
+    : public Core::LoggingAgent
+    , public Core::ShareFromThis<ScriptableRecordManager>
 {
 public:
     /**
@@ -86,7 +88,7 @@ public:
                                             const std::optional<std::string>& aParentName = std::nullopt);
 
     Red::CName RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName,
-                                          const TweakPropertySpecPtr& aTypeInfo,
+                                          const TweakPropertySpecPtr& aTypeSpec,
                                           const Red::InstancePtr<>& aDefaultValue = nullptr);
 
     /**
@@ -131,16 +133,26 @@ private:
     struct Context
     {
         /**
-         * Path to append to a scriptable record's TweakDB ID when retrieving a property's value.
+         * @brief Path to append to a scriptable record's TweakDB ID when retrieving a property's value.
          */
         std::string appendix;
 
-        // TODO: doc this again
-        TweakPropertySpecPtr typeInfo;
+        /**
+         * @brief Type specification of the property representing both its TweakDB flat type details and the property
+         * type of the getter closure.
+         */
+        TweakPropertySpecPtr propSpec;
 
-        ScriptableRecordManager* recordManager;
+        /**
+         * @brief A shared pointer to the scriptable record manager.
+         */
+        Core::SharedPtr<ScriptableRecordManager> recordManager;
 
-        Red::TweakDBManager* tweakManager;
+        /**
+         * @brief A deferred to the TweakDB manager, which is used to retrieve property values from TweakDB when the
+         * closure is invoked.
+         */
+        Core::DeferredPtr<Red::TweakDBManager> tweakManager;
     };
 
     /**
@@ -187,8 +199,16 @@ private:
          */
         std::string appendix;
 
-        TweakPropertySpecPtr typeInfo;
+        /**
+         * @brief Type specification of the property representing both its TweakDB flat type details and the property
+         * type of the getter closure.
+         */
+        TweakPropertySpecPtr typeSpec;
 
+        /**
+         * @brief The default value of the property, which will be inserted into TweakDB for the record type with the ID
+         * @c RTDB.<record_name>.<property_name> when the record type is inserted into TweakDB.
+         */
         Red::InstancePtr<> defaultValue;
 
         /**
@@ -279,17 +299,27 @@ private:
     };
 
     /**
-     * Creates a new closure that will retrieve the value of a specific property. The appendix and type info arguments
+     * Creates a new closure that will retrieve the value of a specific property. The appendix and type spec arguments
      * are provided to invocations of the closure, and the rest of the details required are provided by the game engine.
      *
      * @param aAppendix Appendix to apply to the TweakDB record instance's ID when retrieving property values.
-     * @param aTypeInfo Type information of the property representing both its TweakDB flat type details and the
+     * @param aTypeSpec Type specification of the property representing both its TweakDB flat type details and the
      * property type of the getter closure.
      * @return A pointer to the created closure's executable memory that conforms to the Red engine's required script
      * function signature, or @c nullptr if closure creation failed for any reason.
      */
-    Red::ScriptingFunction_t<void*> CreateClosure(const std::string& aAppendix, const TweakPropertySpecPtr& aTypeInfo);
+    Red::ScriptingFunction_t<void*> CreateClosure(const std::string& aAppendix, const TweakPropertySpecPtr& aTypeSpec);
 
+    /**
+     * @brief Creates a new closure that will retrieve the value of a specific property. The provided context should
+     * contain all the necessary information for the closure to retrieve the correct property value from TweakDB when
+     * invoked.
+     *
+     * @param aContext The execution context for the closure, containing everything necessary to retrieve the correct
+     * property value from TweakDB when the closure is invoked.
+     * @return A pointer to the created closure's executable memory that conforms to the Red engine's required script
+     * function signature, or @c nullptr if closure creation failed for any reason.
+     */
     Red::ScriptingFunction_t<void*> CreateClosure(const Context& aContext);
 
     /**
@@ -436,8 +466,17 @@ private:
      */
     bool DestroyRecordClass(ScriptableRecordClass* aClass);
 
+    /**
+     * @brief Converts a value retrieved from TweakDB into the appropriate type for a scriptable property getter closure
+     * based on the property's type specification.
+     *
+     * @param aValue The value retrieved from TweakDB to convert for use in a scriptable property getter closure.
+     * @param aTypeSpec The type specification of the property for which the value is being converted.
+     * @return A pointer to the converted value that can be returned by a scriptable property getter closure, or @c
+     * nullptr if the value could not be converted for any reason.
+     */
     template<Red::ERTTIType>
-    Red::ValuePtr<> ConvertValue(const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo)
+    Red::ValuePtr<> ConvertValue(const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeSpec)
     {
         return Red::MakeValue<>(aValue.type, aValue.instance);
     }
@@ -519,15 +558,45 @@ private:
     Core::DeferredPtr<Red::TweakDBManager> m_tweakManager;
 };
 
+/**
+ * @brief A template specialization of the ConvertValue function for array types, which converts a value retrieved from
+ * TweakDB into the appropriate type for a scriptable property getter closure based on the property's type
+ * specification.
+ *
+ * @param aValue The value retrieved from TweakDB to convert for use in a scriptable property getter closure.
+ * @param aTypeSpec The type specification of the property for which the value is being converted.
+ * @return A pointer to the converted value that can be returned by a scriptable property getter closure, or @c nullptr
+ * if the value could not be converted for any reason.
+ */
 template<>
 Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(const Red::Value<>& aValue,
-                                                                             const TweakPropertySpecPtr& aTypeInfo);
+                                                                             const TweakPropertySpecPtr& aTypeSpec);
 
+/**
+ * @brief A template specialization of the ConvertValue function for handle types, which converts a value retrieved from
+ * TweakDB into the appropriate type for a scriptable property getter closure based on the property's type
+ * specification.
+ *
+ * @param aValue The value retrieved from TweakDB to convert for use in a scriptable property getter closure.
+ * @param aTypeSpec The type specification of the property for which the value is being converted.
+ * @return A pointer to the converted value that can be returned by a scriptable property getter closure, or @c nullptr
+ * if the value could not be converted for any reason.
+ */
 template<>
 Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Handle>(const Red::Value<>& aValue,
-                                                                              const TweakPropertySpecPtr& aTypeInfo);
+                                                                              const TweakPropertySpecPtr& aTypeSpec);
 
+/**
+ * @brief A template specialization of the ConvertValue function for weak handle types, which converts a value retrieved
+ * from TweakDB into the appropriate type for a scriptable property getter closure based on the property's type
+ * specification.
+ *
+ * @param aValue The value retrieved from TweakDB to convert for use in a scriptable property getter closure.
+ * @param aTypeSpec The type specification of the property for which the value is being converted.
+ * @return A pointer to the converted value that can be returned by a scriptable property getter closure, or @c nullptr
+ * if the value could not be converted for any reason.
+ */
 template<>
 Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::WeakHandle>(
-    const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo);
+    const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeSpec);
 } // namespace App
