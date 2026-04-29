@@ -314,6 +314,11 @@ void App::YamlReader::HandleTopNode(TweakChangeset& aChangeset, PropertyMode aPr
 
         if (const auto typeAttr = aNode[TypeAttrKey]; typeAttr.IsDefined())
         {
+            if (typeAttr.IsScalar() && typeAttr.Scalar() == SchemaTypeValue)
+            {
+                break;
+            }
+
             if (const auto valueAttr = aNode[ValueAttrKey]; valueAttr.IsDefined())
             {
                 const auto flatType = ResolveFlatType(typeAttr);
