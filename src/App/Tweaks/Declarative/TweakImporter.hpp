@@ -24,8 +24,6 @@ public:
 private:
     Core::SharedPtr<ITweakReader> Load(const std::filesystem::path& aPath, const std::filesystem::path& aDir);
 
-    bool Read(const Core::SharedPtr<TweakChangeset>& aChangeset, const std::filesystem::path& aPath,
-              const std::filesystem::path& aDir);
     bool Apply(const Core::SharedPtr<TweakChangeset>& aChangeset, const Core::SharedPtr<TweakChangelog>& aChangelog);
 
     static bool IsFirstPriority(const std::filesystem::path& aPath);

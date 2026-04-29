@@ -193,61 +193,6 @@ Core::SharedPtr<App::ITweakReader> App::TweakImporter::Load(const std::filesyste
     return nullptr;
 }
 
-// TODO: refactor to just reading tweak _values_.
-bool App::TweakImporter::Read(const Core::SharedPtr<App::TweakChangeset>& aChangeset,
-                              const std::filesystem::path& aPath, const std::filesystem::path& aDir)
-{
-    Core::SharedPtr<ITweakReader> reader;
-
-    {
-        const auto ext = aPath.extension();
-
-        if (ext == L".yaml" || ext == L".yml")
-        {
-            reader = Core::MakeShared<YamlReader>(m_context, m_manager);
-        }
-        else if (ext == L".tweak")
-        {
-            reader = Core::MakeShared<RedReader>(m_context, m_manager);
-        }
-    }
-
-    if (!reader)
-    {
-        return false;
-    }
-
-    try
-    {
-        std::error_code error;
-        auto path = std::filesystem::relative(aPath, aDir, error);
-        if (path.empty())
-        {
-            path = std::filesystem::absolute(aPath, error);
-            path = std::filesystem::relative(path, aDir, error);
-        }
-
-        LogInfo("Reading \"{}\"...", path.string());
-
-        if (reader->Load(aPath))
-        {
-            reader->ReadValues(*aChangeset);
-        }
-    }
-    catch (const std::exception& ex)
-    {
-        LogError(ex.what());
-        return false;
-    }
-    catch (...)
-    {
-        LogError("An unknown error occurred.");
-        return false;
-    }
-
-    return true;
-}
-
 bool App::TweakImporter::Apply(const Core::SharedPtr<App::TweakChangeset>& aChangeset,
                                const Core::SharedPtr<App::TweakChangelog>& aChangelog)
 {

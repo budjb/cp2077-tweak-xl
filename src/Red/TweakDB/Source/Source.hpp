@@ -94,16 +94,9 @@ struct TweakSource
     bool isQuery{false};
 };
 
-struct FlatType
-{
-    ETweakFlatType type{ETweakFlatType::Undefined};
-    std::string foreignType;
-    bool isArray{false};
-};
-
 using TweakGroupPtr = Core::SharedPtr<TweakGroup>;
 using TweakFlatPtr = Core::SharedPtr<TweakFlat>;
 using TweakValuePtr = Core::SharedPtr<TweakValue>;
 using TweakInlinePtr = Core::SharedPtr<TweakInline>;
 using TweakSourcePtr = Core::SharedPtr<TweakSource>;
-} // namespace Red
+}

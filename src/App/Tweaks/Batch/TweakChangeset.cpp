@@ -30,7 +30,8 @@ bool App::TweakChangeset::ReinheritFlat(Red::TweakDBID aFlatId, Red::TweakDBID a
     return true;
 }
 
-bool App::TweakChangeset::MakeRecord(Red::TweakDBID aRecordId, const Red::CClass* aType, Red::TweakDBID aSourceId)
+bool App::TweakChangeset::MakeRecord(Red::TweakDBID aRecordId, const Red::CClass* aType,
+                                     Red::TweakDBID aSourceId)
 {
     if (!aRecordId.IsValid() || !aType)
         return false;
@@ -280,8 +281,7 @@ void App::TweakChangeset::Commit(const Core::SharedPtr<Red::TweakDBManager>& aMa
 
                                 auto* sourceType = reinterpret_cast<const Red::CRTTIArrayType*>(sourceAssignment.type);
                                 auto* elementType = sourceType->innerType;
-                                auto* sourceArray =
-                                    reinterpret_cast<Red::DynArray<void>*>(sourceAssignment.value.get());
+                                auto* sourceArray = reinterpret_cast<Red::DynArray<void>*>(sourceAssignment.value.get());
                                 auto sourceLength = sourceType->GetLength(sourceArray);
 
                                 for (uint32_t sourceIndex = 0; sourceIndex < sourceLength; ++sourceIndex)
@@ -312,8 +312,7 @@ void App::TweakChangeset::Commit(const Core::SharedPtr<Red::TweakDBManager>& aMa
                         if (descendantFlatValue != sourceFlatValue)
                         {
                             auto* sourceArray = reinterpret_cast<Red::DynArray<uint8_t>*>(sourceFlatValue.instance);
-                            auto* descendantArray =
-                                reinterpret_cast<Red::DynArray<uint8_t>*>(descendantFlatValue.instance);
+                            auto* descendantArray = reinterpret_cast<Red::DynArray<uint8_t>*>(descendantFlatValue.instance);
 
                             if (sourceArray->Size() > descendantArray->Size())
                                 continue;
@@ -323,10 +322,12 @@ void App::TweakChangeset::Commit(const Core::SharedPtr<Red::TweakDBManager>& aMa
 
                             if (elementType->GetName() == StringTypeName)
                             {
-                                const auto sourceHash = Red::TweakDBBuffer::ComputeHash(
-                                    sourceFlatValue.type, sourceFlatValue.instance, sourceArray->Size());
-                                const auto descendantHash = Red::TweakDBBuffer::ComputeHash(
-                                    descendantFlatValue.type, descendantFlatValue.instance, sourceArray->Size());
+                                const auto sourceHash = Red::TweakDBBuffer::ComputeHash(sourceFlatValue.type,
+                                                                                        sourceFlatValue.instance,
+                                                                                        sourceArray->Size());
+                                const auto descendantHash = Red::TweakDBBuffer::ComputeHash(descendantFlatValue.type,
+                                                                                            descendantFlatValue.instance,
+                                                                                            sourceArray->Size());
 
                                 if (sourceHash != descendantHash)
                                     continue;
@@ -378,7 +379,7 @@ void App::TweakChangeset::Commit(const Core::SharedPtr<Red::TweakDBManager>& aMa
 
         const auto recordInfo = aManager->GetReflection()->GetRecordInfo(recordEntry.type);
 
-        for (const auto& propInfo : recordInfo->props | std::views::values)
+        for (const auto& [_, propInfo] : recordInfo->props)
         {
             if (propInfo->isArray)
             {
@@ -516,8 +517,7 @@ void App::TweakChangeset::Commit(const Core::SharedPtr<Red::TweakDBManager>& aMa
 
                 if (!success)
                 {
-                    LogError("Cannot clone record {} from {}.", aManager->GetName(recordId),
-                             aManager->GetName(entry.sourceId));
+                    LogError("Cannot clone record {} from {}.", aManager->GetName(recordId), aManager->GetName(entry.sourceId));
                     continue;
                 }
             }
@@ -559,7 +559,9 @@ void App::TweakChangeset::Commit(const Core::SharedPtr<Red::TweakDBManager>& aMa
         {
             auto* elementType = !mutation.prependings.empty()
                                     ? mutation.prependings.front().type
-                                    : (!mutation.appendings.empty() ? mutation.appendings.front().type : nullptr);
+                                    : (!mutation.appendings.empty()
+                                           ? mutation.appendings.front().type
+                                           : nullptr);
 
             if (!elementType)
             {
@@ -646,7 +648,8 @@ void App::TweakChangeset::Commit(const Core::SharedPtr<Red::TweakDBManager>& aMa
             auto insertionIndex = 0;
 
             auto performInsertions = [&, flatId = flatId](const Core::Vector<InsertionEntry>& aInsertions,
-                                                          const Core::Vector<MergingEntry>& aMerges) {
+                                                          const Core::Vector<MergingEntry>& aMerges)
+            {
                 for (const auto& insertion : aInsertions)
                 {
                     const auto& insertionValue = insertion.value;
@@ -658,8 +661,7 @@ void App::TweakChangeset::Commit(const Core::SharedPtr<Red::TweakDBManager>& aMa
                         continue;
 
                     targetType->InsertAt(targetArray.get(), insertionIndex);
-                    elementType->Assign(targetType->GetElement(targetArray.get(), insertionIndex),
-                                        insertionValue.get());
+                    elementType->Assign(targetType->GetElement(targetArray.get(), insertionIndex), insertionValue.get());
 
                     insertions.emplace_back(insertionIndex, insertionValue);
 
@@ -691,8 +693,7 @@ void App::TweakChangeset::Commit(const Core::SharedPtr<Red::TweakDBManager>& aMa
                             continue;
 
                         targetType->InsertAt(targetArray.get(), insertionIndex);
-                        elementType->Assign(targetType->GetElement(targetArray.get(), insertionIndex),
-                                            insertionValuePtr);
+                        elementType->Assign(targetType->GetElement(targetArray.get(), insertionIndex), insertionValuePtr);
 
                         auto clonedValue = Red::TweakDBUtil::Construct(elementType);
                         elementType->Assign(clonedValue.get(), insertionValuePtr);
