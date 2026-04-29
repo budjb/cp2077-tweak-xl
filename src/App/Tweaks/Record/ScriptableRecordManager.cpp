@@ -397,7 +397,7 @@ bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordCla
             else
             {
                 LogError("Failed to describe property {} of record type {}, the foreign type {} does not exist.",
-                         aSpec->name, aClass->GetName().ToString(), typeInfo->originalName);
+                         aSpec->name, aClass->GetName().ToString(), typeInfo->foreignName);
                 return false;
             }
         }
@@ -412,7 +412,7 @@ bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordCla
         else
         {
             LogError("Failed to describe property {} of record type {}, the property type {} does not exist.",
-                     aSpec->name, aClass->GetName().ToString(), typeInfo->originalName);
+                     aSpec->name, aClass->GetName().ToString(), typeInfo->foreignName);
             return false;
         }
     }
