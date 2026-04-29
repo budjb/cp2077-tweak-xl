@@ -15,9 +15,12 @@ App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesyste
     , m_inheritanceMapPath(std::move(aInheritanceMapPath))
     , m_extraFlatsPath(std::move(aExtraFlatsPath))
     , m_productVer(aProductVer)
+    , m_manager(nullptr)
+    , m_reflection(nullptr)
+    , m_recordManager(Core::MakeShared<ScriptableRecordManager>(m_manager))
     , m_changelog(Core::MakeShared<TweakChangelog>())
-    , m_importer(Core::MakeShared<TweakImporter>(m_context))
     , m_context(Core::MakeShared<TweakContext>(aProductVer))
+    , m_importer(Core::MakeShared<TweakImporter>(m_manager, m_reflection, m_recordManager, m_context))
 {
     m_importPaths.push_back(m_tweaksDir);
 }
@@ -35,10 +38,8 @@ void App::TweakService::OnBootstrap()
         {
             m_reflection = Core::MakeShared<Red::TweakDBReflection>(Red::TweakDB::Get());
             m_manager = Core::MakeShared<Red::TweakDBManager>(m_reflection);
-            m_executor = Core::MakeShared<App::TweakExecutor>(m_manager);
+            m_executor = Core::MakeShared<App::TweakExecutor>(m_manager, m_reflection);
             m_changelog = Core::MakeShared<App::TweakChangelog>();
-
-            m_importer->SetManager(m_manager);
 
             if (ImportMetadata())
             {
@@ -49,7 +50,7 @@ void App::TweakService::OnBootstrap()
             }
 
 #ifndef NDEBUG
-            ScriptableRecordManager::Get()->TestScriptableRecord(m_manager);
+            m_recordManager->TestScriptableRecord();
 #endif
         }
     });
@@ -61,7 +62,7 @@ void App::TweakService::OnBootstrap()
 
     HookWrap<Raw::CreateRecord>([&](const CreateRecordFunction aOriginal, Red::TweakDB* aTweakDB,
                                     const uint32_t aTypeHash, const Red::TweakDBID aTweakDBID) {
-        if (!ScriptableRecordManager::Get()->CreateScriptableRecord(aTweakDB, aTypeHash, aTweakDBID))
+        if (!m_recordManager->CreateScriptableRecord(aTweakDB, aTypeHash, aTweakDBID))
         {
             aOriginal(aTweakDB, aTypeHash, aTweakDBID);
         }
@@ -186,7 +187,7 @@ bool App::TweakService::RegisterDirectory(std::filesystem::path aPath)
 
 bool App::TweakService::ImportMetadata()
 {
-    MetadataImporter importer{m_manager};
+    MetadataImporter importer{m_manager, m_reflection};
 
     LogInfo("Loading inheritance metadata...");
 
@@ -209,7 +210,7 @@ bool App::TweakService::ImportMetadata()
 
 void App::TweakService::ExportMetadata()
 {
-    MetadataExporter exporter{m_manager};
+    MetadataExporter exporter{m_manager, m_reflection};
     exporter.LoadSource(m_sourcesDir);
     exporter.ExportInheritanceMap(m_inheritanceMapPath);
     exporter.ExportExtraFlats(m_extraFlatsPath);
@@ -217,27 +218,24 @@ void App::TweakService::ExportMetadata()
     exporter.ExportExtraFlats(m_extraFlatsPath.replace_extension(".yaml"));
 }
 
-Red::TweakDBManager& App::TweakService::GetManager()
+Core::DeferredPtr<Red::TweakDBManager> App::TweakService::GetManager()
 {
-    return *m_manager;
+    return m_manager;
 }
 
-Red::TweakDBReflection& App::TweakService::GetReflection()
+Core::DeferredPtr<Red::TweakDBReflection> App::TweakService::GetReflection()
 {
-    return *m_reflection;
+    return m_reflection;
 }
 
-App::TweakChangelog& App::TweakService::GetChangelog()
+Core::DeferredPtr<App::TweakChangelog> App::TweakService::GetChangelog()
 {
-    return *m_changelog;
+    return m_changelog;
 }
 
 void App::TweakService::InsertScriptableRecordDefaults()
 {
-    if (m_manager)
-    {
-        ScriptableRecordManager::Get()->InsertScriptableRecordDefaults(m_manager);
-    }
+    m_recordManager->InsertScriptableRecordDefaults();
 }
 
 void App::TweakService::SetupScriptableRecords()
@@ -255,8 +253,7 @@ void App::TweakService::SetupTweakImporter()
         m_importer->Load(m_importPaths);
         m_importer->ImportSchemas();
 
-        auto* manager = ScriptableRecordManager::Get();
-        manager->RegisterScriptableRecordSpecs();
-        manager->DescribeScriptableRecordSpecs();
+        m_recordManager->RegisterScriptableRecordSpecs();
+        m_recordManager->DescribeScriptableRecordSpecs();
     }});
 }

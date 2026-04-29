@@ -106,7 +106,7 @@ void App::TweakChangelog::ForgetResourcePaths()
     m_resourcePaths.clear();
 }
 
-void App::TweakChangelog::CheckForIssues(const Core::SharedPtr<Red::TweakDBManager>& aManager)
+void App::TweakChangelog::CheckForIssues(const Core::DeferredPtr<Red::TweakDBManager>& aManager)
 {
     {
         Core::Map<Red::TweakDBID, Core::Set<Red::TweakDBID>> brokenRefs;
@@ -152,7 +152,7 @@ void App::TweakChangelog::CheckForIssues(const Core::SharedPtr<Red::TweakDBManag
     }
 }
 
-void App::TweakChangelog::RevertChanges(const Core::SharedPtr<Red::TweakDBManager>& aManager)
+void App::TweakChangelog::RevertChanges(const Core::DeferredPtr<Red::TweakDBManager>& aManager)
 {
     Core::Set<Red::TweakDBID> updates;
 

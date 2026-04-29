@@ -10,10 +10,12 @@ constexpr auto SchemaPackage = Red::TweakSource::SchemaPackage;
 constexpr auto NameSeparator = Red::TweakGrammar::Name::Separator;
 constexpr auto InlineSuffix = "_inline";
 constexpr auto DebugTag = "Debug";
-}
+} // namespace
 
-App::MetadataExporter::MetadataExporter(Core::SharedPtr<Red::TweakDBManager> aManager)
+App::MetadataExporter::MetadataExporter(Core::DeferredPtr<Red::TweakDBManager> aManager,
+                                        Core::DeferredPtr<Red::TweakDBReflection> aReflection)
     : m_manager(std::move(aManager))
+    , m_reflection(std::move(aReflection))
     , m_resolved(true)
 {
 }
@@ -39,9 +41,7 @@ bool App::MetadataExporter::LoadSource(const std::filesystem::path& aSourceDir)
 
 bool App::MetadataExporter::IsDebugGroup(const Red::TweakGroupPtr& aGroup)
 {
-    return std::any_of(aGroup->tags.begin(), aGroup->tags.end(), [](auto& aTag) {
-        return aTag == DebugTag;
-    });
+    return std::any_of(aGroup->tags.begin(), aGroup->tags.end(), [](auto& aTag) { return aTag == DebugTag; });
 }
 
 void App::MetadataExporter::ResolveGroups()
@@ -178,9 +178,8 @@ void App::MetadataExporter::ResolveInlines(const Red::TweakGroupPtr& aOwner, con
                 }
             }
 
-            auto resolvedID = flat->isArray
-                ? flatValue.As<Red::DynArray<Red::TweakDBID>>()[offset + i]
-                : flatValue.As<Red::TweakDBID>();
+            auto resolvedID = flat->isArray ? flatValue.As<Red::DynArray<Red::TweakDBID>>()[offset + i]
+                                            : flatValue.As<Red::TweakDBID>();
 
 #ifndef NDEBUG
             auto resolvedName = m_reflection->ToString(resolvedID);
@@ -307,9 +306,8 @@ bool App::MetadataExporter::ExportExtraFlats(const std::filesystem::path& aOutPa
             auto schema = m_groups[schemaName];
             while (schema)
             {
-                auto found = std::ranges::any_of(schema->flats, [&flat](auto& aProp) {
-                    return aProp->name == flat->name;
-                });
+                auto found =
+                    std::ranges::any_of(schema->flats, [&flat](auto& aProp) { return aProp->name == flat->name; });
 
                 if (found)
                     break;

@@ -8,6 +8,7 @@
 #include "Core/Hooking/HookingAgent.hpp"
 #include "Core/Logging/LoggingAgent.hpp"
 #include "Core/Runtime/HostImage.hpp"
+#include "Record/ScriptableRecordManager.hpp"
 #include "Red/TweakDB/Manager.hpp"
 #include "Red/TweakDB/Raws.hpp"
 #include "Red/TweakDB/Reflection.hpp"
@@ -38,9 +39,9 @@ public:
     bool ImportMetadata();
     void ExportMetadata();
 
-    Red::TweakDBManager& GetManager();
-    Red::TweakDBReflection& GetReflection();
-    App::TweakChangelog& GetChangelog();
+    Core::DeferredPtr<Red::TweakDBManager> GetManager();
+    Core::DeferredPtr<Red::TweakDBReflection> GetReflection();
+    Core::DeferredPtr<TweakChangelog> GetChangelog();
 
 protected:
     void OnBootstrap() override;
@@ -58,11 +59,12 @@ protected:
     std::filesystem::path m_extraFlatsPath;
     const Core::SemvVer& m_productVer;
     Core::Vector<std::filesystem::path> m_importPaths;
-    Core::SharedPtr<Red::TweakDBReflection> m_reflection;
-    Core::SharedPtr<Red::TweakDBManager> m_manager;
+    Core::DeferredPtr<Red::TweakDBReflection> m_reflection;
+    Core::DeferredPtr<Red::TweakDBManager> m_manager;
+    Core::SharedPtr<App::ScriptableRecordManager> m_recordManager;
     Core::SharedPtr<App::TweakChangelog> m_changelog;
+    Core::SharedPtr<App::TweakContext> m_context;
     Core::SharedPtr<App::TweakImporter> m_importer;
     Core::SharedPtr<App::TweakExecutor> m_executor;
-    Core::SharedPtr<App::TweakContext> m_context;
 };
 } // namespace App

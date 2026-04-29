@@ -17,21 +17,29 @@ constexpr auto ForeignKeyOpen = "<";
 constexpr auto ForeignKeyClose = ">";
 } // namespace
 
-App::BaseTweakReader::BaseTweakReader(const Core::SharedPtr<TweakContext>& aContext,
-                                      const Core::SharedPtr<Red::TweakDBManager>& aManager)
+App::BaseTweakReader::BaseTweakReader(const Core::DeferredPtr<Red::TweakDBManager>& aManager,
+                                      const Core::DeferredPtr<Red::TweakDBReflection>& aReflection,
+                                      const Core::SharedPtr<ScriptableRecordManager>& aRecordManager,
+                                      const Core::SharedPtr<TweakContext>& aContext)
     : m_manager(aManager)
+    , m_reflection(aReflection)
+    , m_recordManager(aRecordManager)
     , m_context(aContext)
 {
 }
 
-void App::BaseTweakReader::SetManager(const Core::SharedPtr<Red::TweakDBManager>& aManager)
-{
-    m_manager = aManager;
-    m_reflection = m_manager->GetReflection();
-}
-
 bool App::BaseTweakReader::IsOriginalBaseRecord(Red::TweakDBID aRecordId)
 {
+    if (!m_reflection && m_manager)
+    {
+        m_reflection = m_manager->GetReflection();
+    }
+
+    if (!m_reflection)
+    {
+        return false;
+    }
+
     return m_reflection->IsOriginalBaseRecord(aRecordId);
 }
 

@@ -2,6 +2,7 @@
 
 #include "App/Tweaks/Batch/TweakChangeset.hpp"
 #include "App/Tweaks/Declarative/TweakReader.hpp"
+#include "App/Tweaks/Record/ScriptableRecordManager.hpp"
 #include "App/Tweaks/TweakPropertySpec.hpp"
 #include "Core/Logging/LoggingAgent.hpp"
 #include "Red/TweakDB/Source/Source.hpp"
@@ -14,8 +15,10 @@ class YamlReader
     , public Core::LoggingAgent
 {
 public:
-    explicit YamlReader(const Core::SharedPtr<TweakContext>& aContext,
-                        const Core::SharedPtr<Red::TweakDBManager>& aManager = nullptr);
+    explicit YamlReader(const Core::DeferredPtr<Red::TweakDBManager>& aManager,
+                        const Core::DeferredPtr<Red::TweakDBReflection>& aReflection,
+                        const Core::SharedPtr<ScriptableRecordManager>& aRecordManager,
+                        const Core::SharedPtr<TweakContext>& aContext);
     ~YamlReader() override = default;
 
     bool Load(const std::filesystem::path& aPath) override;

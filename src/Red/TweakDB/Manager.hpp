@@ -20,7 +20,7 @@ public:
 
     using BatchPtr = Core::SharedPtr<Batch>;
 
-    explicit TweakDBManager(Core::SharedPtr<Red::TweakDBReflection> aReflection);
+    explicit TweakDBManager(Core::DeferredPtr<TweakDBReflection> aReflection);
 
     TweakDBManager(const TweakDBManager&) = delete;
     TweakDBManager& operator=(const TweakDBManager&) = delete;
@@ -61,7 +61,7 @@ public:
     void Invalidate();
 
     Red::TweakDB* GetTweakDB();
-    Core::SharedPtr<Red::TweakDBReflection>& GetReflection();
+    Core::DeferredPtr<Red::TweakDBReflection>& GetReflection();
 
 private:
     template<class SharedLockable>
@@ -84,9 +84,10 @@ private:
 
     Red::TweakDB* m_tweakDb;
     Core::SharedPtr<Red::TweakDBBuffer> m_buffer;
-    Core::SharedPtr<Red::TweakDBReflection> m_reflection;
+    Core::DeferredPtr<Red::TweakDBReflection> m_reflection;
     Core::Map<Red::TweakDBID, std::string> m_knownNames;
     Core::Set<Red::TweakDBID> m_knownEnums;
     std::shared_mutex m_mutex;
 };
+
 } // namespace Red

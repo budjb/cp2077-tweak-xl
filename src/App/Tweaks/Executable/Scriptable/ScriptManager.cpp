@@ -1,10 +1,14 @@
-#include "App/Tweaks/Executable/Scriptable/ScriptUtils.hpp"
 #include "ScriptManager.hpp"
+#include "App/Tweaks/Executable/Scriptable/ScriptUtils.hpp"
 
-void App::ScriptManager::SetManager(Core::SharedPtr<Red::TweakDBManager> aManager)
+void App::ScriptManager::SetManager(Core::DeferredPtr<Red::TweakDBManager> aManager)
 {
     s_manager = std::move(aManager);
-    s_reflection = s_manager->GetReflection();
+}
+
+void App::ScriptManager::SetReflection(Core::DeferredPtr<Red::TweakDBReflection> aReflection)
+{
+    s_reflection = std::move(aReflection);
 }
 
 void App::ScriptManager::SetFlat(Red::IScriptable*, Red::CStackFrame* aFrame, bool* aRet, void*)
@@ -123,5 +127,5 @@ void App::ScriptManager::RegisterEnum(Red::TweakDBID aRecordID)
 
 Red::Handle<App::ScriptBatch> App::ScriptManager::StartBatch()
 {
-    return Red::MakeHandle<ScriptBatch>(s_manager);
+    return Red::MakeHandle<ScriptBatch>(s_manager, s_reflection);
 }

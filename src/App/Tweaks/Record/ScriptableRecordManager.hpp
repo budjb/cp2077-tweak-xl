@@ -20,12 +20,11 @@ class ScriptableRecordManager : public Core::LoggingAgent
 {
 public:
     /**
-     * @brief Retrieves the singleton instance of the ScriptableRecordManager. If the instance does not already exist,
-     * it will be created.
+     * @brief Constructs a ScriptableRecordManager instance.
      *
-     * @return A pointer to the singleton instance of the ScriptableRecordManager.
+     * @see ScriptableRecordManager::Get() to retrieve the singleton instance of this class.
      */
-    static ScriptableRecordManager* Get();
+    explicit ScriptableRecordManager(const Core::DeferredPtr<Red::TweakDBManager>& aManager);
 
     /**
      * @brief Destructs this ScriptableRecordManager instance and releases all resources owned by it, including
@@ -114,19 +113,15 @@ public:
      * @c RTDB.<record_name>.<property_name>, where @c property_name is the name of the property.
      *
      * Once this process is finished, scriptable record types are complete and ready for use.
-     *
-     * @param aManager The TweakDB manager to use for interacting with TweakDB.
      */
-    void InsertScriptableRecordDefaults(const Core::SharedPtr<Red::TweakDBManager>& aManager);
+    void InsertScriptableRecordDefaults();
 
 #ifndef NDEBUG
     /**
      * @brief A functional test for validating that scriptable records are properly registered, described, and inserted
      * into TweakDB. Only enabled in debug builds.
-     *
-     * @param aManager The TweakDB manager to use for interacting with TweakDB.
      */
-    void TestScriptableRecord(const Core::SharedPtr<Red::TweakDBManager>& aManager);
+    void TestScriptableRecord();
 #endif
 
 private:
@@ -142,6 +137,10 @@ private:
 
         // TODO: doc this again
         TweakPropertySpecPtr typeInfo;
+
+        ScriptableRecordManager* recordManager;
+
+        Red::TweakDBManager* tweakManager;
     };
 
     /**
@@ -280,13 +279,6 @@ private:
     };
 
     /**
-     * @brief Constructs a ScriptableRecordManager instance.
-     *
-     * @see ScriptableRecordManager::Get() to retrieve the singleton instance of this class.
-     */
-    ScriptableRecordManager();
-
-    /**
      * Creates a new closure that will retrieve the value of a specific property. The appendix and type info arguments
      * are provided to invocations of the closure, and the rest of the details required are provided by the game engine.
      *
@@ -384,10 +376,8 @@ private:
      * property_name is the name of the property.
      *
      * @param aSpec
-     * @param aManager
      */
-    void InsertScriptableRecordDefaults(const Core::SharedPtr<ScriptableRecordSpec>& aSpec,
-                                        const Core::SharedPtr<Red::TweakDBManager>& aManager);
+    void InsertScriptableRecordDefaults(const Core::SharedPtr<ScriptableRecordSpec>& aSpec);
 
     /**
      * @brief Inserts default values for a scriptable record type based on the provided RTTI class. This is an overload
@@ -396,10 +386,8 @@ private:
      *
      * @param aClass The RTTI class of the record type for which to insert default values. This should correspond to the
      * class of a registered scriptable record type.
-     * @param aManager The TweakDB manager to use for interacting with TweakDB when inserting default values.
      */
-    void InsertScriptableRecordDefaults(const Red::CClass* aClass,
-                                        const Core::SharedPtr<Red::TweakDBManager>& aManager);
+    void InsertScriptableRecordDefaults(const Red::CClass* aClass);
 
     /**
      * @brief Unregisters a scriptable record type by destroying its corresponding RTTI class and removing it from the
@@ -449,8 +437,7 @@ private:
     bool DestroyRecordClass(ScriptableRecordClass* aClass);
 
     template<Red::ERTTIType>
-    Red::ValuePtr<> ConvertValue(const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo,
-                                 const Core::SharedPtr<TweakService>& aService)
+    Red::ValuePtr<> ConvertValue(const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo)
     {
         return Red::MakeValue<>(aValue.type, aValue.instance);
     }
@@ -525,17 +512,22 @@ private:
      * @brief A registry of scriptable record classes, indexed by the hash of each record type's short name.
      */
     Core::Map<uint32_t, Core::SharedPtr<ScriptableRecordClass>> m_classes;
+
+    /**
+     * @brief A pointer to the TweakDB manager.
+     */
+    Core::DeferredPtr<Red::TweakDBManager> m_tweakManager;
 };
 
 template<>
-Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(
-    const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo, const Core::SharedPtr<TweakService>& aService);
+Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(const Red::Value<>& aValue,
+                                                                             const TweakPropertySpecPtr& aTypeInfo);
 
 template<>
-Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Handle>(
-    const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo, const Core::SharedPtr<TweakService>& aService);
+Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Handle>(const Red::Value<>& aValue,
+                                                                              const TweakPropertySpecPtr& aTypeInfo);
 
 template<>
 Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::WeakHandle>(
-    const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo, const Core::SharedPtr<TweakService>& aService);
+    const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo);
 } // namespace App
