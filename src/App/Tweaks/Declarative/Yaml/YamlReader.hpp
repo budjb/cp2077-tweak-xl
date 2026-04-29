@@ -2,6 +2,7 @@
 
 #include "App/Tweaks/Batch/TweakChangeset.hpp"
 #include "App/Tweaks/Declarative/TweakReader.hpp"
+#include "App/Tweaks/TweakPropertySpec.hpp"
 #include "Core/Logging/LoggingAgent.hpp"
 #include "Red/TweakDB/Source/Source.hpp"
 #include "Red/TweakDB/Util.hpp"
@@ -52,7 +53,7 @@ private:
 
     bool CheckConditions(const YAML::Node& aNode) const;
     static PropertyMode ResolvePropertyMode(const YAML::Node& aNode, PropertyMode aDefault = PropertyMode::Strict);
-    Red::TweakDBUtil::PropertyFlatInfoPtr ResolvePropertyFlatInfo(const YAML::Node& aNode);
+    TweakPropertySpecPtr ResolvePropertyFlatInfo(const YAML::Node& aNode);
     const Red::CBaseRTTIType* ResolveFlatType(const YAML::Node& aNode);
     const Red::CBaseRTTIType* ResolveFlatType(Red::CName aName);
     const Red::CClass* ResolveRecordType(const YAML::Node& aNode);

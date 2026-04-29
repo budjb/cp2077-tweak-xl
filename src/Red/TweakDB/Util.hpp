@@ -3,103 +3,7 @@
 namespace Red::TweakDBUtil
 {
 /**
- * @brief Information about a TweakDB record property, including its TweakDB flat type and getter closure return type
- * details. This is useful for scriptable record types.
- *
- * @todo move this to App namespace
- */
-struct PropertyFlatInfo
-{
-    /**
-     * @brief The RTTI type that should be returned from the property's getter closure. For foreign key types, this
-     * value may initially be null if the referenced type is a scriptable record that has not yet been described.
-     */
-    const CBaseRTTIType* propertyType{};
-
-    /**
-     * @brief The name of the RTTI type that should be returned from the property's getter closure, used for type
-     * resolution when the property type is not yet available (e.g. for scriptable record foreign keys that have not yet
-     * been described). The CName is guaranteed to be added to the CName pool.
-     */
-    CName propertyTypeName{};
-
-    /**
-     * @brief The RTTI type of the TweakDB flat that corresponds to this property.
-     */
-    const CBaseRTTIType* flatType{};
-
-    /**
-     * @brief The name of the RTTI type of the TweakDB flat that corresponds to this property.
-     */
-    CName flatTypeName;
-
-    /**
-     * @brief Whether this property is an array type.
-     */
-    bool isArray{};
-
-    /**
-     * @brief Whether this property represents a foreign key reference to another TweakDB record. If true, flat type
-     * will be either a TweakDBID or array of TweakDBIDs, and the getter closure will return a handle or array of
-     * handles to another TweakDB record type, respectively.
-     */
-    bool isForeignKey{};
-
-    /**
-     * @brief The name of the foreign type as specified by a YAML or Red Tweak file before normalization to a
-     * fully-qualified TweakDB record name.
-     */
-    std::string foreignName;
-
-    /**
-     * @brief The RTTI type of the referenced record for foreign key properties. This may be null if the referenced type
-     * is a scriptable record that has not yet been described, in which case foreignTypeName can be used for type
-     * resolution once the referenced type is described.
-     */
-    const CClass* foreignType{};
-
-    /**
-     * @brief The name of the referenced record for foreign key properties, used for type resolution when the referenced
-     * type is not yet available (e.g. for scriptable record foreign keys that have not yet been described). The CName
-     * is guaranteed to be added to the CName pool.
-     */
-    std::optional<CName> foreignTypeName{};
-};
-RED4EXT_ASSERT_SIZE(PropertyFlatInfo, 0x68);
-
-/**
- * @brief A shared pointer to a PropertyFlatInfo struct, used for caching property type information for scriptable
- * record properties.
- *
- * @todo move to App namespace.
- */
-using PropertyFlatInfoPtr = Core::SharedPtr<PropertyFlatInfo>;
-
-/**
- * @brief Parses the given string to infer the TweakDB property and flat details for a scriptable record. This is useful
- * for parsing types discovered from YAML record schemas and supports all fully-qualified RTTI type names that are valid
- * for use with TweakDB properties.
- *
- * @param aValue The string to parse TweakDB property and flat details from.
- * @return A PropertyFlatInfoPtr containing the parsed property and flat details, or nullptr if the given string is not
- * a valid TweakDB property type.
- */
-PropertyFlatInfoPtr GetPropertyFlatInfo(const std::string& aValue);
-
-/**
- * @brief Creates a set of details for a TweakDB property based on the given type hash and optional foreign type name.
- *
- * @param aValue The original foreign type name before it has been normalized to a fully-qualified TweakDB name.
- * @param aHash The hash of the property type, used for RTTI type resolution.
- * @param aForeignType An optional foreign type name for foreign key properties.
- * @return A PropertyFlatInfoPtr containing the parsed property and flat details, or nullptr if the given string is not
- * a valid TweakDB property type.
- */
-PropertyFlatInfoPtr GetPropertyFlatInfo(const std::string& aValue, uint64_t aHash,
-                                        const std::optional<std::string>& aForeignType = std::nullopt);
-
-/**
- * @brief Gets the RTTI type of a TweakDB flat type by its type hash.
+ * @brief Gets the RTTI type of a TweakDB flat type by its type hash if the hash represents a valid TweakDB flat type.
  *
  * @param aType The hash of the flat type to get.
  * @return The RTTI type corresponding to the given flat type hash, or nullptr if the type is not a valid TweakDB flat
@@ -108,7 +12,7 @@ PropertyFlatInfoPtr GetPropertyFlatInfo(const std::string& aValue, uint64_t aHas
 CBaseRTTIType* GetFlatType(uint64_t aType);
 
 /**
- * @brief Gets the RTTI type of a TweakDB flat type by its name.
+ * @brief Gets the RTTI type of a TweakDB flat type by its name if the name represents a valid TweakDB flat type.
  *
  * @param aTypeName The name of the flat type to get.
  * @return The RTTI type corresponding to the given flat type name, or nullptr if the type is not a valid TweakDB flat
@@ -117,7 +21,8 @@ CBaseRTTIType* GetFlatType(uint64_t aType);
 CBaseRTTIType* GetFlatType(CName aTypeName);
 
 /**
- * @brief Gets the RTTI type of a TweakDB array type corresponding to the given element type.
+ * @brief Gets the RTTI type of a TweakDB array type corresponding to the given element type if the name represents a
+ * valid TweakDB flat element type.
  *
  * @param aTypeName The name of the element type to get the corresponding array type for.
  * @return The RTTI type of the TweakDB array type corresponding to the given element type, or nullptr if the given type
@@ -126,7 +31,8 @@ CBaseRTTIType* GetFlatType(CName aTypeName);
 CBaseRTTIType* GetArrayType(CName aTypeName);
 
 /**
- * @brief Gets the RTTI type of a TweakDB array type corresponding to the given element type.
+ * @brief Gets the RTTI type of a TweakDB array type corresponding to the given element type if the name represents a
+ * valid TweakDB flat element type.
  *
  * @param aType The RTTI type of the element type to get the corresponding array type for.
  * @return The RTTI type of the TweakDB array type corresponding to the given element type, or nullptr if the given type
@@ -135,7 +41,8 @@ CBaseRTTIType* GetArrayType(CName aTypeName);
 CBaseRTTIType* GetArrayType(const CBaseRTTIType* aType);
 
 /**
- * @brief Gets the RTTI type of a TweakDB element type corresponding to the given array type.
+ * @brief Gets the RTTI type of a TweakDB element type corresponding to the given array type if the name represents a
+ * valid TweakDB flat array type.
  *
  * @param aTypeName The name of the array type to get the corresponding element type for.
  * @return The RTTI type of the TweakDB element type corresponding to the given array type, or nullptr if the given type
@@ -144,7 +51,8 @@ CBaseRTTIType* GetArrayType(const CBaseRTTIType* aType);
 CBaseRTTIType* GetElementType(CName aTypeName);
 
 /**
- * @brief Gets the RTTI type of a TweakDB element type corresponding to the given array type.
+ * @brief Gets the RTTI type of a TweakDB element type corresponding to the given array type if the name represents a
+ * valid TweakDB flat array type.
  *
  * @param aType The RTTI type of the array type to get the corresponding element type for.
  * @return The RTTI type of the TweakDB element type corresponding to the given array type, or nullptr if the given type
@@ -359,29 +267,6 @@ bool IsRecordType(CName aTypeName);
 bool IsRecordType(const CClass* aType);
 
 /**
- * @brief Get the class name for a handle of a given record name (e.g. "Vehicle" -> "handle:gamedataVehicle_Record").
- *
- * Note that the provided name will be normalized to the fully-qualified TweakDB record name for proper type resolution.
- *
- * @param aName The name of the record type to get the class handle name for.
- * @return The class handle name corresponding to the given record name, or @c Red::CName::Empty if the provided name is
- * empty or invalid.
- */
-std::string GetClassHandleName(const std::string& aName);
-
-/**
- * @brief Get the class name for an array of handles of a given record name (e.g. "Vehicle" ->
- * "array:handle:gamedataVehicle_Record").
- *
- * Note that the provided name will be normalized to the fully-qualified TweakDB record name for proper type resolution.
- *
- * @param aName The name of the record type to get the class handle name for.
- * @return The class handle name corresponding to the given record name, or @c Red::CName::Empty if the provided name is
- * empty or invalid.
- */
-std::string GetClassHandleArrayName(const std::string& aName);
-
-/**
  * @brief Normalizes a TweakDB record name to conform to typical TweakDB naming standards. The name is processed as
  * follows:
  *
@@ -400,6 +285,8 @@ std::string NormalizeRecordName(const std::string& aName);
  * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
  * follow the convention "gamedata<Name>_Record", where "<Name>" is the capitalized short name of the record type.
  *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
  * @tparam T The type to return the record name as, either std::string or CName.
  * @param aName The name of the record to get the fully-qualified name for.
  * @return The fully-qualified record name corresponding to the given name.
@@ -410,6 +297,8 @@ T GetRecordFullName(const std::string& aName);
 /**
  * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
  * follow the convention "gamedata<Name>_Record", where "<Name>" is the capitalized short name of the record type.
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
  *
  * @tparam T The type to return the record name as, either std::string or CName.
  * @param aName The name of the record to get the fully-qualified name for.
@@ -422,6 +311,8 @@ T GetRecordFullName(const char* aName);
  * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
  * follow the convention "gamedata<Name>_Record", where "<Name>" is the capitalized short name of the record type.
  *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
  * @tparam T The type to return the record name as, either std::string or CName.
  * @param aName The name of the record to get the fully-qualified name for.
  * @return The fully-qualified record name corresponding to the given name.
@@ -429,95 +320,475 @@ T GetRecordFullName(const char* aName);
 template<typename T>
 T GetRecordFullName(CName aName);
 
+/**
+ * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
+ * fully-qualified name except the "gamedata" prefix is stripped (e.g. "gamedataVehicle_Record" -> "Vehicle_Record").
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @tparam T The type to return the record name as, either std::string or CName.
+ * @param aName The name of the record to get the alias/scripted name for.
+ * @return The alias/scripted record name corresponding to the given name.
+ */
 template<typename T>
 T GetRecordAliasName(const std::string& aName);
 
+/**
+ * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
+ * fully-qualified name except the "gamedata" prefix is stripped (e.g. "gamedataVehicle_Record" -> "Vehicle_Record").
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @tparam T The type to return the record name as, either std::string or CName.
+ * @param aName The name of the record to get the alias/scripted name for.
+ * @return The alias/scripted record name corresponding to the given name.
+ */
 template<typename T>
 T GetRecordAliasName(const char* aName);
 
+/**
+ * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
+ * fully-qualified name except the "gamedata" prefix is stripped (e.g. "gamedataVehicle_Record" -> "Vehicle_Record").
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @tparam T The type to return the record name as, either std::string or CName.
+ * @param aName The name of the record to get the alias/scripted name for.
+ * @return The alias/scripted record name corresponding to the given name.
+ */
 template<typename T>
 T GetRecordAliasName(CName aName);
 
-template<>
-[[nodiscard]] std::string GetRecordFullName(const std::string& aName);
-
-template<>
-std::string GetRecordFullName(const char* aName);
-
-template<>
-[[nodiscard]] std::string GetRecordFullName(CName aName);
-
-template<>
-[[nodiscard]] std::string GetRecordAliasName(const std::string& aName);
-
-template<>
-[[nodiscard]] std::string GetRecordAliasName(const char* aName);
-
-template<>
-[[nodiscard]] std::string GetRecordAliasName(CName aName);
-
-template<>
-[[nodiscard]] CName GetRecordFullName(const std::string& aName);
-
-template<>
-[[nodiscard]] CName GetRecordFullName(const char* aName);
-
-template<>
-[[nodiscard]] CName GetRecordFullName(CName aName);
-
-template<>
-[[nodiscard]] CName GetRecordAliasName(const std::string& aName);
-
-template<>
-[[nodiscard]] CName GetRecordAliasName(const char* aName);
-
-template<>
-[[nodiscard]] CName GetRecordAliasName(CName aName);
-
+/**
+ * @brief Gets the short name of a TweakDB record corresponding to the given name. The short name is the part of the
+ * record name that identifies the record type without any prefixes or suffixes (e.g. "Vehicle" for
+ * "gamedataVehicle_Record").
+ *
+ * This function does not normalize (i.e. capitalize) the name.
+ *
+ * @tparam T The type to return the record name as, either std::string or CName.
+ * @param aName The name of the record to get the short name for.
+ * @return The short name of the record corresponding to the given name.
+ */
 template<typename T>
 T GetRecordShortName(const std::string& aName);
 
+/**
+ * @brief Gets the short name of a TweakDB record corresponding to the given name. The short name is the part of the
+ * record name that identifies the record type without any prefixes or suffixes (e.g. "Vehicle" for
+ * "gamedataVehicle_Record").
+ *
+ * This function does not normalize (i.e. capitalize) the name.
+ *
+ * @tparam T The type to return the record name as, either std::string or CName.
+ * @param aName The name of the record to get the short name for.
+ * @return The short name of the record corresponding to the given name.
+ */
 template<typename T>
 T GetRecordShortName(CName aName);
 
+/**
+ * @brief Gets the short name of a TweakDB record corresponding to the given name. The short name is the part of the
+ * record name that identifies the record type without any prefixes or suffixes (e.g. "Vehicle" for
+ * "gamedataVehicle_Record").
+ *
+ * This function does not normalize (i.e. capitalize) the name.
+ *
+ * @tparam T The type to return the record name as, either std::string or CName.
+ * @param aName The name of the record to get the short name for.
+ * @return The short name of the record corresponding to the given name.
+ */
 template<typename T>
 T GetRecordShortName(const char* aName);
 
+/**
+ * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
+ * follow the convention "gamedata<Name>_Record", where "<Name>" is the capitalized short name of the record type.
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @param aName The name of the record to get the fully-qualified name for.
+ * @return The fully-qualified record name corresponding to the given name.
+ */
+template<>
+[[nodiscard]] std::string GetRecordFullName(const std::string& aName);
+
+/**
+ * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
+ * follow the convention "gamedata<Name>_Record", where "<Name>" is the capitalized short name of the record type.
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @param aName The name of the record to get the fully-qualified name for.
+ * @return The fully-qualified record name corresponding to the given name.
+ */
+template<>
+[[nodiscard]] std::string GetRecordFullName(const char* aName);
+
+/**
+ * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
+ * follow the convention "gamedata<Name>_Record", where "<Name>" is the capitalized short name of the record type.
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @param aName The name of the record to get the fully-qualified name for.
+ * @return The fully-qualified record name corresponding to the given name.
+ */
+template<>
+[[nodiscard]] std::string GetRecordFullName(CName aName);
+
+/**
+ * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
+ * follow the convention "gamedata<Name>_Record", where "<Name>" is the capitalized short name of the record type.
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @param aName The name of the record to get the fully-qualified name for.
+ * @return The fully-qualified record name corresponding to the given name.
+ */
+template<>
+[[nodiscard]] CName GetRecordFullName(const std::string& aName);
+
+/**
+ * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
+ * follow the convention "gamedata<Name>_Record", where "<Name>" is the capitalized short name of the record type.
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @param aName The name of the record to get the fully-qualified name for.
+ * @return The fully-qualified record name corresponding to the given name.
+ */
+template<>
+[[nodiscard]] CName GetRecordFullName(const char* aName);
+
+/**
+ * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
+ * follow the convention "gamedata<Name>_Record", where "<Name>" is the capitalized short name of the record type.
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @param aName The name of the record to get the fully-qualified name for.
+ * @return The fully-qualified record name corresponding to the given name.
+ */
+template<>
+[[nodiscard]] CName GetRecordFullName(CName aName);
+
+/**
+ * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
+ * fully-qualified name except the "gamedata" prefix is stripped (e.g. "gamedataVehicle_Record" -> "Vehicle_Record").
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @param aName The name of the record to get the alias/scripted name for.
+ * @return The alias/scripted record name corresponding to the given name.
+ */
+template<>
+[[nodiscard]] std::string GetRecordAliasName(const std::string& aName);
+
+/**
+ * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
+ * fully-qualified name except the "gamedata" prefix is stripped (e.g. "gamedataVehicle_Record" -> "Vehicle_Record").
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @param aName The name of the record to get the alias/scripted name for.
+ * @return The alias/scripted record name corresponding to the given name.
+ */
+template<>
+[[nodiscard]] std::string GetRecordAliasName(const char* aName);
+
+/**
+ * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
+ * fully-qualified name except the "gamedata" prefix is stripped (e.g. "gamedataVehicle_Record" -> "Vehicle_Record").
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @param aName The name of the record to get the alias/scripted name for.
+ * @return The alias/scripted record name corresponding to the given name.
+ */
+template<>
+[[nodiscard]] std::string GetRecordAliasName(CName aName);
+
+/**
+ * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
+ * fully-qualified name except the "gamedata" prefix is stripped (e.g. "gamedataVehicle_Record" -> "Vehicle_Record").
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @param aName The name of the record to get the alias/scripted name for.
+ * @return The alias/scripted record name corresponding to the given name.
+ */
+template<>
+[[nodiscard]] CName GetRecordAliasName(const std::string& aName);
+
+/**
+ * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
+ * fully-qualified name except the "gamedata" prefix is stripped (e.g. "gamedataVehicle_Record" -> "Vehicle_Record").
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @param aName The name of the record to get the alias/scripted name for.
+ * @return The alias/scripted record name corresponding to the given name.
+ */
+template<>
+[[nodiscard]] CName GetRecordAliasName(const char* aName);
+
+/**
+ * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
+ * fully-qualified name except the "gamedata" prefix is stripped (e.g. "gamedataVehicle_Record" -> "Vehicle_Record").
+ *
+ * This function assumes that the name is already normalized (i.e. the short name is capitalized).
+ *
+ * @param aName The name of the record to get the alias/scripted name for.
+ * @return The alias/scripted record name corresponding to the given name.
+ */
+template<>
+[[nodiscard]] CName GetRecordAliasName(CName aName);
+
+/**
+ * @brief Gets the short name of a TweakDB record corresponding to the given name. The short name is the part of the
+ * record name that identifies the record type without any prefixes or suffixes (e.g. "Vehicle" for
+ * "gamedataVehicle_Record").
+ *
+ * This function does not normalize (i.e. capitalize) the name.
+ *
+ * @param aName The name of the record to get the short name for.
+ * @return The short name of the record corresponding to the given name.
+ */
 template<>
 std::string GetRecordShortName(const std::string& aName);
 
+/**
+ * @brief Gets the short name of a TweakDB record corresponding to the given name. The short name is the part of the
+ * record name that identifies the record type without any prefixes or suffixes (e.g. "Vehicle" for
+ * "gamedataVehicle_Record").
+ *
+ * This function does not normalize (i.e. capitalize) the name.
+ *
+ * @param aName The name of the record to get the short name for.
+ * @return The short name of the record corresponding to the given name.
+ */
 template<>
 std::string GetRecordShortName(CName aName);
 
+/**
+ * @brief Gets the short name of a TweakDB record corresponding to the given name. The short name is the part of the
+ * record name that identifies the record type without any prefixes or suffixes (e.g. "Vehicle" for
+ * "gamedataVehicle_Record").
+ *
+ * This function does not normalize (i.e. capitalize) the name.
+ *
+ * @param aName The name of the record to get the short name for.
+ * @return The short name of the record corresponding to the given name.
+ */
 template<>
 std::string GetRecordShortName(const char* aName);
 
+/**
+ * @brief Gets the short name of a TweakDB record corresponding to the given name. The short name is the part of the
+ * record name that identifies the record type without any prefixes or suffixes (e.g. "Vehicle" for
+ * "gamedataVehicle_Record").
+ *
+ * This function does not normalize (i.e. capitalize) the name.
+ *
+ * @param aName The name of the record to get the short name for.
+ * @return The short name of the record corresponding to the given name.
+ */
 template<>
 CName GetRecordShortName(const std::string& aName);
 
+/**
+ * @brief Gets the short name of a TweakDB record corresponding to the given name. The short name is the part of the
+ * record name that identifies the record type without any prefixes or suffixes (e.g. "Vehicle" for
+ * "gamedataVehicle_Record").
+ *
+ * This function does not normalize (i.e. capitalize) the name.
+ *
+ * @param aName The name of the record to get the short name for.
+ * @return The short name of the record corresponding to the given name.
+ */
 template<>
 CName GetRecordShortName(CName aName);
 
+/**
+ * @brief Gets the short name of a TweakDB record corresponding to the given name. The short name is the part of the
+ * record name that identifies the record type without any prefixes or suffixes (e.g. "Vehicle" for
+ * "gamedataVehicle_Record").
+ *
+ * This function does not normalize (i.e. capitalize) the name.
+ *
+ * @param aName The name of the record to get the short name for.
+ * @return The short name of the record corresponding to the given name.
+ */
 template<>
 CName GetRecordShortName(const char* aName);
 
-std::string GetPropertyFunctionName(CName aName);
-
+/**
+ * @brief Gets the hash of a TweakDB record type corresponding to the given name. The name is assumed to be a
+ * fully-qualified TweakDB record type name and is converted to its short name for hashing.
+ *
+ * It is the responsibility of the caller to ensure that the given string is a valid TweakDB record type name and to do
+ * any necessary normalization (e.g. capitalization) before calling this function.
+ *
+ * @param aName The fully-qualified name of the record type to get the hash for.
+ * @return The hash of the TweakDB record type corresponding to the given name, or 0 if the given name is empty or
+ * invalid.
+ */
 uint32_t GetRecordTypeHash(CName aName);
+
+/**
+ * @brief Gets the hash of a TweakDB record type corresponding to the given name. The name is assumed to be a
+ * valid TweakDB record type short name and is not modified before hashing.
+ *
+ * It is the responsibility of the caller to ensure that the given string is a valid TweakDB record type name and to do
+ * any necessary normalization (e.g. capitalization) before calling this function.
+ *
+ * @param aName The short name of the record type to get the hash for.
+ * @return The hash of the TweakDB record type corresponding to the given name, or 0 if the given name is empty or
+ * invalid.
+ */
 uint32_t GetRecordTypeHash(const std::string& aName);
+
+/**
+ * @brief Gets the hash of a TweakDB record type corresponding to the given name. The name is assumed to be a
+ * valid TweakDB record type short name and is not modified before hashing.
+ *
+ * It is the responsibility of the caller to ensure that the given string is a valid TweakDB record type name and to do
+ * any necessary normalization (e.g. capitalization) before calling this function.
+ *
+ * @param aName The short name of the record type to get the hash for.
+ * @return The hash of the TweakDB record type corresponding to the given name, or 0 if the given name is empty or
+ * invalid.
+ */
 uint32_t GetRecordTypeHash(const char* aName);
+
+/**
+ * @brief Gets the hash of a TweakDB record type corresponding to the given RTTI class type. The class is assumed to be
+ * a valid TweakDB record type and its name is converted to the short name for hashing.
+ *
+ * @param aType The RTTI class type of the record type to get the hash for.
+ * @return The hash of the TweakDB record type corresponding to the given RTTI class type, or 0 if the given type is not
+ * a valid TweakDB record type.
+ */
 uint32_t GetRecordTypeHash(const CClass* aType);
 
-TweakDBID GetRTDBFlatID(CName aRecord, CName aProp);
+/**
+ * @brief Gets the TweakDBID of the flat containing the default value for a TweakDB property corresponding to the given
+ * record and property names. The record name is assumed to be a valid TweakDB record type name and is converted to the
+ * record's short name. The property name is assumed to be a valid property of the given record type and is not modified
+ * before lookup.
+ *
+ * The resulting TweakDBID can be expected to contain the follow path components joined by period characters:
+ *
+ * - "RTDB"
+ * - Short name of the record.
+ * - Property name.
+ *
+ * For example, the property "displayName" of record type "gamedataVehicle_Record" will result in a TweakDBID for the
+ * path "RTDB.Vehicle.displayName".
+ *
+ * @param aRecord The name of the record type to get the property TweakDBID for.
+ * @param aProp The name of the property to get the TweakDBID for.
+ * @return The TweakDBID of the default value for the given record and property, or an empty TweakDBID if the given
+ * record or property name is empty or invalid.
+ */
 TweakDBID GetRTDBFlatID(CName aRecord, const std::string& aProp);
+
+/**
+ * @brief Gets the TweakDBID of the flat containing the default value for a TweakDB property corresponding to the given
+ * record and property names. The record name is assumed to be a valid TweakDB record type name and is converted to the
+ * record's short name. The property name is assumed to be a valid property of the given record type and is not modified
+ * before lookup.
+ *
+ * The resulting TweakDBID can be expected to contain the follow path components joined by period characters:
+ *
+ * - "RTDB"
+ * - Short name of the record.
+ * - Property name.
+ *
+ * For example, the property "displayName" of record type "gamedataVehicle_Record" will result in a TweakDBID for the
+ * path "RTDB.Vehicle.displayName".
+ *
+ * @param aRecord The name of the record type to get the property TweakDBID for.
+ * @param aProp The name of the property to get the TweakDBID for.
+ * @return The TweakDBID of the default value for the given record and property, or an empty TweakDBID if the given
+ * record or property name is empty or invalid.
+ */
 TweakDBID GetRTDBFlatID(CName aRecord, const char* aProp);
+
+/**
+ * @brief Gets the TweakDBID of the record containing the default values for a TweakDB record corresponding to the given
+ * record name. The record name is assumed to be a valid TweakDB record type name and is converted to the record's
+ * short name.
+ *
+ * The resulting TweakDBID may be used as the prefix for the flats containing default values for properties of the
+ * record. It can be expected to contain the follow path components joined by period characters:
+ *
+ * - "RTDB"
+ * - Short name of the record.
+ *
+ * For example, for record type "gamedataVehicle_Record", the resulting TweakDBID will contain the path "RTDB.Vehicle"
+ * and the TweakDBIDs for the default value flats for properties of this record will be prefixed by this record
+ * TweakDBID (e.g. "RTDB.Vehicle.displayName").
+ *
+ * @param aRecord The name of the record type to get the record TweakDBID for.
+ * @return The TweakDBID of the record containing the default values for the given record, or an empty TweakDBID if the
+ * given record name is empty or invalid.
+ */
 TweakDBID GetRTDBRecordID(CName aRecord);
 
+/**
+ * @brief Capitalizes the given name by converting the first character to uppercase if it is a lowercase letter. For
+ * example, "foo" will be capitalized to "Foo", while "Foo" and "123abc" will remain unchanged.
+ *
+ * @param aName The name to capitalize.
+ * @return The capitalized version of the given name.
+ */
 std::string Capitalize(CName aName);
+
+/**
+ * @brief Capitalizes the given name by converting the first character to uppercase if it is a lowercase letter. For
+ * example, "foo" will be capitalized to "Foo", while "Foo" and "123abc" will remain unchanged.
+ *
+ * @param aName The name to capitalize.
+ * @return The capitalized version of the given name.
+ */
 std::string Capitalize(const std::string& aName);
+
+/**
+ * @brief Capitalizes the given name by converting the first character to uppercase if it is a lowercase letter. For
+ * example, "foo" will be capitalized to "Foo", while "Foo" and "123abc" will remain unchanged.
+ *
+ * @param aName The name to capitalize.
+ * @return The capitalized version of the given name.
+ */
 std::string Capitalize(const char* aName);
+
+/**
+ * @brief Decapitalizes the given name by converting the first character to lowercase if it is an uppercase letter. For
+ * example, "Foo" will be decapitalized to "foo", while "foo" and "123abc" will remain unchanged.
+ *
+ * @param aName The name to decapitalize.
+ * @return The decapitalized version of the given name.
+ */
 std::string Decapitalize(CName aName);
+
+/**
+ * @brief Decapitalizes the given name by converting the first character to lowercase if it is an uppercase letter. For
+ * example, "Foo" will be decapitalized to "foo", while "foo" and "123abc" will remain unchanged.
+ *
+ * @param aName The name to decapitalize.
+ * @return The decapitalized version of the given name.
+ */
 std::string Decapitalize(const std::string& aName);
+
+/**
+ * @brief Decapitalizes the given name by converting the first character to lowercase if it is an uppercase letter. For
+ * example, "Foo" will be decapitalized to "foo", while "foo" and "123abc" will remain unchanged.
+ *
+ * @param aName The name to decapitalize.
+ * @return The decapitalized version of the given name.
+ */
 std::string Decapitalize(const char* aName);
 
 } // namespace Red::TweakDBUtil
