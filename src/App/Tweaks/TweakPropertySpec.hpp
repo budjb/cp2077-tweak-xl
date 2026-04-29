@@ -70,7 +70,7 @@ struct TweakPropertySpec
 RED4EXT_ASSERT_SIZE(TweakPropertySpec, 0x60);
 
 /**
- * @brief A shared pointer to a PropertyFlatInfo struct.
+ * @brief A shared pointer to a TweakPropertySpec struct.
  */
 using TweakPropertySpecPtr = Core::SharedPtr<TweakPropertySpec>;
 
@@ -98,7 +98,7 @@ using TweakPropertySpecPtr = Core::SharedPtr<TweakPropertySpec>;
  * - "array:handle:Vehicle" (short name with explicit strong handle array syntax)
  *
  * @param aValue The string to parse TweakDB property and flat details from.
- * @return A PropertyFlatInfoPtr containing the parsed property and flat details, or nullptr if the given string is not
+ * @return A property spec containing the parsed property and flat details, or nullptr if the given string is not
  * a valid TweakDB property type.
  */
 TweakPropertySpecPtr GetTweakPropertySpec(const std::string& aValue);
@@ -109,7 +109,7 @@ TweakPropertySpecPtr GetTweakPropertySpec(const std::string& aValue);
  * @param aValue The original foreign type name before it has been converted to a fully-qualified TweakDB name.
  * @param aHash The hash of the property type, used for RTTI type resolution.
  * @param aForeignType An optional foreign type name for foreign key properties.
- * @return A PropertyFlatInfoPtr containing the parsed property and flat details, or nullptr if the given string is not
+ * @return A property spec containing the parsed property and flat details, or nullptr if the given string is not
  * a valid TweakDB property type.
  */
 TweakPropertySpecPtr GetTweakPropertySpec(const std::string& aValue, uint64_t aHash,
