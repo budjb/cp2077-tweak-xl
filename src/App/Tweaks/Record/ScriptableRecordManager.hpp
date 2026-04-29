@@ -39,6 +39,9 @@ public:
      * particular, intercept normal Red::TweakDB::CreateRecord() invocations so that custom, scriptable record types may
      * function.
      *
+     * If this function returns false, the normal record creation should follow to allow built-in TweakDB record types
+     * to be built.
+     *
      * @param aTweakDB Instance of TweakDB to insert records into.
      * @param aHash The hash of the record type to create. This should correspond to the hash of a registered scriptable
      * record type.

@@ -572,8 +572,6 @@ bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, con
     {
         return CreateScriptableRecord(aTweakDB, cls, aRecordId);
     }
-    LogWarning("Failed to create scriptable record because the corresponding record class with hash {} was not found.",
-               aHash);
     return false;
 }
 
