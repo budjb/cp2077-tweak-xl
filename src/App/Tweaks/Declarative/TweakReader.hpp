@@ -1,6 +1,7 @@
 #pragma once
 
 #include "App/Tweaks/Batch/TweakChangeset.hpp"
+#include "App/Tweaks/Record/ScriptableRecordManager.hpp"
 #include "App/Tweaks/TweakContext.hpp"
 
 namespace App
@@ -9,7 +10,6 @@ class ITweakReader
 {
 public:
     virtual ~ITweakReader() = default;
-    virtual void SetManager(const Core::SharedPtr<Red::TweakDBManager>& aManager) = 0;
     virtual bool Load(const std::filesystem::path& aPath) = 0;
     [[nodiscard]] virtual bool IsLoaded() const = 0;
     virtual void Unload() = 0;
@@ -20,10 +20,10 @@ public:
 class BaseTweakReader : public ITweakReader
 {
 public:
-    explicit BaseTweakReader(const Core::SharedPtr<TweakContext>& aContext,
-                             const Core::SharedPtr<Red::TweakDBManager>& aManager = nullptr);
-
-    void SetManager(const Core::SharedPtr<Red::TweakDBManager>& aManager) override;
+    explicit BaseTweakReader(const Core::DeferredPtr<Red::TweakDBManager>& aManager,
+                             const Core::DeferredPtr<Red::TweakDBReflection>& aReflection,
+                             const Core::SharedPtr<ScriptableRecordManager>& aRecordManager,
+                             const Core::SharedPtr<TweakContext>& aContext);
 
 protected:
     static std::string ComposePath(const std::string& aParentPath, const std::string& aItemName);
@@ -42,9 +42,10 @@ protected:
     std::string ToName(const Red::CClass* aType);
     std::string ToName(const Red::CBaseRTTIType* aType, const Red::CClass* aKey = nullptr);
 
-    Core::SharedPtr<Red::TweakDBManager> m_manager;
-    Core::SharedPtr<Red::TweakDBReflection> m_reflection;
-    Core::SharedPtr<App::TweakContext> m_context;
+    Core::DeferredPtr<Red::TweakDBManager> m_manager;
+    Core::DeferredPtr<Red::TweakDBReflection> m_reflection;
+    Core::SharedPtr<ScriptableRecordManager> m_recordManager;
+    Core::SharedPtr<TweakContext> m_context;
     Core::Map<std::string, int32_t> m_inlineIndexSuffix;
 };
 } // namespace App

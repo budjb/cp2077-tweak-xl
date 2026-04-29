@@ -3,9 +3,11 @@
 #include "App/Tweaks/Record/ScriptableRecordManager.hpp"
 #include "Red/TweakDB/Source/Parser.hpp"
 
-App::RedReader::RedReader(const Core::SharedPtr<TweakContext>& aContext,
-                          const Core::SharedPtr<Red::TweakDBManager>& aManager)
-    : BaseTweakReader(aContext, aManager)
+App::RedReader::RedReader(const Core::DeferredPtr<Red::TweakDBManager>& aManager,
+                          const Core::DeferredPtr<Red::TweakDBReflection>& aReflection,
+                          const Core::SharedPtr<ScriptableRecordManager>& aRecordManager,
+                          const Core::SharedPtr<TweakContext>& aContext)
+    : BaseTweakReader(aManager, aReflection, aRecordManager, aContext)
 {
 }
 
@@ -50,6 +52,9 @@ void App::RedReader::ReadSchemas()
 void App::RedReader::ReadValues(App::TweakChangeset& aChangeset)
 {
     if (!IsLoaded())
+        return;
+
+    if (!m_reflection || !m_manager)
         return;
 
     if (m_source->isSchema)
@@ -100,7 +105,7 @@ void App::RedReader::HandleSchemaGroup(const Red::TweakGroupPtr& aGroup)
 
     const auto parent = !aGroup->base.empty() ? std::optional(aGroup->base) : std::nullopt;
 
-    if (!ScriptableRecordManager::Get()->RegisterScriptableRecordType(name, parent))
+    if (!m_recordManager->RegisterScriptableRecordType(name, parent))
         return;
 
     for (const auto prop : aGroup->flats)
@@ -122,8 +127,8 @@ void App::RedReader::HandleSchemaProperty(const std::string& aRecordName, const 
         return;
     }
 
-    ScriptableRecordManager::Get()->RegisterScriptableProperty(aRecordName.c_str(), aFlat->name, propInfo,
-                                                               MakeValue(propInfo->flatType, aFlat->values));
+    m_recordManager->RegisterScriptableProperty(aRecordName.c_str(), aFlat->name, propInfo,
+                                                MakeValue(propInfo->flatType, aFlat->values));
 }
 
 App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& aChangeset,
@@ -230,6 +235,17 @@ App::RedReader::GroupStatePtr App::RedReader::HandleInline(App::TweakChangeset& 
             LogError("{}: Record type {} is not compatible with {}.", inlineState->groupPath,
                      ToName(inlineState->resolvedType), ToName(inlineState->requiredType));
 
+        return inlineState;
+    }
+
+    if (!m_reflection && m_manager)
+    {
+        m_reflection = m_manager->GetReflection();
+    }
+
+    if (!m_reflection)
+    {
+        LogError("{}: Cannot create record, reflection is unavailable.", inlineState->groupPath);
         return inlineState;
     }
 

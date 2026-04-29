@@ -1,6 +1,6 @@
 #include "ScriptInterface.hpp"
 
-void App::ScriptInterface::SetReflection(Core::SharedPtr<Red::TweakDBReflection> aReflection)
+void App::ScriptInterface::SetReflection(Core::DeferredPtr<Red::TweakDBReflection> aReflection)
 {
     s_reflection = std::move(aReflection);
 }

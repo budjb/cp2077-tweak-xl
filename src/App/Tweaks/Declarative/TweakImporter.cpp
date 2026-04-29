@@ -5,19 +5,15 @@
 #include "App/Tweaks/Declarative/Yaml/YamlReader.hpp"
 #include "App/Tweaks/TweakService.hpp"
 
-App::TweakImporter::TweakImporter(const Core::SharedPtr<TweakContext>& aContext)
-    : m_context(aContext)
+App::TweakImporter::TweakImporter(const Core::DeferredPtr<Red::TweakDBManager>& aManager,
+                                  const Core::DeferredPtr<Red::TweakDBReflection>& aReflection,
+                                  const Core::SharedPtr<ScriptableRecordManager>& aRecordManager,
+                                  const Core::SharedPtr<TweakContext>& aContext)
+    : m_manager(aManager)
+    , m_reflection(aReflection)
+    , m_recordManager(aRecordManager)
+    , m_context(aContext)
 {
-}
-
-void App::TweakImporter::SetManager(const Core::SharedPtr<Red::TweakDBManager>& aManager)
-{
-    m_manager = aManager;
-
-    for (const auto& reader : m_readers)
-    {
-        reader->SetManager(m_manager);
-    }
 }
 
 void App::TweakImporter::Load(const Core::Vector<std::filesystem::path>& aImportPaths)
@@ -151,11 +147,11 @@ Core::SharedPtr<App::ITweakReader> App::TweakImporter::Load(const std::filesyste
     {
         if (const auto ext = aPath.extension(); ext == L".yaml" || ext == L".yml")
         {
-            reader = Core::MakeShared<YamlReader>(m_context);
+            reader = Core::MakeShared<YamlReader>(m_manager, m_reflection, m_recordManager, m_context);
         }
         else if (ext == L".tweak")
         {
-            reader = Core::MakeShared<RedReader>(m_context);
+            reader = Core::MakeShared<RedReader>(m_manager, m_reflection, m_recordManager, m_context);
         }
     }
 

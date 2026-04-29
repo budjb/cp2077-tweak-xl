@@ -6,9 +6,9 @@ namespace
 constexpr auto OptimizedFlatChunkSize = 16000;
 }
 
-Red::TweakDBManager::TweakDBManager(Core::SharedPtr<Red::TweakDBReflection> aReflection)
+Red::TweakDBManager::TweakDBManager(Core::DeferredPtr<TweakDBReflection> aReflection)
     : m_tweakDb(aReflection->GetTweakDB())
-    , m_buffer(Core::MakeShared<Red::TweakDBBuffer>(m_tweakDb))
+    , m_buffer(Core::MakeShared<TweakDBBuffer>(m_tweakDb))
     , m_reflection(std::move(aReflection))
 {
 }
@@ -428,7 +428,7 @@ Red::TweakDB* Red::TweakDBManager::GetTweakDB()
     return m_tweakDb;
 }
 
-Core::SharedPtr<Red::TweakDBReflection>& Red::TweakDBManager::GetReflection()
+Core::DeferredPtr<Red::TweakDBReflection>& Red::TweakDBManager::GetReflection()
 {
     return m_reflection;
 }

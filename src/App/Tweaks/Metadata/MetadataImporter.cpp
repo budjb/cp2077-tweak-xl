@@ -1,8 +1,8 @@
 #include "MetadataImporter.hpp"
 
-App::MetadataImporter::MetadataImporter(Core::SharedPtr<Red::TweakDBManager> aManager)
+App::MetadataImporter::MetadataImporter(Core::DeferredPtr<Red::TweakDBManager> aManager, Core::DeferredPtr<Red::TweakDBReflection> aReflection)
     : m_manager(std::move(aManager))
-    , m_reflection(m_manager->GetReflection())
+    , m_reflection(std::move(aReflection))
 {
 }
 

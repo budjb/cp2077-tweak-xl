@@ -29,9 +29,12 @@ constexpr auto UIIconType = Red::CName("gamedataUIIcon_Record");
 constexpr auto PropSeparator = ".";
 } // namespace
 
-App::YamlReader::YamlReader(const Core::SharedPtr<TweakContext>& aContext,
-                            const Core::SharedPtr<Red::TweakDBManager>& aManager)
-    : BaseTweakReader(aContext, aManager)
+App::YamlReader::YamlReader(const Core::DeferredPtr<Red::TweakDBManager>& aManager,
+                            const Core::DeferredPtr<Red::TweakDBReflection>& aReflection,
+                            const Core::SharedPtr<ScriptableRecordManager>& aRecordManager,
+                            const Core::SharedPtr<TweakContext>& aContext)
+
+    : BaseTweakReader(aManager, aReflection, aRecordManager, aContext)
 {
 }
 
@@ -83,6 +86,9 @@ void App::YamlReader::ReadSchemas()
 void App::YamlReader::ReadValues(TweakChangeset& aChangeset)
 {
     if (!IsLoaded())
+        return;
+
+    if (!m_reflection || !m_manager)
         return;
 
     const auto propMode = ResolvePropertyMode(m_data);
@@ -180,7 +186,7 @@ void App::YamlReader::HandleSchemaNode(const std::string& aRecordName, const YAM
         }
     }
 
-    if (!ScriptableRecordManager::Get()->RegisterScriptableRecordType(name, parent))
+    if (!m_recordManager->RegisterScriptableRecordType(name, parent))
         return;
 
     for (const auto& nodeIt : aNode)
@@ -219,8 +225,7 @@ void App::YamlReader::HandleSchemaPropertyNode(const std::string& aRecordName, c
                 return;
             }
 
-            ScriptableRecordManager::Get()->RegisterScriptableProperty(aRecordName.c_str(), aPropName, typeInfo,
-                                                                       propInstance);
+            m_recordManager->RegisterScriptableProperty(aRecordName.c_str(), aPropName, typeInfo, propInstance);
             return;
         }
     }
@@ -235,8 +240,8 @@ void App::YamlReader::HandleSchemaPropertyNode(const std::string& aRecordName, c
             return;
         }
 
-        ScriptableRecordManager::Get()->RegisterScriptableProperty(
-            aRecordName.c_str(), aPropName, GetTweakPropertySpec(propType.ToString()), propInstance);
+        m_recordManager->RegisterScriptableProperty(aRecordName.c_str(), aPropName,
+                                                    GetTweakPropertySpec(propType.ToString()), propInstance);
         return;
     }
 

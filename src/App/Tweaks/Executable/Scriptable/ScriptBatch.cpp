@@ -1,11 +1,15 @@
 #include "ScriptBatch.hpp"
 #include "App/Tweaks/Executable/Scriptable/ScriptUtils.hpp"
 
-App::ScriptBatch::ScriptBatch(Core::SharedPtr<Red::TweakDBManager> aManager)
+App::ScriptBatch::ScriptBatch(Core::DeferredPtr<Red::TweakDBManager> aManager,
+                              Core::DeferredPtr<Red::TweakDBReflection> aReflection)
     : m_manager(std::move(aManager))
-    , m_reflection(m_manager->GetReflection())
-    , m_batch(m_manager->StartBatch())
+    , m_reflection(std::move(aReflection))
 {
+    if (m_manager)
+    {
+        m_batch = m_manager->StartBatch();
+    }
 }
 
 bool App::ScriptBatch::SetFlat(Red::TweakDBID aFlatID, Red::Variant& aVariant) const

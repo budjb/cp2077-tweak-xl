@@ -1,6 +1,7 @@
 #pragma once
 
 #include "App/Tweaks/Declarative/TweakReader.hpp"
+#include "App/Tweaks/Record/ScriptableRecordManager.hpp"
 #include "Core/Logging/LoggingAgent.hpp"
 #include "Red/TweakDB/Source/Source.hpp"
 #include "Red/Value.hpp"
@@ -12,8 +13,10 @@ class RedReader
     , public Core::LoggingAgent
 {
 public:
-    explicit RedReader(const Core::SharedPtr<TweakContext>& aContext,
-                       const Core::SharedPtr<Red::TweakDBManager>& aManager = nullptr);
+    explicit RedReader(const Core::DeferredPtr<Red::TweakDBManager>& aManager,
+                       const Core::DeferredPtr<Red::TweakDBReflection>& aReflection,
+                       const Core::SharedPtr<ScriptableRecordManager>& aRecordManager,
+                       const Core::SharedPtr<TweakContext>& aContext);
     ~RedReader() override = default;
 
     bool Load(const std::filesystem::path& aPath) override;
