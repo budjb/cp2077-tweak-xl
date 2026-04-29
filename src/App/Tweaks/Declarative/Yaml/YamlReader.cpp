@@ -1,5 +1,7 @@
 #include "YamlReader.hpp"
 
+#include "App/Tweaks/Record/ScriptableRecordManager.hpp"
+
 namespace
 {
 constexpr auto AttrSymbol = '$';
@@ -67,14 +69,14 @@ void App::YamlReader::Unload()
     m_data = YAML::Node();
 }
 
-void App::YamlReader::ReadSchemas(TweakChangeset& aChangeset)
+void App::YamlReader::ReadSchemas()
 {
     if (!IsLoaded())
         return;
 
     for (const auto& it : m_data)
     {
-        HandleSchemaNode(aChangeset, it.first.Scalar(), it.second);
+        HandleSchemaNode(it.first.Scalar(), it.second);
     }
 }
 
@@ -124,8 +126,7 @@ App::YamlReader::PropertyMode App::YamlReader::ResolvePropertyMode(const YAML::N
     return aDefault;
 }
 
-void App::YamlReader::HandleSchemaNode(TweakChangeset& aChangeset, const std::string& aRecordName,
-                                       const YAML::Node& aNode)
+void App::YamlReader::HandleSchemaNode(const std::string& aRecordName, const YAML::Node& aNode)
 {
     if (aRecordName.empty())
     {
@@ -163,12 +164,6 @@ void App::YamlReader::HandleSchemaNode(TweakChangeset& aChangeset, const std::st
         LogInfo("Normalizing record name {} to {}.", aRecordName, name);
     }
 
-    if (Red::CRTTISystem::Get()->GetClass(name.c_str()))
-    {
-        LogError("{}: Cannot create record schema, a record type with the same name already exists.", aRecordName);
-        return;
-    }
-
     std::optional<std::string> parent = std::nullopt;
 
     if (const auto baseAttr = aNode[BaseAttrKey]; baseAttr.IsDefined())
@@ -185,17 +180,17 @@ void App::YamlReader::HandleSchemaNode(TweakChangeset& aChangeset, const std::st
         }
     }
 
-    if (!aChangeset.MakeSchema(name, parent))
+    if (!ScriptableRecordManager::Get()->RegisterScriptableRecordType(name, parent))
         return;
 
     for (const auto& nodeIt : aNode)
     {
-        HandleSchemaPropertyNode(aChangeset, name, nodeIt.first.Scalar(), nodeIt.second);
+        HandleSchemaPropertyNode(name, nodeIt.first.Scalar(), nodeIt.second);
     }
 }
 
-void App::YamlReader::HandleSchemaPropertyNode(TweakChangeset& aChangeset, const std::string& aRecordName,
-                                               const std::string& aPropName, const YAML::Node& aNode)
+void App::YamlReader::HandleSchemaPropertyNode(const std::string& aRecordName, const std::string& aPropName,
+                                               const YAML::Node& aNode)
 {
     if (aPropName.empty() || aPropName[0] == AttrSymbol)
         return;
@@ -224,7 +219,8 @@ void App::YamlReader::HandleSchemaPropertyNode(TweakChangeset& aChangeset, const
                 return;
             }
 
-            aChangeset.MakeSchemaProperty(aRecordName, aPropName, typeInfo, propInstance);
+            ScriptableRecordManager::Get()->RegisterScriptableProperty(aRecordName.c_str(), aPropName, typeInfo,
+                                                                       propInstance);
             return;
         }
     }
@@ -239,8 +235,8 @@ void App::YamlReader::HandleSchemaPropertyNode(TweakChangeset& aChangeset, const
             return;
         }
 
-        aChangeset.MakeSchemaProperty(aRecordName, aPropName,
-                                      Red::TweakDBUtil::GetPropertyFlatInfo(propType.ToString()), propInstance);
+        ScriptableRecordManager::Get()->RegisterScriptableProperty(
+            aRecordName.c_str(), aPropName, Red::TweakDBUtil::GetPropertyFlatInfo(propType.ToString()), propInstance);
         return;
     }
 

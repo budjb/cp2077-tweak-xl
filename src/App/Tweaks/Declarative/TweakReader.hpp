@@ -13,7 +13,7 @@ public:
     virtual bool Load(const std::filesystem::path& aPath) = 0;
     [[nodiscard]] virtual bool IsLoaded() const = 0;
     virtual void Unload() = 0;
-    virtual void ReadSchemas(TweakChangeset& aChangeset) = 0;
+    virtual void ReadSchemas() = 0;
     virtual void ReadValues(TweakChangeset& aChangeset) = 0;
 };
 

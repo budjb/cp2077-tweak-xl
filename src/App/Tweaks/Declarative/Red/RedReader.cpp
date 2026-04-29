@@ -1,4 +1,6 @@
 #include "RedReader.hpp"
+
+#include "App/Tweaks/Record/ScriptableRecordManager.hpp"
 #include "Red/TweakDB/Source/Parser.hpp"
 
 App::RedReader::RedReader(const Core::SharedPtr<TweakContext>& aContext,
@@ -26,8 +28,23 @@ void App::RedReader::Unload()
     m_source.reset();
 }
 
-void App::RedReader::ReadSchemas(TweakChangeset& aChangeset)
+void App::RedReader::ReadSchemas()
 {
+    if (!IsLoaded())
+        return;
+
+    if (!m_source->isSchema)
+        return;
+
+    if (!m_source->package.empty())
+    {
+        m_source->usings.insert(m_source->usings.begin(), m_source->package);
+    }
+
+    for (const auto& group : m_source->groups)
+    {
+        HandleSchemaGroup(group);
+    }
 }
 
 void App::RedReader::ReadValues(App::TweakChangeset& aChangeset)
@@ -36,10 +53,7 @@ void App::RedReader::ReadValues(App::TweakChangeset& aChangeset)
         return;
 
     if (m_source->isSchema)
-    {
-        LogError("Schema package editing is not supported.");
         return;
-    }
 
     if (m_source->isQuery)
     {
@@ -64,6 +78,51 @@ void App::RedReader::ReadValues(App::TweakChangeset& aChangeset)
             HandleFlat(aChangeset, flat, m_source->package, m_source->package);
         }
     }
+}
+
+void App::RedReader::HandleSchemaGroup(const Red::TweakGroupPtr& aGroup)
+{
+    if (!CheckConditions(aGroup->tags))
+        return;
+
+    if (aGroup->name.empty())
+    {
+        // TODO: how does this happen? Need to log error.
+        return;
+    }
+
+    const auto name = Red::TweakDBUtil::NormalizeRecordName(aGroup->name);
+
+    if (name != aGroup->name)
+    {
+        LogInfo("Normalizing record name {} to {}.", aGroup->name, name);
+    }
+
+    const auto parent = !aGroup->base.empty() ? std::optional(aGroup->base) : std::nullopt;
+
+    if (!ScriptableRecordManager::Get()->RegisterScriptableRecordType(name, parent))
+        return;
+
+    for (const auto prop : aGroup->flats)
+    {
+        HandleSchemaProperty(name, prop);
+    }
+}
+
+void App::RedReader::HandleSchemaProperty(const std::string& aRecordName, const Red::TweakFlatPtr& aFlat)
+{
+    const auto foreignType = !aFlat->foreignType.empty() ? std::optional(aFlat->foreignType) : std::nullopt;
+
+    const auto propInfo = Red::TweakDBUtil::GetPropertyFlatInfo("TODO", GetFlatTypeName(aFlat), foreignType);
+
+    if (!propInfo)
+    {
+        LogError("{}: Unable to infer type for property {}.", aRecordName, aFlat->name);
+        return;
+    }
+
+    ScriptableRecordManager::Get()->RegisterScriptableProperty(aRecordName.c_str(), aFlat->name, propInfo,
+                                                               MakeValue(propInfo->flatType, aFlat->values));
 }
 
 App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& aChangeset,
