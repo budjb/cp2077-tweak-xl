@@ -1,5 +1,7 @@
 #pragma once
 
+#include "App/Tweaks/TweakPropertySpec.hpp"
+
 #include <ffi.h>
 
 #include "App/Tweaks/Record/ScriptableRecordClass.hpp"
@@ -82,7 +84,7 @@ public:
                                             const std::optional<std::string>& aParentName = std::nullopt);
 
     Red::CName RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName,
-                                          const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
+                                          const TweakPropertySpecPtr& aTypeInfo,
                                           const Red::InstancePtr<>& aDefaultValue = nullptr);
 
     /**
@@ -136,7 +138,7 @@ private:
         std::string appendix;
 
         // TODO: doc this again
-        Red::TweakDBUtil::PropertyFlatInfoPtr typeInfo;
+        TweakPropertySpecPtr typeInfo;
     };
 
     /**
@@ -183,7 +185,7 @@ private:
          */
         std::string appendix;
 
-        Red::TweakDBUtil::PropertyFlatInfoPtr typeInfo;
+        TweakPropertySpecPtr typeInfo;
 
         Red::InstancePtr<> defaultValue;
 
@@ -291,8 +293,7 @@ private:
      * @return A pointer to the created closure's executable memory that conforms to the Red engine's required script
      * function signature, or @c nullptr if closure creation failed for any reason.
      */
-    Red::ScriptingFunction_t<void*> CreateClosure(const std::string& aAppendix,
-                                                  const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo);
+    Red::ScriptingFunction_t<void*> CreateClosure(const std::string& aAppendix, const TweakPropertySpecPtr& aTypeInfo);
 
     Red::ScriptingFunction_t<void*> CreateClosure(const Context& aContext);
 
@@ -445,7 +446,7 @@ private:
     bool DestroyRecordClass(ScriptableRecordClass* aClass);
 
     template<Red::ERTTIType>
-    Red::ValuePtr<> ConvertValue(const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
+    Red::ValuePtr<> ConvertValue(const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo,
                                  const Core::SharedPtr<TweakService>& aService)
     {
         return Red::MakeValue<>(aValue.type, aValue.instance);
@@ -525,16 +526,13 @@ private:
 
 template<>
 Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(
-    const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
-    const Core::SharedPtr<TweakService>& aService);
+    const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo, const Core::SharedPtr<TweakService>& aService);
 
 template<>
 Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Handle>(
-    const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
-    const Core::SharedPtr<TweakService>& aService);
+    const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo, const Core::SharedPtr<TweakService>& aService);
 
 template<>
 Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::WeakHandle>(
-    const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
-    const Core::SharedPtr<TweakService>& aService);
+    const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo, const Core::SharedPtr<TweakService>& aService);
 } // namespace App

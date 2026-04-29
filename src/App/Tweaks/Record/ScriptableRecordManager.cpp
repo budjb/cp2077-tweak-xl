@@ -79,8 +79,8 @@ Red::ScriptingFunction_t<void*> ScriptableRecordManager::CreateClosure(const Con
     return function;
 }
 
-Red::ScriptingFunction_t<void*> ScriptableRecordManager::CreateClosure(
-    const std::string& aAppendix, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo)
+Red::ScriptingFunction_t<void*> ScriptableRecordManager::CreateClosure(const std::string& aAppendix,
+                                                                       const TweakPropertySpecPtr& aTypeInfo)
 {
     return CreateClosure({aAppendix, aTypeInfo});
 }
@@ -258,7 +258,7 @@ Red::CName ScriptableRecordManager::RegisterScriptableRecordType(const std::stri
 }
 
 Red::CName ScriptableRecordManager::RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName,
-                                                               const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
+                                                               const TweakPropertySpecPtr& aTypeInfo,
                                                                const Red::InstancePtr<>& aDefaultValue)
 {
     const auto cname = Red::CName{aPropertyName.c_str()};
@@ -390,7 +390,7 @@ bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordCla
     {
         if (!typeInfo->foreignType)
         {
-            if (const auto* type = m_rtti->GetClass(*typeInfo->foreignTypeName))
+            if (const auto* type = m_rtti->GetClass(typeInfo->foreignTypeName))
             {
                 typeInfo->foreignType = type;
             }
@@ -599,7 +599,7 @@ bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, Scr
 void ScriptableRecordManager::RegisterTestScriptableRecord()
 {
     const auto name = RegisterScriptableRecordType(Red::TweakDBUtil::NormalizeRecordName("TweakXLTest"));
-    const auto info = Red::TweakDBUtil::GetPropertyFlatInfo("CName");
+    const auto info = GetTweakPropertySpec("CName");
 
     RegisterScriptableProperty(name, "foo", info);
     RegisterScriptableProperty(name, "bar", info);
@@ -644,8 +644,7 @@ void ScriptableRecordManager::TestScriptableRecord(const Core::SharedPtr<Red::Tw
 
 template<>
 Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(
-    const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
-    const Core::SharedPtr<TweakService>& aService)
+    const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo, const Core::SharedPtr<TweakService>& aService)
 {
     if (!aTypeInfo || !aService || !aTypeInfo->propertyType || !aTypeInfo->foreignType || !aTypeInfo->isForeignKey ||
         !aTypeInfo->isArray || !aValue || aValue.type->GetName() != Red::ERTDBFlatType::TweakDBIDArray)
@@ -697,8 +696,7 @@ Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(
 
 template<>
 Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Handle>(
-    const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
-    const Core::SharedPtr<TweakService>& aService)
+    const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo, const Core::SharedPtr<TweakService>& aService)
 {
     if (!aTypeInfo || !aService || !aTypeInfo->propertyType || !aTypeInfo->foreignType || !aTypeInfo->isForeignKey ||
         aTypeInfo->isArray || !aValue || aValue.type->GetName() != Red::ERTDBFlatType::TweakDBID ||
@@ -721,8 +719,7 @@ Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Handle>(
 
 template<>
 Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::WeakHandle>(
-    const Red::Value<>& aValue, const Red::TweakDBUtil::PropertyFlatInfoPtr& aTypeInfo,
-    const Core::SharedPtr<TweakService>& aService)
+    const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeInfo, const Core::SharedPtr<TweakService>& aService)
 {
     if (!aTypeInfo || !aService || !aTypeInfo->propertyType || !aTypeInfo->foreignType || !aTypeInfo->isForeignKey ||
         aTypeInfo->isArray || !aValue || aValue.type->GetName() != Red::ERTDBFlatType::TweakDBID ||

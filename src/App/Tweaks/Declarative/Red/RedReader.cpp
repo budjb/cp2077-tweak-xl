@@ -113,7 +113,8 @@ void App::RedReader::HandleSchemaProperty(const std::string& aRecordName, const 
 {
     const auto foreignType = !aFlat->foreignType.empty() ? std::optional(aFlat->foreignType) : std::nullopt;
 
-    const auto propInfo = Red::TweakDBUtil::GetPropertyFlatInfo("TODO", GetFlatTypeName(aFlat), foreignType);
+    // TODO: plug in real original name as foreign name
+    const auto propInfo = GetTweakPropertySpec("TODO", GetFlatTypeName(aFlat), foreignType);
 
     if (!propInfo)
     {
