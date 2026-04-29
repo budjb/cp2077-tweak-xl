@@ -58,7 +58,7 @@ RED4EXT_ASSERT_SIZE(ScriptableTweakDBRecord, 0x48);
 } // namespace App
 
 RTTI_DEFINE_CLASS(App::ScriptableTweakDBRecord, App::ScriptableTweakDBRecord::NAME, {
-    // TODO: mark abstract when the CET fix is merged
+    RTTI_ABSTRACT();
     RTTI_ALIAS(App::ScriptableTweakDBRecord::ALIAS);
     RTTI_PARENT(Red::gamedataTweakDBRecord);
 });
