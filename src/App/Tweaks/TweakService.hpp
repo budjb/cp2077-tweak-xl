@@ -61,10 +61,10 @@ protected:
     Core::Vector<std::filesystem::path> m_importPaths;
     Core::DeferredPtr<Red::TweakDBReflection> m_reflection;
     Core::DeferredPtr<Red::TweakDBManager> m_manager;
-    Core::SharedPtr<App::ScriptableRecordManager> m_recordManager;
-    Core::SharedPtr<App::TweakChangelog> m_changelog;
-    Core::SharedPtr<App::TweakContext> m_context;
-    Core::SharedPtr<App::TweakImporter> m_importer;
-    Core::SharedPtr<App::TweakExecutor> m_executor;
+    Core::SharedPtr<ScriptableRecordManager> m_recordManager;
+    Core::SharedPtr<TweakChangelog> m_changelog;
+    Core::SharedPtr<TweakContext> m_context;
+    Core::SharedPtr<TweakImporter> m_importer;
+    Core::SharedPtr<TweakExecutor> m_executor;
 };
 } // namespace App

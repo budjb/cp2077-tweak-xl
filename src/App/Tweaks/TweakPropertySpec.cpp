@@ -118,9 +118,9 @@ namespace App
 {
 TweakPropertySpecPtr GetTweakPropertySpec(const std::string& aValue)
 {
-    // Attempt to load info for non-foreign-key types
-    if (auto info = GetTweakPropertySpec(aValue, Red::CName(aValue.c_str())))
-        return info;
+    // Attempt to load a spec for non-foreign-key types
+    if (auto spec = GetTweakPropertySpec(aValue, Red::CName(aValue.c_str())))
+        return spec;
 
     // Attempt to look up foreign key arrays using shorthand syntax (e.g. "array:SomeType")
     if (aValue.starts_with(ArrayPrefix) && aValue.length() > ArrayPrefixSize)
@@ -166,11 +166,11 @@ TweakPropertySpecPtr GetTweakPropertySpec(const std::string& aValue, const uint6
     if (!isForeignKey && aForeignType.has_value())
         return nullptr;
 
-    auto info = Core::MakeShared<TweakPropertySpec>();
-    info->foreignName = aValue;
-    info->flatType = Red::TweakDBUtil::GetFlatType(aHash);
-    info->flatTypeName = aHash;
-    info->isArray = isArray;
+    auto spec = Core::MakeShared<TweakPropertySpec>();
+    spec->foreignName = aValue;
+    spec->flatType = Red::TweakDBUtil::GetFlatType(aHash);
+    spec->flatTypeName = aHash;
+    spec->isArray = isArray;
 
     if (isForeignKey)
     {
@@ -185,18 +185,18 @@ TweakPropertySpecPtr GetTweakPropertySpec(const std::string& aValue, const uint6
                     : (isExplicitHandle ? GetPropertyTypeName<Red::Handle>(foreignName)
                                         : GetPropertyTypeName<Red::WeakHandle>(foreignName));
 
-        info->isForeignKey = true;
-        info->propertyTypeName = Red::CNamePool::Add(propertyTypeName.c_str());
-        info->propertyType = rtti->GetType(info->propertyTypeName);
-        info->foreignTypeName = Red::CNamePool::Add(foreignName.c_str());
-        info->foreignType = rtti->GetClass(info->foreignTypeName);
+        spec->isForeignKey = true;
+        spec->propertyTypeName = Red::CNamePool::Add(propertyTypeName.c_str());
+        spec->propertyType = rtti->GetType(spec->propertyTypeName);
+        spec->foreignTypeName = Red::CNamePool::Add(foreignName.c_str());
+        spec->foreignType = rtti->GetClass(spec->foreignTypeName);
     }
     else
     {
-        info->propertyType = info->flatType;
-        info->propertyTypeName = info->flatTypeName;
+        spec->propertyType = spec->flatType;
+        spec->propertyTypeName = spec->flatTypeName;
     }
 
-    return info;
+    return spec;
 }
 } // namespace App
