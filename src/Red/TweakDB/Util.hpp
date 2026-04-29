@@ -735,6 +735,27 @@ TweakDBID GetRTDBFlatID(CName aRecord, const char* aProp);
  * @return The TweakDBID of the record containing the default values for the given record, or an empty TweakDBID if the
  * given record name is empty or invalid.
  */
+TweakDBID GetRTDBRecordID(const std::string& aRecord);
+
+/**
+ * @brief Gets the TweakDBID of the record containing the default values for a TweakDB record corresponding to the given
+ * record name. The record name is assumed to be a valid TweakDB record type name and is converted to the record's
+ * short name.
+ *
+ * The resulting TweakDBID may be used as the prefix for the flats containing default values for properties of the
+ * record. It can be expected to contain the follow path components joined by period characters:
+ *
+ * - "RTDB"
+ * - Short name of the record.
+ *
+ * For example, for record type "gamedataVehicle_Record", the resulting TweakDBID will contain the path "RTDB.Vehicle"
+ * and the TweakDBIDs for the default value flats for properties of this record will be prefixed by this record
+ * TweakDBID (e.g. "RTDB.Vehicle.displayName").
+ *
+ * @param aRecord The name of the record type to get the record TweakDBID for.
+ * @return The TweakDBID of the record containing the default values for the given record, or an empty TweakDBID if the
+ * given record name is empty or invalid.
+ */
 TweakDBID GetRTDBRecordID(CName aRecord);
 
 /**

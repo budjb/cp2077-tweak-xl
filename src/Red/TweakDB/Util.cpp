@@ -557,7 +557,7 @@ TweakDBID GetRTDBFlatID(CName aRecord, const char* aProp)
     return recordID + PropSeparator + std::string_view(aProp);
 }
 
-TweakDBID GetRTDBRecordID(CName aRecord)
+TweakDBID GetRTDBRecordID(const std::string& aRecord)
 {
     const auto name = GetRecordShortName<std::string>(aRecord);
 
@@ -571,6 +571,11 @@ TweakDBID GetRTDBRecordID(CName aRecord)
     flatName.append(name);
 
     return {flatName.c_str()};
+}
+
+TweakDBID GetRTDBRecordID(CName aRecord)
+{
+    return GetRTDBRecordID(std::string(aRecord.ToString()));
 }
 
 std::string Capitalize(CName aName)

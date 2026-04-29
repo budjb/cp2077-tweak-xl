@@ -2,19 +2,7 @@
 
 #include "App/Tweaks/TweakService.hpp"
 #include "Core/Facades/Container.hpp"
-#include "Red/TweakDB/Source/Source.hpp"
 #include "ScriptableTweakDBRecord.hpp"
-
-namespace
-{
-Red::TweakDBID BuildRTDBID(const std::string& aRecordName)
-{
-    std::string id = Red::TweakSource::SchemaPackage;
-    id.append(".");
-    id.append(aRecordName);
-    return Red::TweakDBID{id};
-}
-} // namespace
 
 namespace App
 {
@@ -226,13 +214,14 @@ Red::CName ScriptableRecordManager::RegisterScriptableRecordType(const std::stri
 
     if (GetRecordSpec(cname))
     {
-        // TODO: log error
+        LogError("Registration of record type {} failed because another with the same name is already registered.",
+                 aName);
         return {};
     }
 
     if (m_rtti->GetClass(cname))
     {
-        // TODO: log error
+        LogError("Registration of record type {} failed because a class with the same name already exists.", aName);
         return {};
     }
 
@@ -266,7 +255,12 @@ Red::CName ScriptableRecordManager::RegisterScriptableProperty(Red::CName aRecor
     const auto recordInfo = GetRecordSpec(aRecordName);
 
     if (!recordInfo)
+    {
+        LogError("Failed to register property {} for record type {} because the registration for record type does not "
+                 "exist.",
+                 aPropertyName, aRecordName.ToString());
         return {};
+    }
 
     if (recordInfo->props.contains(cname))
     {
@@ -328,7 +322,7 @@ bool ScriptableRecordManager::RegisterScriptableRecordSpec(const Core::SharedPtr
 {
     if (aSpec->isRegistered)
     {
-        // TODO: log warning
+        LogDebug("Record type {} is already registered, skipping registration.", aSpec->shortName);
         return false;
     }
 
@@ -346,7 +340,7 @@ bool ScriptableRecordManager::DescribeScriptableRecordSpec(const Core::SharedPtr
 {
     if (!aSpec->isRegistered || aSpec->isDescribed || !aSpec->type)
     {
-        // TODO: log warning
+        LogDebug("Record type {} is not registered or already described, skipping description.", aSpec->shortName);
         return false;
     }
 
@@ -356,7 +350,9 @@ bool ScriptableRecordManager::DescribeScriptableRecordSpec(const Core::SharedPtr
 
         if (!parentCls || !Red::TweakDBUtil::IsRecordType(parentCls))
         {
-            // TODO: log error
+            LogError("Failed to describe record type {} because the specified parent type {} does not exist or is not "
+                     "a valid record type.",
+                     aSpec->shortName, aSpec->parent.value());
             return false;
         }
 
@@ -381,6 +377,8 @@ bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordCla
 {
     if (aSpec->isDescribed)
     {
+        LogDebug("Property {} of record type {} is already described, skipping description.", aSpec->name,
+                 aClass->GetName().ToString());
         return false;
     }
 
@@ -441,14 +439,13 @@ void ScriptableRecordManager::InsertScriptableRecordDefaults(const Core::SharedP
         return;
     }
 
-    const auto recordID = BuildRTDBID(aSpec->shortName);
+    const auto recordID = Red::TweakDBUtil::GetRTDBRecordID(aSpec->shortName);
 
     for (const auto& prop : aSpec->props | std::views::values)
     {
         if (!prop->isDescribed)
             continue;
 
-        // TODO: default values other than empty
         const auto flatID = recordID + std::string_view(".") + prop->name;
         auto instance = prop->defaultValue;
 
@@ -459,8 +456,8 @@ void ScriptableRecordManager::InsertScriptableRecordDefaults(const Core::SharedP
 
         if (!aManager->SetFlat(flatID, prop->typeInfo->flatType, instance.get()))
         {
-            LogError("Failed to insert default value for property {} of record type {}, failed to set flat in TweakDB.",
-                     prop->name, aSpec->name);
+            LogError("Failed to insert default value for property {} of record type {} into TweakDB.", prop->name,
+                     aSpec->name);
         }
     }
 
@@ -490,6 +487,7 @@ bool ScriptableRecordManager::UnregisterScriptableRecordSpec(const Core::SharedP
 {
     if (!aSpec->type)
     {
+        LogDebug("Record type {} is not registered, skipping unregistration.", aSpec->shortName);
         return false;
     }
 
@@ -526,13 +524,15 @@ ScriptableRecordClass* ScriptableRecordManager::CreateRecordClass(const Core::Sh
 {
     if (GetRecordClass(aSpec->hash))
     {
-        // TODO: log warning
+        LogError("Failed to create RTTI class for record type {} because its specification was not found.",
+                 aSpec->shortName);
         return nullptr;
     }
 
     if (m_rtti->GetClass(aSpec->cname))
     {
-        // TODO: log warning
+        LogError("Failed to create RTTI class for record type {} because a class with the same name already exists.",
+                 aSpec->shortName);
         return nullptr;
     }
 
@@ -560,6 +560,8 @@ bool ScriptableRecordManager::DestroyRecordClass(ScriptableRecordClass* aClass)
         return true;
     }
 
+    LogWarning("Failed to destroy RTTI class for record type {} because it was not found in the manager's registry.",
+               aClass->GetName().ToString());
     return false;
 }
 
@@ -570,6 +572,8 @@ bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, con
     {
         return CreateScriptableRecord(aTweakDB, cls, aRecordId);
     }
+    LogWarning("Failed to create scriptable record because the corresponding record class with hash {} was not found.",
+               aHash);
     return false;
 }
 
@@ -578,6 +582,7 @@ bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, Scr
 {
     if (!aClass || !aTweakDB)
     {
+        LogError("Failed to create scriptable record because the provided class or TweakDB instance is null.");
         return false;
     }
 
@@ -591,6 +596,7 @@ bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, Scr
         return true;
     }
 
+    LogError("Failed to create an instance of scriptable record type {}.", aClass->GetName().ToString());
     return false;
 }
 
