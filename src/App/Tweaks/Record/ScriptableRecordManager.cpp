@@ -1,7 +1,6 @@
 #include "ScriptableRecordManager.hpp"
 
 #include "App/Tweaks/TweakService.hpp"
-#include "Core/Facades/Container.hpp"
 #include "ScriptableTweakDBRecord.hpp"
 
 namespace App
@@ -63,9 +62,9 @@ Red::ScriptingFunction_t<void*> ScriptableRecordManager::CreateClosure(const Con
 }
 
 Red::ScriptingFunction_t<void*> ScriptableRecordManager::CreateClosure(const std::string& aAppendix,
-                                                                       const TweakPropertySpecPtr& aTypeInfo)
+                                                                       const TweakPropertySpecPtr& aTypeSpec)
 {
-    return CreateClosure({aAppendix, aTypeInfo, this});
+    return CreateClosure({aAppendix, aTypeSpec, this->ToShared()});
 }
 
 bool ScriptableRecordManager::DestroyClosure(const Core::SharedPtr<Closure>& aClosure)
@@ -233,7 +232,7 @@ Red::CName ScriptableRecordManager::RegisterScriptableRecordType(const std::stri
 }
 
 Red::CName ScriptableRecordManager::RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName,
-                                                               const TweakPropertySpecPtr& aTypeInfo,
+                                                               const TweakPropertySpecPtr& aTypeSpec,
                                                                const Red::InstancePtr<>& aDefaultValue)
 {
     const auto cname = Red::CName{aPropertyName.c_str()};
@@ -256,7 +255,7 @@ Red::CName ScriptableRecordManager::RegisterScriptableProperty(Red::CName aRecor
     const auto propertyInfo = Core::MakeShared<ScriptablePropertySpec>();
     propertyInfo->name = aPropertyName;
     propertyInfo->appendix = "." + aPropertyName;
-    propertyInfo->typeInfo = aTypeInfo;
+    propertyInfo->typeSpec = aTypeSpec;
     propertyInfo->cname = Red::CName{aPropertyName.c_str()};
     propertyInfo->defaultValue = aDefaultValue;
 
@@ -368,7 +367,7 @@ bool ScriptableRecordManager::DescribeScriptablePropertySpec(ScriptableRecordCla
         return false;
     }
 
-    const auto& typeInfo = aSpec->typeInfo;
+    const auto& typeInfo = aSpec->typeSpec;
 
     if (typeInfo->isForeignKey)
     {
@@ -436,10 +435,10 @@ void ScriptableRecordManager::InsertScriptableRecordDefaults(const Core::SharedP
 
         if (!instance)
         {
-            instance = Red::TweakDBUtil::Construct(prop->typeInfo->flatType);
+            instance = Red::TweakDBUtil::Construct(prop->typeSpec->flatType);
         }
 
-        if (!m_tweakManager->SetFlat(flatID, prop->typeInfo->flatType, instance.get()))
+        if (!m_tweakManager->SetFlat(flatID, prop->typeSpec->flatType, instance.get()))
         {
             LogError("Failed to insert default value for property {} of record type {} into TweakDB.", prop->name,
                      aSpec->name);
@@ -632,18 +631,18 @@ void ScriptableRecordManager::TestScriptableRecord()
 
 template<>
 Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(const Red::Value<>& aValue,
-                                                                             const TweakPropertySpecPtr& aTypeInfo)
+                                                                             const TweakPropertySpecPtr& aTypeSpec)
 {
-    if (!aTypeInfo || !aTypeInfo->propertyType || !aTypeInfo->foreignType || !aTypeInfo->isForeignKey ||
-        !aTypeInfo->isArray || !aValue || aValue.type->GetName() != Red::ERTDBFlatType::TweakDBIDArray)
+    if (!aTypeSpec || !aTypeSpec->propertyType || !aTypeSpec->foreignType || !aTypeSpec->isForeignKey ||
+        !aTypeSpec->isArray || !aValue || aValue.type->GetName() != Red::ERTDBFlatType::TweakDBIDArray)
     {
         return {};
     }
 
-    if (aTypeInfo->propertyType->GetType() != Red::ERTTIType::Array)
+    if (aTypeSpec->propertyType->GetType() != Red::ERTTIType::Array)
         return {};
 
-    auto* arrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(aTypeInfo->propertyType);
+    auto* arrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(aTypeSpec->propertyType);
     const auto* innerType = arrayType->GetInnerType();
 
     if (!innerType ||
@@ -653,7 +652,7 @@ Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(con
     }
 
     const auto* ids = static_cast<const Red::DynArray<Red::TweakDBID>*>(aValue.instance);
-    auto converted = Red::MakeValue(aTypeInfo->propertyType);
+    auto converted = Red::MakeValue(aTypeSpec->propertyType);
 
     for (uint32_t i = 0; i < ids->Size(); ++i)
     {
@@ -664,7 +663,7 @@ Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(con
         if (innerType->GetType() == Red::ERTTIType::Handle)
         {
             Red::Handle<Red::TweakDBRecord> handle{};
-            if (record && record->GetType()->IsA(aTypeInfo->foreignType))
+            if (record && record->GetType()->IsA(aTypeSpec->foreignType))
                 handle = record;
 
             innerType->Assign(dst, &handle);
@@ -672,7 +671,7 @@ Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(con
         else
         {
             Red::WeakHandle<Red::TweakDBRecord> weakHandle{};
-            if (record && record->GetType()->IsA(aTypeInfo->foreignType))
+            if (record && record->GetType()->IsA(aTypeSpec->foreignType))
                 weakHandle = record;
 
             innerType->Assign(dst, &weakHandle);
@@ -684,11 +683,11 @@ Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(con
 
 template<>
 Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Handle>(const Red::Value<>& aValue,
-                                                                              const TweakPropertySpecPtr& aTypeInfo)
+                                                                              const TweakPropertySpecPtr& aTypeSpec)
 {
-    if (!aTypeInfo || !aTypeInfo->propertyType || !aTypeInfo->foreignType || !aTypeInfo->isForeignKey ||
-        aTypeInfo->isArray || !aValue || aValue.type->GetName() != Red::ERTDBFlatType::TweakDBID ||
-        aTypeInfo->propertyType->GetType() != Red::ERTTIType::Handle)
+    if (!aTypeSpec || !aTypeSpec->propertyType || !aTypeSpec->foreignType || !aTypeSpec->isForeignKey ||
+        aTypeSpec->isArray || !aValue || aValue.type->GetName() != Red::ERTDBFlatType::TweakDBID ||
+        aTypeSpec->propertyType->GetType() != Red::ERTTIType::Handle)
     {
         return {};
     }
@@ -696,21 +695,21 @@ Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Handle>(co
     const auto& id = *static_cast<const Red::TweakDBID*>(aValue.instance);
     const auto record = m_tweakManager->GetRecord(id);
 
-    if (!record || !record->GetType()->IsA(aTypeInfo->foreignType))
+    if (!record || !record->GetType()->IsA(aTypeSpec->foreignType))
         return {};
 
-    auto converted = Red::MakeValue(aTypeInfo->propertyType);
-    aTypeInfo->propertyType->Assign(converted->instance, &record);
+    auto converted = Red::MakeValue(aTypeSpec->propertyType);
+    aTypeSpec->propertyType->Assign(converted->instance, &record);
     return converted;
 }
 
 template<>
 Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::WeakHandle>(const Red::Value<>& aValue,
-                                                                                  const TweakPropertySpecPtr& aTypeInfo)
+                                                                                  const TweakPropertySpecPtr& aTypeSpec)
 {
-    if (!aTypeInfo || !aTypeInfo->propertyType || !aTypeInfo->foreignType || !aTypeInfo->isForeignKey ||
-        aTypeInfo->isArray || !aValue || aValue.type->GetName() != Red::ERTDBFlatType::TweakDBID ||
-        aTypeInfo->propertyType->GetType() != Red::ERTTIType::WeakHandle)
+    if (!aTypeSpec || !aTypeSpec->propertyType || !aTypeSpec->foreignType || !aTypeSpec->isForeignKey ||
+        aTypeSpec->isArray || !aValue || aValue.type->GetName() != Red::ERTDBFlatType::TweakDBID ||
+        aTypeSpec->propertyType->GetType() != Red::ERTTIType::WeakHandle)
     {
         return {};
     }
@@ -718,12 +717,12 @@ Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::WeakHandle
     const auto& id = *static_cast<const Red::TweakDBID*>(aValue.instance);
     const auto record = m_tweakManager->GetRecord(id);
 
-    if (!record || !record->GetType()->IsA(aTypeInfo->foreignType))
+    if (!record || !record->GetType()->IsA(aTypeSpec->foreignType))
         return {};
 
-    auto converted = Red::MakeValue(aTypeInfo->propertyType);
+    auto converted = Red::MakeValue(aTypeSpec->propertyType);
     const Red::WeakHandle weakHandle = record;
-    aTypeInfo->propertyType->Assign(converted->instance, &weakHandle);
+    aTypeSpec->propertyType->Assign(converted->instance, &weakHandle);
     return converted;
 }
 
