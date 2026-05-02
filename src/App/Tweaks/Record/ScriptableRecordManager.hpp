@@ -1,10 +1,7 @@
 #pragma once
 
-#include "App/Tweaks/TweakPropertySpec.hpp"
-
-#include <ffi.h>
-
 #include "App/Tweaks/Record/ScriptableRecordClass.hpp"
+#include "App/Tweaks/TweakPropertySpec.hpp"
 #include "Core/Logging/LoggingAgent.hpp"
 #include "Red/TweakDB/Manager.hpp"
 
@@ -22,6 +19,80 @@ class ScriptableRecordManager
 {
 public:
     /**
+     * @brief A struct representing the context of a scriptable record property getter function.
+     */
+    struct Context
+    {
+        /**
+         * @brief Path to append to a scriptable record's TweakDB ID when retrieving a property's value.
+         */
+        std::string appendix;
+
+        /**
+         * @brief Type specification of the property representing both its TweakDB flat type details and the property
+         * type of the getter function.
+         */
+        TweakPropertySpecPtr propSpec;
+
+        /**
+         * @brief A shared pointer to the scriptable record manager.
+         */
+        Core::SharedPtr<ScriptableRecordManager> recordManager;
+
+        /**
+         * @brief A deferred to the TweakDB manager, which is used to retrieve property values from TweakDB when the
+         * function is invoked.
+         */
+        Core::DeferredPtr<Red::TweakDBManager> tweakManager;
+    };
+
+    /**
+     * @brief A struct representing the specification of a scriptable property, including all the information necessary
+     * to register the property as part of a scriptable record type and retrieve its value from TweakDB.
+     */
+    struct ScriptablePropertySpec
+    {
+        /**
+         * @brief The name of the property, adhering to typical TweakDB property naming conventions (camelCase).
+         */
+        std::string name;
+
+        /**
+         * @brief The CName of the property, which is used as the hash index when looking up properties in the record
+         * spec's properties map.
+         */
+        Red::CName cname;
+
+        /**
+         * @brief The path to append to a scriptable record's TweakDB ID when retrieving this property's value. This
+         * should be in the format @c .<property_name> .
+         */
+        std::string appendix;
+
+        /**
+         * @brief Type specification of the property representing both its TweakDB flat type details and the property
+         * type of the getter function.
+         */
+        TweakPropertySpecPtr typeSpec;
+
+        /**
+         * @brief The default value of the property, which will be inserted into TweakDB for the record type with the ID
+         * @c RTDB.<record_name>.<property_name> when the record type is inserted into TweakDB.
+         */
+        Red::InstancePtr<> defaultValue;
+
+        /**
+         * @brief Whether this property has been described, or had its RTTI class property created and set up.
+         */
+        bool isDescribed = false;
+    };
+
+    /**
+     * @brief Alias for a shared pointer to a Context instance.
+     */
+    using ContextPtr = Core::SharedPtr<Context>;
+
+    /**
      * @brief Constructs a ScriptableRecordManager instance.
      *
      * @see ScriptableRecordManager::Get() to retrieve the singleton instance of this class.
@@ -30,7 +101,7 @@ public:
 
     /**
      * @brief Destructs this ScriptableRecordManager instance and releases all resources owned by it, including
-     * registered scriptable record specifications, their associated RTTI registrations, and active libFFI closures.
+     * registered scriptable record specifications, their associated RTTI registrations, and active libFFI functions.
      */
     ~ScriptableRecordManager();
 
@@ -126,97 +197,9 @@ public:
     void TestScriptableRecord();
 #endif
 
+    static void DispatchNoArgGetter(Red::IScriptable* aContext, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+
 private:
-    /**
-     * @brief A struct representing the context of a scriptable record property getter closure.
-     */
-    struct Context
-    {
-        /**
-         * @brief Path to append to a scriptable record's TweakDB ID when retrieving a property's value.
-         */
-        std::string appendix;
-
-        /**
-         * @brief Type specification of the property representing both its TweakDB flat type details and the property
-         * type of the getter closure.
-         */
-        TweakPropertySpecPtr propSpec;
-
-        /**
-         * @brief A shared pointer to the scriptable record manager.
-         */
-        Core::SharedPtr<ScriptableRecordManager> recordManager;
-
-        /**
-         * @brief A deferred to the TweakDB manager, which is used to retrieve property values from TweakDB when the
-         * closure is invoked.
-         */
-        Core::DeferredPtr<Red::TweakDBManager> tweakManager;
-    };
-
-    /**
-     * @brief A struct representing an entry in the scriptable record property getter closure registry.
-     */
-    struct Closure
-    {
-        /**
-         * @brief A pointer to the FFI closure object.
-         */
-        ffi_closure* closure{};
-
-        /**
-         * @brief A pointer to the executable memory allocated for the closure.
-         */
-        void* executable{};
-
-        /**
-         * @brief The execution context provided to invocations of the closure.
-         */
-        Context context;
-    };
-
-    /**
-     * @brief A struct representing the specification of a scriptable property, including all the information necessary
-     * to register the property as part of a scriptable record type and retrieve its value from TweakDB.
-     */
-    struct ScriptablePropertySpec
-    {
-        /**
-         * @brief The name of the property, adhering to typical TweakDB property naming conventions (camelCase).
-         */
-        std::string name;
-
-        /**
-         * @brief The CName of the property, which is used as the hash index when looking up properties in the record
-         * spec's properties map.
-         */
-        Red::CName cname;
-
-        /**
-         * @brief The path to append to a scriptable record's TweakDB ID when retrieving this property's value. This
-         * should be in the format @c .<property_name> .
-         */
-        std::string appendix;
-
-        /**
-         * @brief Type specification of the property representing both its TweakDB flat type details and the property
-         * type of the getter closure.
-         */
-        TweakPropertySpecPtr typeSpec;
-
-        /**
-         * @brief The default value of the property, which will be inserted into TweakDB for the record type with the ID
-         * @c RTDB.<record_name>.<property_name> when the record type is inserted into TweakDB.
-         */
-        Red::InstancePtr<> defaultValue;
-
-        /**
-         * @brief Whether this property has been described, or had its RTTI class property created and set up.
-         */
-        bool isDescribed = false;
-    };
-
     /**
      * @brief A struct representing the specification of a scriptable record type, including all the information
      * necessary to register the type as an RTTI class, describe the class by adding properties and functions, and
@@ -298,61 +281,36 @@ private:
         bool isInserted = false;
     };
 
-    /**
-     * Creates a new closure that will retrieve the value of a specific property. The appendix and type spec arguments
-     * are provided to invocations of the closure, and the rest of the details required are provided by the game engine.
-     *
-     * @param aAppendix Appendix to apply to the TweakDB record instance's ID when retrieving property values.
-     * @param aTypeSpec Type specification of the property representing both its TweakDB flat type details and the
-     * property type of the getter closure.
-     * @return A pointer to the created closure's executable memory that conforms to the Red engine's required script
-     * function signature, or @c nullptr if closure creation failed for any reason.
-     */
-    Red::ScriptingFunction_t<void*> CreateClosure(const std::string& aAppendix, const TweakPropertySpecPtr& aTypeSpec);
+    void CreateFunctions(ScriptableRecordClass* aClass, const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
+    void CreateFKArrayFunctions(ScriptableRecordClass* aClass, const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
+    void CreateFKFunctions(ScriptableRecordClass* aClass, const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
+    void CreateResRefArrayFunctions(ScriptableRecordClass* aClass,
+                                    const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
+    void CreateArrayFunctions(ScriptableRecordClass* aClass, const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
+    void CreateNormalFunctions(ScriptableRecordClass* aClass, const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
+
+    // TODO: doc this
+    Red::CBaseFunction* CreateFunction(ScriptableRecordClass* aClass, const std::string& aName,
+                                       const TweakPropertySpecPtr& aSpec, const ContextPtr& aContext);
+
+    // TODO: doc this
+    Red::RawBuffer CreateFunctionBytecode(const Context* aContext, Red::CBaseFunction* aFunc);
 
     /**
-     * @brief Creates a new closure that will retrieve the value of a specific property. The provided context should
-     * contain all the necessary information for the closure to retrieve the correct property value from TweakDB when
-     * invoked.
+     * @brief Destroys a function created by this manager and removes it from the function registry.
      *
-     * @param aContext The execution context for the closure, containing everything necessary to retrieve the correct
-     * property value from TweakDB when the closure is invoked.
-     * @return A pointer to the created closure's executable memory that conforms to the Red engine's required script
-     * function signature, or @c nullptr if closure creation failed for any reason.
+     * @param afunction The function to destroy.
+     * @return Whether the function was successfully destroyed and removed from the registry.
      */
-    Red::ScriptingFunction_t<void*> CreateClosure(const Context& aContext);
+    // bool Destroyfunction(const Core::SharedPtr<function>& afunction);
 
     /**
-     * @brief Destroys a closure created by this manager and removes it from the closure registry.
+     * @brief Destroys a function created by this manager and removes it from the function registry.
      *
-     * @param aClosure The closure to destroy.
-     * @return Whether the closure was successfully destroyed and removed from the registry.
+     * @param afunction The function to destroy.
+     * @return Whether the function was successfully destroyed and removed from the registry.
      */
-    bool DestroyClosure(const Core::SharedPtr<Closure>& aClosure);
-
-    /**
-     * @brief Destroys a closure created by this manager and removes it from the closure registry.
-     *
-     * @param aClosure The closure to destroy.
-     * @return Whether the closure was successfully destroyed and removed from the registry.
-     */
-    bool DestroyClosure(const ffi_closure* aClosure);
-
-    /**
-     * @brief The dispatch function for scriptable record property getter closures. This function is called whenever a
-     * closure created by this manager is invoked, and is responsible for retrieving the appropriate property value from
-     * TweakDB and returning it to the caller.
-     *
-     * @param aCif LibFFI call interface object. Unused.
-     * @param aRet Pointer to the memory of the return value. Unused, as property getters return values through the
-     * scripting function's @c out parameter.
-     * @param aArgs Array of pointers to the arguments passed to the closure. The first three arguments are expected to
-     * be the scriptable record instance, the stack frame of the function call, and the output pointer for the property
-     * value, respectively.
-     * @param aUserData Pointer to the closure's execution context, which contains the information necessary to retrieve
-     * the correct property value from TweakDB.
-     */
-    static void FfiDispatch(ffi_cif* aCif, void* aRet, void** aArgs, void* aUserData);
+    // bool Destroyfunction(const ffi_function* afunction);
 
     /**
      * @brief Retrieves the scriptable record specification with the given name from the registry.
@@ -466,21 +424,6 @@ private:
      */
     bool DestroyRecordClass(ScriptableRecordClass* aClass);
 
-    /**
-     * @brief Converts a value retrieved from TweakDB into the appropriate type for a scriptable property getter closure
-     * based on the property's type specification.
-     *
-     * @param aValue The value retrieved from TweakDB to convert for use in a scriptable property getter closure.
-     * @param aTypeSpec The type specification of the property for which the value is being converted.
-     * @return A pointer to the converted value that can be returned by a scriptable property getter closure, or @c
-     * nullptr if the value could not be converted for any reason.
-     */
-    template<Red::ERTTIType>
-    Red::ValuePtr<> ConvertValue(const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeSpec)
-    {
-        return Red::MakeValue<>(aValue.type, aValue.instance);
-    }
-
 #ifndef NDEBUG
     /**
      * @brief Registers a test scriptable record type for use in testing and validating scriptable record functionality
@@ -496,35 +439,16 @@ private:
     Red::CRTTISystem* m_rtti;
 
     /**
-     * @brief A registry of closures created by this manager.
+     * @brief A registry of functions created by this manager.
      */
-    Core::Vector<Core::SharedPtr<Closure>> m_closures;
+    Core::Vector<Red::CBaseFunction*> m_functions;
+
+    Core::Vector<ContextPtr> m_contexts;
 
     /**
-     * @brief A mutex for synchronizing access to the closure registry for thread safety.
+     * @brief A mutex for synchronizing access to the function registry for thread safety.
      */
-    mutable std::mutex m_closuresMutex;
-
-    /**
-     * @brief The libFFI call interface object used for creating closures. This is lazily initialized on the first
-     * closure creation and reused for subsequent closures.
-     *
-     * @todo This doesn't need to be lazy loaded.
-     */
-    ffi_cif m_cif{};
-
-    /**
-     * @brief Describes the argument types for the libFFI call interface object to implement a function signature
-     * compatible with a scripting function.
-     *
-     * @see Red::ScriptingFunction_t<void*>
-     */
-    std::array<ffi_type*, 4> m_argTypes{{&ffi_type_pointer, &ffi_type_pointer, &ffi_type_pointer, &ffi_type_sint64}};
-
-    /**
-     * @brief Whether the libFFI call interface object has been successfully initialized and is ready for use.
-     */
-    bool m_cifReady = false;
+    mutable std::mutex m_functionsMutex;
 
     /**
      * @brief A mutex for synchronizing access to the scriptable record specification registry for thread safety.
@@ -558,45 +482,4 @@ private:
     Core::DeferredPtr<Red::TweakDBManager> m_tweakManager;
 };
 
-/**
- * @brief A template specialization of the ConvertValue function for array types, which converts a value retrieved from
- * TweakDB into the appropriate type for a scriptable property getter closure based on the property's type
- * specification.
- *
- * @param aValue The value retrieved from TweakDB to convert for use in a scriptable property getter closure.
- * @param aTypeSpec The type specification of the property for which the value is being converted.
- * @return A pointer to the converted value that can be returned by a scriptable property getter closure, or @c nullptr
- * if the value could not be converted for any reason.
- */
-template<>
-Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Array>(const Red::Value<>& aValue,
-                                                                             const TweakPropertySpecPtr& aTypeSpec);
-
-/**
- * @brief A template specialization of the ConvertValue function for handle types, which converts a value retrieved from
- * TweakDB into the appropriate type for a scriptable property getter closure based on the property's type
- * specification.
- *
- * @param aValue The value retrieved from TweakDB to convert for use in a scriptable property getter closure.
- * @param aTypeSpec The type specification of the property for which the value is being converted.
- * @return A pointer to the converted value that can be returned by a scriptable property getter closure, or @c nullptr
- * if the value could not be converted for any reason.
- */
-template<>
-Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::Handle>(const Red::Value<>& aValue,
-                                                                              const TweakPropertySpecPtr& aTypeSpec);
-
-/**
- * @brief A template specialization of the ConvertValue function for weak handle types, which converts a value retrieved
- * from TweakDB into the appropriate type for a scriptable property getter closure based on the property's type
- * specification.
- *
- * @param aValue The value retrieved from TweakDB to convert for use in a scriptable property getter closure.
- * @param aTypeSpec The type specification of the property for which the value is being converted.
- * @return A pointer to the converted value that can be returned by a scriptable property getter closure, or @c nullptr
- * if the value could not be converted for any reason.
- */
-template<>
-Red::ValuePtr<> ScriptableRecordManager::ConvertValue<Red::ERTTIType::WeakHandle>(
-    const Red::Value<>& aValue, const TweakPropertySpecPtr& aTypeSpec);
 } // namespace App

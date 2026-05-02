@@ -249,7 +249,7 @@ void App::TweakService::SetupTweakImporter()
 {
     static auto rtti = Red::CRTTISystem::Get();
 
-    rtti->AddPostRegisterCallback(Red::Callback<void (*)()>{[&]() {
+    rtti->AddPostRegisterCallback(Red::Callback<void (*)()>{[&] {
         m_importer->Load(m_importPaths);
         m_importer->ImportSchemas();
 
