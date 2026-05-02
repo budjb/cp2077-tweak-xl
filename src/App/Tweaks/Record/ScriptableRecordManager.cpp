@@ -40,16 +40,16 @@ void ScriptableRecordManager::CreateFKArrayFunctions(ScriptableRecordClass* aCla
     const auto baseName = Red::TweakDBUtil::Capitalize(aSpec->name);
 
     // void [Prop](DynArray<WeakHandle<TweakDBRecord>* out);
-    ScriptablePropertyHandler::CreateGetFKArray(aClass, baseName, aSpec);
+    ScriptablePropertyHandler::CreateGetRecords(aClass, baseName, aSpec);
 
     // int Get[Prop]Count()
-    ScriptablePropertyHandler::CreateGetArraySize(aClass, baseName, aSpec);
+    ScriptablePropertyHandler::CreateGetArrayCount(aClass, baseName, aSpec);
 
     // WeakHandle<TweakDBRecord> Get[Prop]Item(int index)
-    ScriptablePropertyHandler::CreateGetRecordWHandleAt(aClass, baseName, aSpec);
+    ScriptablePropertyHandler::CreateGetRecordItem(aClass, baseName, aSpec);
 
     // Handle<TweakDBRecord> Get[Prop]ItemHandle(int index)
-    ScriptablePropertyHandler::CreateGetRecordHandleAt(aClass, baseName, aSpec);
+    ScriptablePropertyHandler::CreateGetRecordItemHandle(aClass, baseName, aSpec);
 
     // bool [Prop]Contains(WeakHandle<TweakDBRecord> item)
     ScriptablePropertyHandler::CreateRecordArrayContains(aClass, baseName, aSpec);
@@ -61,7 +61,7 @@ void ScriptableRecordManager::CreateFKFunctions(ScriptableRecordClass* aClass,
     const auto baseName = Red::TweakDBUtil::Capitalize(aSpec->name);
 
     // WeakHandle<TweakDBRecord> [Prop]()
-    ScriptablePropertyHandler::CreateGetRecordWHandle(aClass, baseName, aSpec);
+    ScriptablePropertyHandler::CreateGetRecord(aClass, baseName, aSpec);
 
     // Handle<TweakDBRecord> [Prop]Handle()
     ScriptablePropertyHandler::CreateGetRecordHandle(aClass, baseName, aSpec);
@@ -73,13 +73,13 @@ void ScriptableRecordManager::CreateResRefArrayFunctions(ScriptableRecordClass* 
     const auto baseName = Red::TweakDBUtil::Capitalize(aSpec->name);
 
     // DynArray<ResRef> [Prop]()
-    ScriptablePropertyHandler::CreateGetResRefArray(aClass, aSpec->name, aSpec);
+    ScriptablePropertyHandler::CreateGet(aClass, aSpec->name, aSpec);
 
     // int Get[Prop]Count()
-    ScriptablePropertyHandler::CreateGetResRefArraySize(aClass, baseName, aSpec);
+    ScriptablePropertyHandler::CreateGetArrayCount(aClass, baseName, aSpec);
 
     // ResRef Get[Prop]Item(int index)
-    ScriptablePropertyHandler::CreateGetResRefArrayItem(aClass, baseName, aSpec);
+    ScriptablePropertyHandler::CreateGetArrayItem(aClass, baseName, aSpec);
 }
 
 void ScriptableRecordManager::CreateArrayFunctions(ScriptableRecordClass* aClass,
@@ -88,10 +88,10 @@ void ScriptableRecordManager::CreateArrayFunctions(ScriptableRecordClass* aClass
     const auto baseName = Red::TweakDBUtil::Capitalize(aSpec->name);
 
     // DynArray<CName> [Prop]()
-    ScriptablePropertyHandler::CreateGetArray(aClass, aSpec->name, aSpec);
+    ScriptablePropertyHandler::CreateGet(aClass, aSpec->name, aSpec);
 
     // int Get[Prop]Count()
-    ScriptablePropertyHandler::CreateGetArraySize(aClass, baseName, aSpec);
+    ScriptablePropertyHandler::CreateGetArrayCount(aClass, baseName, aSpec);
 
     // CName Get[Prop]Item(int index)
     ScriptablePropertyHandler::CreateGetArrayItem(aClass, baseName, aSpec);

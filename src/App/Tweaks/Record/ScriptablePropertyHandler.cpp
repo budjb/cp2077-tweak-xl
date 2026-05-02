@@ -15,7 +15,7 @@ constexpr auto handlePrefix = Red::GetTypePrefixStr<Red::Handle>();
 
 namespace App
 {
-void ScriptablePropertyHandler::CreateGetFKArray(
+void ScriptablePropertyHandler::CreateGetRecords(
     ScriptableRecordClass* aClass, const std::string& aName,
     const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec)
 {
@@ -26,20 +26,7 @@ void ScriptablePropertyHandler::CreateGetFKArray(
     aClass->RegisterFunction(func);
 }
 
-void ScriptablePropertyHandler::CreateGetArraySize(
-    ScriptableRecordClass* aClass, const std::string& aName,
-    const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec)
-{
-    const std::string name = "Get" + aName + "Count";
-    Red::CNamePool::Add(name.c_str());
-
-    auto* func = Red::CClassFunction::Create(aClass, name.c_str(), name.c_str(), &HandleGetArrayCount);
-    func->SetReturnType(Red::GetTypeName<int>());
-
-    aClass->RegisterFunction(func);
-}
-
-void ScriptablePropertyHandler::CreateGetRecordWHandleAt(
+void ScriptablePropertyHandler::CreateGetRecordItem(
     ScriptableRecordClass* aClass, const std::string& aName,
     const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec)
 {
@@ -53,7 +40,7 @@ void ScriptablePropertyHandler::CreateGetRecordWHandleAt(
     aClass->RegisterFunction(func);
 }
 
-void ScriptablePropertyHandler::CreateGetRecordHandleAt(
+void ScriptablePropertyHandler::CreateGetRecordItemHandle(
     ScriptableRecordClass* aClass, const std::string& aName,
     const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec)
 {
@@ -74,14 +61,14 @@ void ScriptablePropertyHandler::CreateRecordArrayContains(
     const std::string name = aName + "Contains";
     Red::CNamePool::Add(name.c_str());
 
-    auto* func = Red::CClassFunction::Create(aClass, name.c_str(), name.c_str(), &HandleGetRecordItemHandle);
+    auto* func = Red::CClassFunction::Create(aClass, name.c_str(), name.c_str(), &HandleRecordArrayContains);
     func->AddParam(GetWHandleType(aSpec->typeSpec->foreignType)->GetName(), "item", false, false);
     func->SetReturnType(Red::GetTypeName<bool>());
 
     aClass->RegisterFunction(func);
 }
 
-void ScriptablePropertyHandler::CreateGetRecordWHandle(
+void ScriptablePropertyHandler::CreateGetRecord(
     ScriptableRecordClass* aClass, const std::string& aName,
     const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec)
 {
@@ -107,20 +94,7 @@ void ScriptablePropertyHandler::CreateGetRecordHandle(
     aClass->RegisterFunction(func);
 }
 
-void ScriptablePropertyHandler::CreateGetResRefArray(
-    ScriptableRecordClass* aClass, const std::string& aName,
-    const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec)
-{
-    const std::string name = aName;
-    Red::CNamePool::Add(name.c_str());
-
-    auto* func = Red::CClassFunction::Create(aClass, name.c_str(), name.c_str(), &HandleGet);
-    func->SetReturnType(Red::GetTypeName<Red::DynArray<Red::ResRef>>());
-
-    aClass->RegisterFunction(func);
-}
-
-void ScriptablePropertyHandler::CreateGetResRefArraySize(
+void ScriptablePropertyHandler::CreateGetArrayCount(
     ScriptableRecordClass* aClass, const std::string& aName,
     const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec)
 {
@@ -129,33 +103,6 @@ void ScriptablePropertyHandler::CreateGetResRefArraySize(
 
     auto* func = Red::CClassFunction::Create(aClass, name.c_str(), name.c_str(), &HandleGetArrayCount);
     func->SetReturnType(Red::GetTypeName<int>());
-
-    aClass->RegisterFunction(func);
-}
-
-void ScriptablePropertyHandler::CreateGetResRefArrayItem(
-    ScriptableRecordClass* aClass, const std::string& aName,
-    const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec)
-{
-    const std::string name = "Get" + aName + "Item";
-    Red::CNamePool::Add(name.c_str());
-
-    auto* func = Red::CClassFunction::Create(aClass, name.c_str(), name.c_str(), &HandleGetArrayItem);
-    func->AddParam(Red::GetTypeName<int>(), "index", false, false);
-    func->SetReturnType(Red::GetTypeName<Red::ResRef>());
-
-    aClass->RegisterFunction(func);
-}
-
-void ScriptablePropertyHandler::CreateGetArray(
-    ScriptableRecordClass* aClass, const std::string& aName,
-    const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec)
-{
-    const std::string name = aName;
-    Red::CNamePool::Add(name.c_str());
-
-    auto* func = Red::CClassFunction::Create(aClass, name.c_str(), name.c_str(), &HandleGet);
-    func->SetReturnType(aSpec->typeSpec->propertyType->GetName());
 
     aClass->RegisterFunction(func);
 }
@@ -201,7 +148,7 @@ void ScriptablePropertyHandler::CreateGet(ScriptableRecordClass* aClass, const s
 }
 
 void ScriptablePropertyHandler::HandleGetRecordArray(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                 int64_t a4)
+                                                     int64_t a4)
 {
     Red::DynArray<Red::WeakHandle<Red::TweakDBRecord>>* outArray;
     Red::GetParameter(aFrame, &outArray);
@@ -221,7 +168,7 @@ void ScriptablePropertyHandler::HandleGetRecordArray(Red::IScriptable* aInstance
 }
 
 void ScriptablePropertyHandler::HandleGetArrayCount(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                   int64_t a4)
+                                                    int64_t a4)
 {
     aFrame->code++; // Skip ParamEnd operand
 
@@ -237,8 +184,8 @@ void ScriptablePropertyHandler::HandleGetArrayCount(Red::IScriptable* aInstance,
     *static_cast<int*>(aOut) = GetArrayCount(flat, context->propSpec);
 }
 
-void ScriptablePropertyHandler::HandleGetRecordItem(Red::IScriptable* aInstance, Red::CStackFrame* aFrame,
-                                                         void* aOut, int64_t a4)
+void ScriptablePropertyHandler::HandleGetRecordItem(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                                    int64_t a4)
 {
     int index;
     Red::GetParameter(aFrame, &index);
@@ -258,7 +205,7 @@ void ScriptablePropertyHandler::HandleGetRecordItem(Red::IScriptable* aInstance,
 }
 
 void ScriptablePropertyHandler::HandleGetRecordItemHandle(Red::IScriptable* aInstance, Red::CStackFrame* aFrame,
-                                                        void* aOut, int64_t a4)
+                                                          void* aOut, int64_t a4)
 {
     int index;
     Red::GetParameter(aFrame, &index);
@@ -297,8 +244,8 @@ void ScriptablePropertyHandler::HandleRecordArrayContains(Red::IScriptable* aIns
     *static_cast<bool*>(aOut) = RecordArrayContains(flat, context->propSpec, record);
 }
 
-void ScriptablePropertyHandler::HandleGetRecord(Red::IScriptable* aInstance, Red::CStackFrame* aFrame,
-                                                       void* aOut, int64_t a4)
+void ScriptablePropertyHandler::HandleGetRecord(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                                int64_t a4)
 {
     aFrame->code++; // Skip ParamEnd operand
 
@@ -428,15 +375,15 @@ ScriptablePropertyHandler::RecordWHandleArrayPtr ScriptablePropertyHandler::GetR
     return result;
 }
 
-ScriptablePropertyHandler::RecordWHandle ScriptablePropertyHandler::GetRecordItem(
-    const Red::Value<>& aValue, const TweakPropertySpecPtr& aSpec, const int aIndex)
+ScriptablePropertyHandler::RecordWHandle ScriptablePropertyHandler::GetRecordItem(const Red::Value<>& aValue,
+                                                                                  const TweakPropertySpecPtr& aSpec,
+                                                                                  const int aIndex)
 {
     return GetRecordItemHandle(aValue, aSpec, aIndex);
 }
 
-ScriptablePropertyHandler::RecordHandle ScriptablePropertyHandler::GetRecordItemHandle(const Red::Value<>& aValue,
-                                                                                     const TweakPropertySpecPtr& aSpec,
-                                                                                     const int aIndex)
+ScriptablePropertyHandler::RecordHandle ScriptablePropertyHandler::GetRecordItemHandle(
+    const Red::Value<>& aValue, const TweakPropertySpecPtr& aSpec, const int aIndex)
 {
     if (!aSpec->isForeignKey || !aSpec->isArray || aSpec->propertyType->GetType() != Red::ERTTIType::Array)
         return nullptr;
@@ -473,7 +420,7 @@ bool ScriptablePropertyHandler::RecordArrayContains(const Red::Value<>& aValue, 
 }
 
 ScriptablePropertyHandler::RecordWHandle ScriptablePropertyHandler::GetRecord(const Red::Value<>& aValue,
-                                                                                     const TweakPropertySpecPtr& aSpec)
+                                                                              const TweakPropertySpecPtr& aSpec)
 {
     if (!aSpec->isForeignKey || aSpec->propertyType->GetType() != Red::ERTTIType::WeakHandle)
         return {};

@@ -7,41 +7,238 @@
 
 namespace App
 {
+/**
+ * @brief The ScriptablePropertyHandler class is responsible for generating and registering script functions that allow
+ * scripts to access properties of scriptable records that represent foreign key relationships to TweakDBRecords. It
+ * provides static methods for creating getter functions that retrieve arrays of WeakHandles to TweakDBRecords, counts
+ * of items in array properties, individual items from array properties, and single WeakHandles or Handles to
+ * TweakDBRecords based on the property specifications defined in the ScriptableRecordManager. These functions enable
+ * scripts to interact with TweakDBRecords through the scriptable record system, facilitating data retrieval and
+ * manipulation in a way that is consistent with the underlying TweakDB structure and relationships.
+ */
 class ScriptablePropertyHandler
 {
 public:
+    /**
+     * @brief Defines a type alias for an array of WeakHandles to TweakDBRecords, which is used as the return type for
+     * getter functions that retrieve arrays of related records based on foreign key relationships. This type alias
+     * simplifies the code and improves readability by providing a clear and descriptive name for this specific type of
+     * array, which is commonly used in the context of scriptable record properties that represent foreign key
+     * relationships to TweakDBRecords.
+     */
     using RecordWHandleArray = Red::DynArray<Red::WeakHandle<Red::TweakDBRecord>>;
+
+    /**
+     * @brief Defines a type alias for a shared pointer to an array of WeakHandles to TweakDBRecords, which is used to
+     * manage the lifetime of the array when it is returned from getter functions that retrieve arrays of related
+     * records based on foreign key relationships. This type alias simplifies memory management and improves readability
+     * by providing a clear and descriptive name for a shared pointer to this specific type of array, which is commonly
+     * used in the context of scriptable record properties that represent foreign key relationships to TweakDBRecords.
+     */
     using RecordWHandleArrayPtr = Red::InstancePtr<RecordWHandleArray>;
+
+    /**
+     * @brief Defines a type alias for a WeakHandle to a TweakDBRecord, which is used as the return type for getter
+     * functions that retrieve individual related records based on foreign key relationships. This type alias simplifies
+     * the code and improves readability by providing a clear and descriptive name for this specific type of WeakHandle,
+     * which is commonly used in the context of scriptable record properties that represent foreign key relationships to
+     * TweakDBRecords.
+     */
     using RecordWHandle = Red::WeakHandle<Red::TweakDBRecord>;
+
+    /**
+     * @brief Defines a type alias for a Handle to a TweakDBRecord, which is used as the return type for getter
+     * functions that retrieve individual related records based on foreign key relationships when a stronger reference
+     * is needed. This type alias simplifies the code and improves readability by providing a clear and descriptive name
+     * for this specific type of Handle, which is commonly used in the context of scriptable record properties that
+     * represent foreign key relationships to TweakDBRecords where ownership semantics may be required.
+     */
     using RecordHandle = Red::Handle<Red::TweakDBRecord>;
 
-    static void CreateGetFKArray(ScriptableRecordClass* aClass, const std::string& aName,
+    /**
+     * @brief Creates a script function for retrieving an array of WeakHandles to TweakDBRecords from a scriptable
+     * record property that represents a foreign key relationship. The generated function will attempt to retrieve the
+     * appropriate TweakDB flat value based on the record ID and property specifications, verify that the flat's type
+     * matches the expected array type, and populate the output parameter with an array of WeakHandles to the
+     * corresponding TweakDBRecords if the type check succeeds. If the TweakDB flat is not found or the types do not
+     * match, no value is returned.
+     *
+     * @param aClass The scriptable record class for which to create the getter function. This is used to register the
+     * generated function so that it can be called from scripts on instances of this class.
+     * @param aName The name of the property for which to create the getter function. This is used to generate the
+     * function's name and to identify the corresponding TweakDB flat value based on the property specifications.
+     * @param aSpec The property specifications that define the expected type of the array and its foreign key
+     * relationship. This is used to validate the input and determine how to access the appropriate TweakDB flat value
+     * for the property.
+     */
+    static void CreateGetRecords(ScriptableRecordClass* aClass, const std::string& aName,
                                  const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
-    static void CreateGetArraySize(ScriptableRecordClass* aClass, const std::string& aName,
-                                   const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
-    static void CreateGetRecordWHandleAt(ScriptableRecordClass* aClass, const std::string& aName,
-                                         const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
-    static void CreateGetRecordHandleAt(ScriptableRecordClass* aClass, const std::string& aName,
-                                        const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
+
+    /**
+     * @brief Creates a script function for retrieving a WeakHandle to a TweakDBRecord from an array property of a
+     * scriptable record that represents a foreign key relationship. The generated function will attempt to retrieve the
+     * appropriate TweakDB flat value based on the record ID and property specifications, verify that the flat's type
+     * matches the expected array type, retrieve the TweakDB ID at the specified index, and return a WeakHandle to the
+     * corresponding TweakDBRecord if the type check succeeds and the record exists. If the TweakDB flat is not found,
+     * the value is not an array, the types do not match, or the record does not exist, no value is returned.
+     *
+     * @param aClass The scriptable record class for which to create the getter function. This is used to register the
+     * generated function so that it can be called from scripts on instances of this class.
+     * @param aName The name of the property for which to create the getter function. This is used to generate the
+     * function's name and to identify the corresponding TweakDB flat value based on the property specifications.
+     * @param aSpec The property specifications that define the expected type of the array and its foreign key
+     * relationship. This is used to validate the input and determine how to access the appropriate TweakDB flat value
+     * for the property.
+     */
+    static void CreateGetRecordItem(ScriptableRecordClass* aClass, const std::string& aName,
+                                    const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
+
+    /**
+     * @brief Creates a script function for retrieving a Handle to a TweakDBRecord from an array property of a
+     * scriptable record that represents a foreign key relationship. The generated function will attempt to retrieve the
+     * appropriate TweakDB flat value based on the record ID and property specifications, verify that the flat's type
+     * matches the expected array type, retrieve the TweakDB ID at the specified index, and return a Handle to the
+     * corresponding TweakDBRecord if the type check succeeds and the record exists. If the TweakDB flat is not found,
+     * the value is not an array, the types do not match, or the record does not exist, no value is returned.
+     *
+     * @param aClass The scriptable record class for which to create the getter function. This is used to register the
+     * generated function so that it can be called from scripts on instances of this class.
+     * @param aName The name of the property for which to create the getter function. This is used to generate the
+     * function's name and to identify the corresponding TweakDB flat value based on the property specifications.
+     * @param aSpec The property specifications that define the expected type of the array and its foreign key
+     * relationship. This is used to validate the input and determine how to access the appropriate TweakDB flat value
+     * for the property.
+     */
+    static void CreateGetRecordItemHandle(
+        ScriptableRecordClass* aClass, const std::string& aName,
+        const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
+
+    /**
+     * @brief Creates a script function for checking if a TweakDBRecord identified by a TweakDB ID is contained within
+     * an array property of a scriptable record. The generated function will attempt to retrieve the appropriate TweakDB
+     * flat value based on the record ID and property specifications, verify that the flat's type matches the expected
+     * array type, and check if the TweakDB ID of the given record is contained within the array. If the TweakDB flat is
+     * not found or the types do not match, no value is returned.
+     *
+     * @param aClass The scriptable record class for which to create the containment check function. This is used to
+     * register the generated function so that it can be called from scripts on instances of this class.
+     * @param aName The name of the property for which to create the containment check function. This is used to
+     * generate the function's name and to identify the corresponding TweakDB flat value based on the property
+     * specifications.
+     * @param aSpec The property specifications that define the expected type of the array and its foreign key
+     * relationship. This is used to validate the input and determine how to access the appropriate TweakDB flat value
+     * for the property.
+     */
     static void CreateRecordArrayContains(
         ScriptableRecordClass* aClass, const std::string& aName,
         const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
-    static void CreateGetRecordWHandle(ScriptableRecordClass* aClass, const std::string& aName,
-                                       const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
+
+    /**
+     * @brief Creates a script function for retrieving a WeakHandle to a TweakDBRecord from a scriptable record property
+     * that represents a foreign key relationship. The generated function will attempt to retrieve the appropriate
+     * TweakDB flat value based on the record ID and property specifications, verify that the flat's type matches the
+     * expected type, and return a WeakHandle to the corresponding TweakDBRecord if the type check succeeds. If the
+     * TweakDB flat is not found or the types do not match, no value is returned.
+     *
+     * @param aClass The scriptable record class for which to create the getter function. This is used to register the
+     * generated function so that it can be called from scripts on instances of this class.
+     * @param aName The name of the property for which to create the getter function. This is used to generate the
+     * function's name and to identify the corresponding TweakDB flat value based on the property specifications.
+     * @param aSpec The property specifications that define the expected type of the property and its foreign key
+     * relationship. This is used to validate the input and determine how to access the appropriate TweakDB flat value
+     * for the property.
+     */
+    static void CreateGetRecord(ScriptableRecordClass* aClass, const std::string& aName,
+                                const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
+
+    /**
+     * @brief Creates a script function for retrieving a Handle to a TweakDBRecord from a scriptable record property
+     * that represents a foreign key relationship. The generated function will attempt to retrieve the appropriate
+     * TweakDB flat value based on the record ID and property specifications, verify that the flat's type matches the
+     * expected type, and return a Handle to the corresponding TweakDBRecord if the type check succeeds. If the TweakDB
+     * flat is not found or the types do not match, no value is returned.
+     *
+     * @param aClass The scriptable record class for which to create the getter function. This is used to register the
+     * generated function so that it can be called from scripts on instances of this class.
+     * @param aName The name of the property for which to create the getter function. This is used to generate the
+     * function's name and to identify the corresponding TweakDB flat value based on the property specifications.
+     * @param aSpec The property specifications that define the expected type of the property and its foreign key
+     * relationship. This is used to validate the input and determine how to access the appropriate TweakDB flat value
+     * for the property.
+     */
     static void CreateGetRecordHandle(ScriptableRecordClass* aClass, const std::string& aName,
                                       const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
-    static void CreateGetResRefArray(ScriptableRecordClass* aClass, const std::string& aName,
-                                     const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
-    static void CreateGetResRefArraySize(ScriptableRecordClass* aClass, const std::string& aName,
-                                         const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
-    static void CreateGetResRefArrayItem(ScriptableRecordClass* aClass, const std::string& aName,
-                                         const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
-    static void CreateGetArray(ScriptableRecordClass* aClass, const std::string& aName,
-                               const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
+
+    /**
+     * @brief Creates a script function for retrieving the count of items in an array property of a scriptable record.
+     * The generated function will attempt to retrieve the appropriate TweakDB flat value based on the record ID and
+     * property specifications, verify that the flat's type matches the expected array type, and return the count of
+     * items in the array if the type check succeeds. If the TweakDB flat is not found or the types do not match, no
+     * value is returned.
+     *
+     * @param aClass The scriptable record class for which to create the getter function. This is used to register the
+     * generated function so that it can be called from scripts on instances of this class.
+     * @param aName The name of the property for which to create the getter function. This is used to generate the
+     * function's name and to identify the corresponding TweakDB flat value based on the property specifications.
+     * @param aSpec The property specifications that define the expected type of the array and how to retrieve its value
+     * from TweakDB. This is used to validate the input and determine how to access the appropriate TweakDB flat value
+     * for the property.
+     */
+    static void CreateGetArrayCount(ScriptableRecordClass* aClass, const std::string& aName,
+                                    const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
+
+    /**
+     * @brief Creates a script function for retrieving an item at a specified index from an array property of a
+     * scriptable record. The generated function will attempt to retrieve the appropriate TweakDB flat value based on
+     * the record ID and property specifications, verify that the flat's type matches the expected array type, and
+     * return the item at the specified index if the type check succeeds. If the TweakDB flat is not found or the types
+     * do not match, no value is returned.
+     *
+     * @param aClass The scriptable record class for which to create the getter function. This is used to register the
+     * generated function so that it can be called from scripts on instances of this class.
+     * @param aName The name of the property for which to create the getter function. This is used to generate the
+     * function's name and to identify the corresponding TweakDB flat value based on the property specifications.
+     * @param aSpec The property specifications that define the expected type of the array and how to retrieve its value
+     * from TweakDB. This is used to validate the input and determine how to access the appropriate TweakDB flat value
+     * for the property.
+     */
     static void CreateGetArrayItem(ScriptableRecordClass* aClass, const std::string& aName,
                                    const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
+
+    /**
+     * @brief Creates a script function for checking if a TweakDBRecord identified by a TweakDB ID is contained within
+     * an array property of a scriptable record. The generated function will attempt to retrieve the appropriate TweakDB
+     * flat value based on the record ID and property specifications, verify that the flat's type matches the expected
+     * array type, and check if the TweakDB ID of the given record is contained within the array. If the TweakDB flat is
+     * not found or the types do not match, no value is returned.
+     *
+     * @param aClass The scriptable record class for which to create the containment check function. This is used to
+     * register the generated function so that it can be called from scripts on instances of this class.
+     * @param aName The name of the property for which to create the containment check function. This is used to
+     * generate the function's name and to identify the corresponding TweakDB flat value based on the property
+     * specifications.
+     * @param aSpec The property specifications that define the expected type of the array and its foreign key
+     * relationship. This is used to validate the input and determine how to access the appropriate TweakDB flat value
+     * for the property.
+     */
     static void CreateArrayContains(ScriptableRecordClass* aClass, const std::string& aName,
                                     const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
+
+    /**
+     * @brief Creates a script function for retrieving the value of a scriptable record property that does not require
+     * any special handling or transformation. The generated function will attempt to retrieve the appropriate TweakDB
+     * flat value based on the record ID and property specifications, verify that the flat's type matches the property's
+     * expected type, and return the value if the type check succeeds. If the TweakDB flat is not found or the types do
+     * not match, no value is returned.
+     *
+     * @param aClass The scriptable record class for which to create the getter function. This is used to register the
+     * generated function so that it can be called from scripts on instances of this class.
+     * @param aName The name of the property for which to create the getter function. This is used to generate the
+     * function's name and to identify the corresponding TweakDB flat value based on the property specifications.
+     * @param aSpec The property specifications that define the expected type of the property and how to retrieve its
+     * value from TweakDB. This is used to validate the input and determine how to access the appropriate TweakDB flat
+     * value for the property.
+     */
     static void CreateGet(ScriptableRecordClass* aClass, const std::string& aName,
                           const Core::SharedPtr<ScriptableRecordManager::ScriptablePropertySpec>& aSpec);
 
