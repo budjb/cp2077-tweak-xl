@@ -23,6 +23,25 @@ constexpr auto PropSeparator = std::string_view(NameSeparator);
 
 namespace Red::TweakDBUtil
 {
+bool IsIgnoredProperty(CName aPropName)
+{
+    return std::string_view(aPropName.ToString()).starts_with(ignoredPropertyPrefix);
+}
+
+std::string CreateIgnoredPropertyName(const std::string& aName)
+{
+    std::string result(ignoredPropertyPrefix);
+    result.append(aName);
+    return result;
+}
+
+std::string CreateIgnoredPropertyName(const char* aName)
+{
+    std::string result(ignoredPropertyPrefix);
+    result.append(aName);
+    return result;
+}
+
 CBaseRTTIType* GetFlatType(const uint64_t aType)
 {
     // clang-format off

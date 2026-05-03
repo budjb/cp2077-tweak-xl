@@ -19,6 +19,42 @@ class ScriptableRecordManager
 {
 public:
     /**
+     * @brief Defines a type alias for an array of WeakHandles to TweakDBRecords, which is used as the return type for
+     * getter functions that retrieve arrays of related records based on foreign key relationships. This type alias
+     * simplifies the code and improves readability by providing a clear and descriptive name for this specific type of
+     * array, which is commonly used in the context of scriptable record properties that represent foreign key
+     * relationships to TweakDBRecords.
+     */
+    using RecordArray = Red::DynArray<Red::WeakHandle<Red::TweakDBRecord>>;
+
+    /**
+     * @brief Defines a type alias for a shared pointer to an array of WeakHandles to TweakDBRecords, which is used to
+     * manage the lifetime of the array when it is returned from getter functions that retrieve arrays of related
+     * records based on foreign key relationships. This type alias simplifies memory management and improves readability
+     * by providing a clear and descriptive name for a shared pointer to this specific type of array, which is commonly
+     * used in the context of scriptable record properties that represent foreign key relationships to TweakDBRecords.
+     */
+    using RecordArrayPtr = Red::InstancePtr<RecordArray>;
+
+    /**
+     * @brief Defines a type alias for a WeakHandle to a TweakDBRecord, which is used as the return type for getter
+     * functions that retrieve individual related records based on foreign key relationships. This type alias simplifies
+     * the code and improves readability by providing a clear and descriptive name for this specific type of WeakHandle,
+     * which is commonly used in the context of scriptable record properties that represent foreign key relationships to
+     * TweakDBRecords.
+     */
+    using RecordWHandle = Red::WeakHandle<Red::TweakDBRecord>;
+
+    /**
+     * @brief Defines a type alias for a Handle to a TweakDBRecord, which is used as the return type for getter
+     * functions that retrieve individual related records based on foreign key relationships when a stronger reference
+     * is needed. This type alias simplifies the code and improves readability by providing a clear and descriptive name
+     * for this specific type of Handle, which is commonly used in the context of scriptable record properties that
+     * represent foreign key relationships to TweakDBRecords where ownership semantics may be required.
+     */
+    using RecordHandle = Red::Handle<Red::TweakDBRecord>;
+
+    /**
      * @brief A struct representing the context of a scriptable record property getter function.
      */
     struct Context
@@ -45,6 +81,11 @@ public:
          */
         Core::DeferredPtr<Red::TweakDBManager> tweakManager;
     };
+
+    /**
+     * @brief Alias for a shared pointer to a Context instance.
+     */
+    using ContextPtr = Core::SharedPtr<Context>;
 
     /**
      * @brief A struct representing the specification of a scriptable property, including all the information necessary
@@ -87,10 +128,90 @@ public:
         bool isDescribed = false;
     };
 
+    using ScriptablePropertySpecPtr = Core::SharedPtr<ScriptablePropertySpec>;
+
     /**
-     * @brief Alias for a shared pointer to a Context instance.
+     * @brief A struct representing the specification of a scriptable record type, including all the information
+     * necessary to register the type as an RTTI class, describe the class by adding properties and functions, and
+     * insert default instances of the record into TweakDB.
      */
-    using ContextPtr = Core::SharedPtr<Context>;
+    struct ScriptableRecordSpec
+    {
+        /**
+         * @brief The fully-qualified name of the record type, following typical TweakDB naming conventions. This should
+         * be in the format @c gamedata<record_name>_Record .
+         */
+        std::string name;
+
+        /**
+         * @brief The script alias name of the record type, following typical TweakDB naming conventions. This should be
+         * in the format @c <record_name>_Record .
+         */
+        std::string aliasName;
+
+        /**
+         * @brief The short name of the record type, following typical TweakDB naming conventions. This should be the
+         * fully qualified name with the @c gamedata prefix and @c _Record suffix removed, so it should correspond to
+         * the <record_name> portion of the other name formats.
+         */
+        std::string shortName;
+
+        /**
+         * @brief The registered CName of the record's fully-qualified name.
+         */
+        Red::CName cname;
+
+        /**
+         * @brief The registered CName of the record's alias name.
+         */
+        Red::CName aliasCName;
+
+        /**
+         * @brief The registered CName of the record's short name.
+         */
+        Red::CName shortCName;
+
+        /**
+         * @brief The uint32_t hash of the record type based on its short name.
+         */
+        uint32_t hash;
+
+        /**
+         * @brief A pointer to the RTTI class of the record type. This will be populated during RTTI registration.
+         */
+        ScriptableRecordClass* type;
+
+        /**
+         * @brief The name of the parent record type, if any, from which this record type inherits. This should
+         * correspond to the short name of a valid TweakDB record type. If not provided, the record will be a direct
+         * subclass of @c App::ScriptableTweakDBRecord .
+         */
+        std::optional<std::string> parent;
+
+        /**
+         * @brief A map of the properties belonging to the record type, indexed by the CName of each property.
+         */
+        Core::Map<Red::CName, ScriptablePropertySpecPtr> props;
+
+        /**
+         * @brief Whether this record type has been registered, or had its RTTI class created.
+         */
+        bool isRegistered = false;
+
+        /**
+         * @brief Whether this record type has been described, or had its RTTI class set up with its parent class and
+         * functions.
+         */
+        bool isDescribed = false;
+
+        /**
+         * @brief Whether this record type has been inserted into TweakDB with an initial instance and default property
+         * values.
+         */
+        bool isInserted = false;
+    };
+
+    using ScriptableRecordSpecPtr = Core::SharedPtr<ScriptableRecordSpec>;
 
     /**
      * @brief Constructs a ScriptableRecordManager instance.
@@ -197,120 +318,228 @@ public:
     void TestScriptableRecord();
 #endif
 
-    static void DispatchNoArgGetter(Red::IScriptable* aContext, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
-
 private:
-    /**
-     * @brief A struct representing the specification of a scriptable record type, including all the information
-     * necessary to register the type as an RTTI class, describe the class by adding properties and functions, and
-     * insert default instances of the record into TweakDB.
-     */
-    struct ScriptableRecordSpec
-    {
-        /**
-         * @brief The fully-qualified name of the record type, following typical TweakDB naming conventions. This should
-         * be in the format @c gamedata<record_name>_Record .
-         */
-        std::string name;
-
-        /**
-         * @brief The script alias name of the record type, following typical TweakDB naming conventions. This should be
-         * in the format @c <record_name>_Record .
-         */
-        std::string aliasName;
-
-        /**
-         * @brief The short name of the record type, following typical TweakDB naming conventions. This should be the
-         * fully qualified name with the @c gamedata prefix and @c _Record suffix removed, so it should correspond to
-         * the <record_name> portion of the other name formats.
-         */
-        std::string shortName;
-
-        /**
-         * @brief The registered CName of the record's fully-qualified name.
-         */
-        Red::CName cname;
-
-        /**
-         * @brief The registered CName of the record's alias name.
-         */
-        Red::CName aliasCName;
-
-        /**
-         * @brief The registered CName of the record's short name.
-         */
-        Red::CName shortCName;
-
-        /**
-         * @brief The uint32_t hash of the record type based on its short name.
-         */
-        uint32_t hash;
-
-        /**
-         * @brief A pointer to the RTTI class of the record type. This will be populated during RTTI registration.
-         */
-        ScriptableRecordClass* type;
-
-        /**
-         * @brief The name of the parent record type, if any, from which this record type inherits. This should
-         * correspond to the short name of a valid TweakDB record type. If not provided, the record will be a direct
-         * subclass of @c App::ScriptableTweakDBRecord .
-         */
-        std::optional<std::string> parent;
-
-        /**
-         * @brief A map of the properties belonging to the record type, indexed by the CName of each property.
-         */
-        Core::Map<Red::CName, Core::SharedPtr<ScriptablePropertySpec>> props;
-
-        /**
-         * @brief Whether this record type has been registered, or had its RTTI class created.
-         */
-        bool isRegistered = false;
-
-        /**
-         * @brief Whether this record type has been described, or had its RTTI class set up with its parent class and
-         * functions.
-         */
-        bool isDescribed = false;
-
-        /**
-         * @brief Whether this record type has been inserted into TweakDB with an initial instance and default property
-         * values.
-         */
-        bool isInserted = false;
-    };
-
-    void CreateFunctions(ScriptableRecordClass* aClass, const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
-    void CreateFKArrayFunctions(ScriptableRecordClass* aClass, const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
-    void CreateFKFunctions(ScriptableRecordClass* aClass, const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
-    void CreateResRefArrayFunctions(ScriptableRecordClass* aClass,
-                                    const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
-    void CreateArrayFunctions(ScriptableRecordClass* aClass, const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
-    void CreateNormalFunctions(ScriptableRecordClass* aClass, const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
-
-    // TODO: doc this
-    Red::CBaseFunction* CreateFunction(ScriptableRecordClass* aClass, const std::string& aName,
-                                       const TweakPropertySpecPtr& aSpec, const ContextPtr& aContext);
-
-    // TODO: doc this
-    Red::RawBuffer CreateFunctionBytecode(const Context* aContext, Red::CBaseFunction* aFunc);
+    using FunctionCustomizer = std::function<void(Red::CClassFunction*)>;
 
     /**
-     * @brief Destroys a function created by this manager and removes it from the function registry.
+     * @brief Creates and registers relevant RTTI functions for a property of a scriptable record class based on the
+     * provided property specification.
      *
-     * @param afunction The function to destroy.
-     * @return Whether the function was successfully destroyed and removed from the registry.
+     * @param aClass The scriptable record class to which functions will be added.
+     * @param aSpec The specification of the scriptable property for which functions will be created, containing all
+     * necessary information to determine which functions to create and how to set them up.
      */
-    // bool Destroyfunction(const Core::SharedPtr<function>& afunction);
+    void CreateGetterFunctions(ScriptableRecordClass* aClass, const ScriptablePropertySpecPtr& aSpec);
 
     /**
-     * @brief Destroys a function created by this manager and removes it from the function registry.
+     * @brief Creates and registers a function for a scriptable record property.
      *
-     * @param afunction The function to destroy.
-     * @return Whether the function was successfully destroyed and removed from the registry.
+     * Due to how functions work within the scripting VM, function invocations do not receive details about the identity
+     * of the function call itself. The various handler functions that implement the scriptable record property getters
+     * are reused across all scriptable record types, so execution context containing details of the property being
+     * operated on must be provided to the invocation.
+     *
+     * This function creates two class functions to implement the property getter: the "native" function which invokes
+     * the provided function, and a wrapping "script" function that proxies to the "native" function. Before invoking
+     * the "native" function, the "script" function injects a pointer to the given execution context on the call stack
+     * directly after the "ParamEnd" opcode.
+     *
+     * @param aClass The scriptable record class to which the property function will be added.
+     * @param aName The name of the property function to create.
+     * @param aContext The execution context to provide to the function invocation via the call stack.
+     * @param aFunc The actual function to invoke when the property function is called.
+     * @param aCustomizer A function that receives the "native" CClassFunction after it is instantiated but before it is
+     * registered and allows for configuration of the function, such as adding arguments and a return type.
+     * @return A pointer to the created "script" function.
      */
-    // bool Destroyfunction(const ffi_function* afunction);
+    Red::CBaseFunction* CreateScriptFunction(ScriptableRecordClass* aClass, const std::string& aName,
+                                             const ContextPtr& aContext, const Red::ScriptingFunction_t<void*>& aFunc,
+                                             const FunctionCustomizer& aCustomizer);
+
+    // TODO: keep this?
+    void LogPropertyFunction(const Red::CClassFunction* aFunc);
+
+    // TODO: keep this?
+    std::string GetFriendlyTypeName(const Red::CBaseRTTIType* aType);
+
+    // TODO: keep this?
+    std::string GetFriendlyClassName(const Red::CClass* aClass);
+
+    /**
+     * @brief Creates and registers a function for a scriptable record property that retrieves an array of related
+     * records based on a foreign key relationship. This function is intended to be used as the getter for properties
+     * that represent arrays of foreign keys to other TweakDB record types.
+     *
+     * The resulting function will have the following signature, where [Prop] is the provided property name:
+     *
+     * @code void [Prop](DynArray<WeakHandle<TweakDBRecord>* out)@endcode
+     *
+     * @param aClass The scriptable record class to which the property function will be added.
+     * @param aName The name of the property function to create.
+     * @param aContext The execution context to provide to the function invocation via the call stack, containing
+     * necessary details of the property and record type to retrieve the related records from TweakDB.
+     */
+    void CreateGetRecords(ScriptableRecordClass* aClass, const std::string& aName, const ContextPtr& aContext);
+
+    /**
+     * @brief Creates and registers a function for a scriptable record property that retrieves an individual related
+     * record based on a foreign key relationship from an array. This function is intended to be used as the getter for
+     * properties that represent foreign keys to other TweakDB record types.
+     *
+     * The resulting function will have the following signature, where [Prop] is the provided property name:
+     *
+     * @code WeakHandle<TweakDBRecord> Get[Prop]Item(int index)@endcode
+     *
+     * @param aClass The scriptable record class to which the property function will be added.
+     * @param aName The base name of the property function to create.
+     * @param aContext The execution context to provide to the function invocation via the call stack, containing
+     * necessary details of the property and record type to retrieve the related record from TweakDB.
+     */
+    void CreateGetRecordItem(ScriptableRecordClass* aClass, const std::string& aName, const ContextPtr& aContext);
+
+    /**
+     * @brief Creates and registers a function for a scriptable record property that retrieves an individual related
+     * record based on a foreign key relationship from an array. This function is intended to be used as the getter for
+     * properties that represent foreign keys to other TweakDB record types.
+     *
+     * The resulting function will have the following signature, where [Prop] is the provided property name:
+     *
+     * @code Handle<TweakDBRecord> Get[Prop]ItemHandle(int index)@endcode
+     *
+     * @param aClass The scriptable record class to which the property function will be added.
+     * @param aName The base name of the property function to create.
+     * @param aContext The execution context to provide to the function invocation via the call stack, containing
+     * necessary details of the property and record type to retrieve the related record from TweakDB.
+     */
+    void CreateGetRecordItemHandle(ScriptableRecordClass* aClass, const std::string& aName, const ContextPtr& aContext);
+
+    /**
+     * @brief Creates and registers a function for a scriptable record property that checks whether a given related
+     * record is contained in the array of related records based on a foreign key relationship. This function is
+     * intended to be used as a helper for properties that represent arrays of foreign keys to other TweakDB record
+     * types.
+     *
+     * The resulting function will have the following signature, where [Prop] is the provided property name:
+     *
+     * @code bool [Prop]Contains(WeakHandle<TweakDBRecord> item)@endcode
+     *
+     * @param aClass The scriptable record class to which the property function will be added.
+     * @param aName The base name of the property function to create.
+     * @param aContext The execution context to provide to the function invocation via the call stack, containing
+     * necessary details of the property and record type to retrieve the related records from TweakDB and check for
+     * containment.
+     */
+    void CreateRecordArrayContains(ScriptableRecordClass* aClass, const std::string& aName, const ContextPtr& aContext);
+
+    /**
+     * @brief Creates and registers a function for a scriptable record property that retrieves an individual related
+     * record based on a foreign key relationship. This function is intended to be used as the getter for properties
+     * that represent foreign keys to other TweakDB record types.
+     *
+     * The resulting function will have the following signature, where [Prop] is the provided property name:
+     *
+     * @code WeakHandle<TweakDBRecord> [Prop]()@endcode
+     *
+     * @param aClass The scriptable record class to which the property function will be added.
+     * @param aName The name of the property function to create.
+     * @param aContext The execution context to provide to the function invocation via the call stack, containing
+     * necessary details of the property and record type to retrieve the related record from TweakDB.
+     */
+    void CreateGetRecord(ScriptableRecordClass* aClass, const std::string& aName, const ContextPtr& aContext);
+
+    /**
+     * @brief Creates and registers a function for a scriptable record property that retrieves an individual related
+     * record based on a foreign key relationship. This function is intended to be used as the getter for properties
+     * that represent foreign keys to other TweakDB record types when a stronger reference is needed.
+     *
+     * The resulting function will have the following signature, where [Prop] is the provided property name:
+     *
+     * @code Handle<TweakDBRecord> [Prop]Handle()@endcode
+     *
+     * @param aClass The scriptable record class to which the property function will be added.
+     * @param aName The name of the property function to create.
+     * @param aContext The execution context to provide to the function invocation via the call stack, containing
+     * necessary details of the property and record type to retrieve the related record from TweakDB.
+     */
+    void CreateGetRecordHandle(ScriptableRecordClass* aClass, const std::string& aName, const ContextPtr& aContext);
+
+    /**
+     * @brief Creates and registers a function for a scriptable record property that return the number of elements in an
+     * array. This function is suitable for use with any type of array property.
+     *
+     * The resulting function will have the following signature, where [Prop] is the provided property name:
+     *
+     * @code int Get[Prop]Count()@endcode
+     *
+     * @param aClass The scriptable record class to which the property function will be added.
+     * @param aName The base name of the property function to create.
+     * @param aContext The execution context to provide to the function invocation via the call stack, containing
+     * necessary details of the property to retrieve the array from TweakDB and determine its count.
+     */
+    void CreateGetArrayCount(ScriptableRecordClass* aClass, const std::string& aName, const ContextPtr& aContext);
+
+    /**
+     * @brief Creates and registers a function for a scriptable record property that retrieves an individual item from
+     * an array based on its index. This function is suitable for use with any type of array property other than array
+     * of foreign keys to other TweakDB records.
+     *
+     * The resulting function will have the following signature, where [Prop] is the provided property name and [Type]
+     * is the property type defined in the provided execution context:
+     *
+     * @code [Type] Get[Prop]Item(int index)@endcode
+     *
+     * @param aClass The scriptable record class to which the property function will be added.
+     * @param aName The base name of the property function to create.
+     * @param aContext The execution context to provide to the function invocation via the call stack, containing
+     * necessary details of the property to retrieve the array from TweakDB and return the appropriate
+     * item based on the provided index.
+     */
+    void CreateGetArrayItem(ScriptableRecordClass* aClass, const std::string& aName, const ContextPtr& aContext);
+
+    /**
+     * @brief Creates and registers a function for a scriptable record property that checks whether a given item is
+     * contained in an array. This function is suitable for use with any type of array property other than array of
+     * foreign keys to other TweakDB records.
+     *
+     * The resulting function will have the following signature, where [Prop] is the provided property name and [Type]
+     * is the property type defined in the provided execution context:
+     *
+     * @code bool [Prop]Contains([Type] item)@endcode
+     *
+     * @param aClass
+     * @param aName
+     * @param aContext
+     */
+    void CreateArrayContains(ScriptableRecordClass* aClass, const std::string& aName, const ContextPtr& aContext);
+
+    /**
+     * @brief Creates and registers a function for a scriptable record property that retrieves the property's value from
+     * TweakDB. This function is suitable for retrieving most scriptable record property types, including arrays, but is
+     * not intended for use with foreign keys to other TweakDB records.
+     *
+     * The resulting function will have the following signature, where [Prop] is the provided property name and [Type]
+     * is the property type defined in the provided execution context:
+     *
+     * @code [Type] [Prop]()@endcode
+     *
+     * @param aClass
+     * @param aName
+     * @param aContext
+     */
+    void CreateGet(ScriptableRecordClass* aClass, const std::string& aName, const ContextPtr& aContext);
+
+    /**
+     * @brief Creates the bytecode that implements the "script" function responsible for injecting a pointer to the
+     * provided execution context into the callstack and calling the provided "native" function.
+     *
+     * @param aContext The execution context to provide to the function invocation via the call stack, containing
+     * necessary details of the property being operated on.
+     * @param aFunc The actual function to invoke when the property function is called, which will be called by the
+     * generated bytecode.
+     * @return A buffer containing the bytecode that implements the "script" function responsible for injecting a
+     * pointer to the provided execution context into the callstack and calling the provided "native" function.
+     */
+    Red::RawBuffer CreateFunctionBytecode(const ContextPtr& aContext, Red::CBaseFunction* aFunc);
 
     /**
      * @brief Retrieves the scriptable record specification with the given name from the registry.
@@ -319,7 +548,7 @@ private:
      * @return A shared pointer to the scriptable record specification, or @c nullptr if no specification with the given
      * name was found.
      */
-    Core::SharedPtr<ScriptableRecordSpec> GetRecordSpec(Red::CName aName) const;
+    ScriptableRecordSpecPtr GetRecordSpec(Red::CName aName) const;
 
     /**
      * @brief Creates an App::RecordClass and registers it with RTTI based on the provided record specification. After
@@ -329,7 +558,7 @@ private:
      * @param aSpec The specification of the scriptable record type to create.
      * @return Whether the record class was successfully created and registered with RTTI.
      */
-    bool RegisterScriptableRecordSpec(const Core::SharedPtr<ScriptableRecordSpec>& aSpec);
+    bool RegisterScriptableRecordSpec(const ScriptableRecordSpecPtr& aSpec);
 
     /**
      * @brief Adds functions and a parent class to an App::RecordClass based on the provided record specification. After
@@ -339,7 +568,7 @@ private:
      * @param aSpec The specification of the scriptable record type to describe.
      * @return Whether the record class was successfully described with functions and a parent class.
      */
-    bool DescribeScriptableRecordSpec(const Core::SharedPtr<ScriptableRecordSpec>& aSpec);
+    bool DescribeScriptableRecordSpec(const ScriptableRecordSpecPtr& aSpec);
 
     /**
      * @brief Adds a function to an App::RecordClass based on the provided property specification, where the function
@@ -352,8 +581,7 @@ private:
      * @return Whether the property specification was successfully described with a getter function added to the record
      * class.
      */
-    bool DescribeScriptablePropertySpec(ScriptableRecordClass* aClass,
-                                        const Core::SharedPtr<ScriptablePropertySpec>& aSpec);
+    bool DescribeScriptablePropertySpec(ScriptableRecordClass* aClass, const ScriptablePropertySpecPtr& aSpec);
 
     /**
      * @brief Inserts default values for a scriptable record type based on the provided record specification.
@@ -365,7 +593,7 @@ private:
      *
      * @param aSpec
      */
-    void InsertScriptableRecordDefaults(const Core::SharedPtr<ScriptableRecordSpec>& aSpec);
+    void InsertScriptableRecordDefaults(const ScriptableRecordSpecPtr& aSpec);
 
     /**
      * @brief Inserts default values for a scriptable record type based on the provided RTTI class. This is an overload
@@ -386,17 +614,7 @@ private:
      * @param aSpec The specification of the scriptable record type to unregister.
      * @return Whether the record type was successfully unregistered and removed from the registry.
      */
-    bool UnregisterScriptableRecordSpec(const Core::SharedPtr<ScriptableRecordSpec>& aSpec);
-
-    /**
-     * @brief Registers a scriptable property function name with the Red::CNamePool based on the property's name.
-     *
-     * @param aName The name of the property for which to register the function name. This should be in camelCase and
-     * will be converted to PascalCase for the function name.
-     * @return The registered CName of the property function name, or @c Red::CName::Empty if registration failed for
-     * any reason.
-     */
-    static Red::CName RegisterPropertyFunctionName(const std::string& aName);
+    bool DeregisterScriptableRecord(const ScriptableRecordSpecPtr& aSpec);
 
     /**
      * @brief Retrieves the scriptable record class corresponding to the given hash from the registry.
@@ -412,17 +630,7 @@ private:
      * @param aSpec
      * @return
      */
-    ScriptableRecordClass* CreateRecordClass(const Core::SharedPtr<ScriptableRecordSpec>& aSpec);
-
-    /**
-     * @brief Destroys a scriptable record class by unregistering it from RTTI and removing it from the record class
-     * registry. After completion, the record class will no longer be functional or accessible. This function is
-     * intended to be used for hot-reloading scriptable record types during development.
-     *
-     * @param aClass The scriptable record class to destroy.
-     * @return Whether the record class was successfully destroyed and removed from the registry.
-     */
-    bool DestroyRecordClass(ScriptableRecordClass* aClass);
+    ScriptableRecordClass* CreateRecordClass(const ScriptableRecordSpecPtr& aSpec);
 
 #ifndef NDEBUG
     /**
@@ -439,18 +647,6 @@ private:
     Red::CRTTISystem* m_rtti;
 
     /**
-     * @brief A registry of functions created by this manager.
-     */
-    Core::Vector<Red::CBaseFunction*> m_functions;
-
-    Core::Vector<ContextPtr> m_contexts;
-
-    /**
-     * @brief A mutex for synchronizing access to the function registry for thread safety.
-     */
-    mutable std::mutex m_functionsMutex;
-
-    /**
      * @brief A mutex for synchronizing access to the scriptable record specification registry for thread safety.
      */
     mutable std::shared_mutex m_specsMutex;
@@ -459,12 +655,7 @@ private:
      * @brief A registry of scriptable record specifications, indexed by the CName of each record type's fully-qualified
      * name.
      */
-    Core::Map<Red::CName, Core::SharedPtr<ScriptableRecordSpec>> m_specs;
-
-    /**
-     * @brief A registry of scriptable record specifications, indexed by the hash of each record type's short name.
-     */
-    Core::Map<uint32_t, Core::SharedPtr<ScriptableRecordSpec>> m_specsByHash;
+    Core::Map<Red::CName, ScriptableRecordSpecPtr> m_specs;
 
     /**
      * @brief A mutex for synchronizing access to the scriptable record class registry for thread safety.
@@ -480,6 +671,18 @@ private:
      * @brief A pointer to the TweakDB manager.
      */
     Core::DeferredPtr<Red::TweakDBManager> m_tweakManager;
+
+    /**
+     * @brief A mutex for synchronizing access to the scriptable record property getter function execution contexts for
+     * thread safety.
+     */
+    mutable std::shared_mutex m_contextsMutex;
+
+    /**
+     * @brief A collection of shared pointers to getter function execution contexts, kept alive for the lifetime of
+     * this manager so that the raw pointers baked into bytecode remain valid.
+     */
+    Core::Map<Red::CName, Core::Map<Red::CName, ContextPtr>> m_contexts;
 };
 
 } // namespace App
