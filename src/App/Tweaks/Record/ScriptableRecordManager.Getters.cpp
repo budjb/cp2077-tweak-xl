@@ -142,15 +142,24 @@ RecordWHandle GetRecordItem(const Red::Value<>& aValue, const Context* aContext,
 
 bool RecordArrayContains(const Red::Value<>& aValue, const Context* aContext, const RecordWHandle& aRecord)
 {
+    static auto* arrayType =
+        reinterpret_cast<Red::CRTTIBaseArrayType*>(Red::TypeLocator<Red::ERTDBFlatType::TweakDBIDArray>::Get());
+    static auto* innerType = Red::TypeLocator<Red::ERTDBFlatType::TweakDBID>::Get();
+
     const auto propSpec = aContext->propSpec;
 
-    if (!propSpec->isForeignKey || !propSpec->isArray ||
-        propSpec->propertyType->GetType() != Red::rtti::ERTTIType::Array)
+    if (propSpec->flatType != arrayType)
         return false;
 
-    // TODO: dunno if this works
-    const auto& array = static_cast<Red::DynArray<Red::TweakDBID>*>(aValue.instance);
-    return array->Contains(aRecord.instance->recordID);
+    const auto length = arrayType->GetLength(aValue.instance);
+
+    for (uint32_t i = 0; i < length; ++i)
+    {
+        if (innerType->IsEqual(arrayType->GetElement(aValue.instance, i), &aRecord.instance->recordID))
+            return true;
+    }
+
+    return false;
 }
 
 RecordWHandle GetRecord(const Red::Value<>& aValue, const Context* aContext)
