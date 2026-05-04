@@ -50,6 +50,11 @@ public:
      */
     ScriptablePropertyHandler() = delete;
 
+    void RegisterFunctions();
+
+    template<auto T>
+    void RegisterFunction(const std::function<void(Red::CGlobalFunction*)>& aCustomizer);
+
     /**
      * @brief Handles the retrieval of an array of foreign keys to other TweakDB record instances from a scriptable
      * TweakDB record property.
@@ -67,7 +72,7 @@ public:
      * stored.
      * @param a4 The hash of the expected return type. This is unused.
      */
-    static void HandleGetRecordArray(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    static void GetRecordArrayHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
 
     /**
      * @brief Handles the retrieval of the number of elements in an array property of a scriptable TweakDB record.
@@ -78,7 +83,7 @@ public:
      * @param aOut The output pointer where the resulting array count will be stored as an integer.
      * @param a4 The hash of the expected return type. This is unused.
      */
-    static void HandleGetArrayCount(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    static void GetArrayCountHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
 
     /**
      * @brief Handles the retrieval of a foreign key to a TweakDB record from an array of foreign keys property of a
@@ -94,7 +99,7 @@ public:
      * @param aOut The output pointer where the resulting weak handle to the TweakDB record instance will be stored.
      * @param a4 The hash of the expected return type. This is unused.
      */
-    static void HandleGetRecordItem(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    static void GetRecordItemHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
 
     /**
      * @brief Handles the retrieval of a foreign key to a TweakDB record from an array of foreign keys property of a
@@ -107,8 +112,8 @@ public:
      * @param aOut The output pointer where the resulting strong handle to the TweakDB record instance will be stored.
      * @param a4 The hash of the expected return type. This is unused.
      */
-    static void HandleGetRecordItemHandle(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                          int64_t a4);
+    static void GetRecordItemHandleHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                           int64_t a4);
 
     /**
      * @brief Handles the check for whether a given TweakDB record instance, provided as a weak handle, is contained
@@ -121,8 +126,8 @@ public:
      * the array will be stored.
      * @param a4 The hash of the expected return type. This is unused.
      */
-    static void HandleRecordArrayContains(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                          int64_t a4);
+    static void RecordArrayContainsHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                           int64_t a4);
 
     /**
      * @brief Handles the retrieval of a foreign key to a TweakDB record from a property of a scriptable TweakDB record.
@@ -134,7 +139,7 @@ public:
      * @param aOut The output pointer where the resulting weak handle to the TweakDB record instance will be stored.
      * @param a4 The hash of the expected return type. This is unused.
      */
-    static void HandleGetRecord(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    static void GetRecordHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
 
     /**
      * @brief Handles the retrieval of a foreign key to a TweakDB record from a property of a scriptable TweakDB record.
@@ -146,7 +151,7 @@ public:
      * @param aOut The output pointer where the resulting strong handle to the TweakDB record instance will be stored.
      * @param a4   The hash of the expected return type. This is unused.
      */
-    static void HandleGetRecordHandle(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    static void GetRecordHandleHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
 
     /**
      * @brief Handles the retrieval of an item from an array property of a scriptable TweakDB record by its index.
@@ -157,7 +162,7 @@ public:
      * @param aOut The output pointer where the resulting item from the array will be stored.
      * @param a4 The hash of the expected return type. This is unused.
      */
-    static void HandleGetArrayItem(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    static void GetArrayItemHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
 
     /**
      * @brief Handles the check for whether a given element is contained within an array property of a scriptable
@@ -170,7 +175,7 @@ public:
      * the array will be stored.
      * @param a4 The hash of the expected return type. This is unused.
      */
-    static void HandleArrayContains(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    static void ArrayContainsHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
 
     /**
      * @brief Handles the retrieval of a property value from a scriptable TweakDB record where the property's value does
@@ -182,7 +187,30 @@ public:
      * @param aOut The output pointer where the resulting property value will be stored.
      * @param a4 The hash of the expected return type. This is unused.
      */
-    static void HandleGet(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    static void GetHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+
+    template<auto V>
+    static consteval std::array<char, nameof::nameof_pointer<V>().size() + 2> CreateNativeFunctionName()
+    {
+        constexpr auto baseName = ::nameof::nameof_pointer<V>();
+        static_assert(!baseName.empty(), "Handler function name cannot be empty.");
+
+        std::array<char, baseName.size() + 2> name{};
+        name[0] = '_';
+        for (size_t i = 0; i < baseName.size(); ++i)
+        {
+            name[i + 1] = baseName[i];
+        }
+        name[baseName.size() + 1] = '\0';
+
+        return name;
+    }
+
+    template<auto V>
+    static std::string GetNativeFunctionName()
+    {
+        return CreateNativeFunctionName<V>().data();
+    }
 
 private:
     /**
@@ -339,4 +367,16 @@ private:
      */
     static const Context* GetContext(Red::CStackFrame* aFrame);
 };
+
+template<auto T>
+void ScriptablePropertyHandler::RegisterFunction(const std::function<void(Red::CGlobalFunction*)>& aCustomizer)
+{
+    static auto* rtti = Red::CRTTISystem::Get();
+
+    const auto name = GetNativeFunctionName<T>();
+
+    auto* func = Red::CGlobalFunction::Create<void*>(name.c_str(), name.c_str(), T);
+    aCustomizer(func);
+    rtti->RegisterFunction(func);
+}
 } // namespace App

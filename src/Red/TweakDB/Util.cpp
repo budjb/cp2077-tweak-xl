@@ -42,6 +42,40 @@ std::string CreateIgnoredPropertyName(const char* aName)
     return result;
 }
 
+std::array<uint64_t, 26> GetFlatTypes()
+{
+    // clang-format off
+    return {
+        ERTDBFlatType::Int,
+        ERTDBFlatType::Float,
+        ERTDBFlatType::Bool,
+        ERTDBFlatType::String,
+        ERTDBFlatType::CName,
+        ERTDBFlatType::LocKey,
+        ERTDBFlatType::ResRef,
+        ERTDBFlatType::TweakDBID,
+        ERTDBFlatType::Quaternion,
+        ERTDBFlatType::EulerAngles,
+        ERTDBFlatType::Vector3,
+        ERTDBFlatType::Vector2,
+        ERTDBFlatType::Color,
+        ERTDBFlatType::IntArray,
+        ERTDBFlatType::FloatArray,
+        ERTDBFlatType::BoolArray,
+        ERTDBFlatType::StringArray,
+        ERTDBFlatType::CNameArray,
+        ERTDBFlatType::LocKeyArray,
+        ERTDBFlatType::ResRefArray,
+        ERTDBFlatType::TweakDBIDArray,
+        ERTDBFlatType::QuaternionArray,
+        ERTDBFlatType::EulerAnglesArray,
+        ERTDBFlatType::Vector3Array,
+        ERTDBFlatType::Vector2Array,
+        ERTDBFlatType::ColorArray
+    };
+    // clang-format on
+}
+
 CBaseRTTIType* GetFlatType(const uint64_t aType)
 {
     // clang-format off

@@ -26,7 +26,7 @@ App::Application::Application(HMODULE aHandle, const RED4ext::v1::Sdk* aSdk)
 
     Register<App::TweakService>(Env::GameVer(), Env::GameDir(), Env::TweaksDir(),
                                 Env::InheritanceMapPath(), Env::ExtraFlatsPath(),
-                                Env::RedModSourcesDir());
+                                Env::RedModSourcesDir(), Env::RedscriptExportPath());
     Register<App::StatService>();
 }
 
@@ -34,5 +34,5 @@ void App::Application::OnStarting()
 {
     LogInfo("{} {} is starting...", Project::Name, Project::Version.to_string());
 
-    Migration::CleanUp(Env::LegacyScriptsDir());
+    Migration::CleanUp(Env::ScriptsDir(), Env::RedscriptExportPath());
 }

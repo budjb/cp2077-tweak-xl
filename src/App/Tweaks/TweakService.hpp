@@ -8,6 +8,7 @@
 #include "Core/Hooking/HookingAgent.hpp"
 #include "Core/Logging/LoggingAgent.hpp"
 #include "Core/Runtime/HostImage.hpp"
+#include "Record/RedscriptTypesExporter.hpp"
 #include "Record/ScriptableRecordManager.hpp"
 #include "Red/TweakDB/Manager.hpp"
 #include "Red/TweakDB/Raws.hpp"
@@ -25,7 +26,7 @@ public:
 
     TweakService(const Core::SemvVer& aProductVer, std::filesystem::path aGameDir, std::filesystem::path aTweaksDir,
                  std::filesystem::path aInheritanceMapPath, std::filesystem::path aExtraFlatsPath,
-                 std::filesystem::path aSourcesDir);
+                 std::filesystem::path aSourcesDir, std::filesystem::path aRedscriptExportPath);
 
     bool RegisterTweak(std::filesystem::path aPath);
     bool RegisterDirectory(std::filesystem::path aPath);
@@ -46,6 +47,7 @@ public:
 protected:
     void OnBootstrap() override;
     void CreateTweaksDir();
+    void CreateScriptsDir();
     void EnsureRuntimeAccess();
     void ApplyPatches();
     void InsertScriptableRecordDefaults();
@@ -57,6 +59,7 @@ protected:
     std::filesystem::path m_sourcesDir;
     std::filesystem::path m_inheritanceMapPath;
     std::filesystem::path m_extraFlatsPath;
+    std::filesystem::path m_redscriptExportPath;
     const Core::SemvVer& m_productVer;
     Core::Vector<std::filesystem::path> m_importPaths;
     Core::DeferredPtr<Red::TweakDBReflection> m_reflection;
@@ -66,5 +69,6 @@ protected:
     Core::SharedPtr<TweakContext> m_context;
     Core::SharedPtr<TweakImporter> m_importer;
     Core::SharedPtr<TweakExecutor> m_executor;
+    Core::SharedPtr<RedscriptTypesExporter> m_redscriptExporter;
 };
 } // namespace App

@@ -40,6 +40,8 @@ std::string CreateIgnoredPropertyName(const std::string& aName);
  */
 std::string CreateIgnoredPropertyName(const char* aName);
 
+std::array<uint64_t, 26> GetFlatTypes();
+
 /**
  * @brief Gets the RTTI type of a TweakDB flat type by its type hash if the hash represents a valid TweakDB flat type.
  *

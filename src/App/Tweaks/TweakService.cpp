@@ -8,19 +8,22 @@
 
 App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesystem::path aGameDir,
                                 std::filesystem::path aTweaksDir, std::filesystem::path aInheritanceMapPath,
-                                std::filesystem::path aExtraFlatsPath, std::filesystem::path aSourcesDir)
+                                std::filesystem::path aExtraFlatsPath, std::filesystem::path aSourcesDir,
+                                std::filesystem::path aRedscriptExportPath)
     : m_gameDir(std::move(aGameDir))
     , m_tweaksDir(std::move(aTweaksDir))
     , m_sourcesDir(std::move(aSourcesDir))
     , m_inheritanceMapPath(std::move(aInheritanceMapPath))
     , m_extraFlatsPath(std::move(aExtraFlatsPath))
+    , m_redscriptExportPath(std::move(aRedscriptExportPath))
     , m_productVer(aProductVer)
-    , m_manager(nullptr)
     , m_reflection(nullptr)
+    , m_manager(nullptr)
     , m_recordManager(Core::MakeShared<ScriptableRecordManager>(m_manager))
     , m_changelog(Core::MakeShared<TweakChangelog>())
     , m_context(Core::MakeShared<TweakContext>(aProductVer))
     , m_importer(Core::MakeShared<TweakImporter>(m_manager, m_reflection, m_recordManager, m_context))
+    , m_redscriptExporter(Core::MakeShared<RedscriptTypesExporter>(m_recordManager))
 {
     m_importPaths.push_back(m_tweaksDir);
 }
@@ -28,6 +31,7 @@ App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesyste
 void App::TweakService::OnBootstrap()
 {
     CreateTweaksDir();
+    CreateScriptsDir();
 
     SetupScriptableRecords();
 
@@ -38,8 +42,8 @@ void App::TweakService::OnBootstrap()
         {
             m_reflection = Core::MakeShared<Red::TweakDBReflection>(Red::TweakDB::Get());
             m_manager = Core::MakeShared<Red::TweakDBManager>(m_reflection);
-            m_executor = Core::MakeShared<App::TweakExecutor>(m_manager, m_reflection);
-            m_changelog = Core::MakeShared<App::TweakChangelog>();
+            m_executor = Core::MakeShared<TweakExecutor>(m_manager, m_reflection);
+            m_changelog = Core::MakeShared<TweakChangelog>();
 
             if (ImportMetadata())
             {
@@ -142,6 +146,22 @@ void App::TweakService::CreateTweaksDir()
         {
             LogWarning("Cannot create tweaks directory \"{}\": {}.",
                        std::filesystem::relative(m_tweaksDir, m_gameDir).string(), error.message());
+        }
+    }
+}
+
+void App::TweakService::CreateScriptsDir()
+{
+    std::error_code error;
+
+    const auto dir = m_redscriptExportPath.parent_path();
+
+    if (!std::filesystem::exists(dir, error))
+    {
+        if (!std::filesystem::create_directories(dir, error))
+        {
+            LogWarning("Cannot create scripts directory \"{}\": {}.",
+                       std::filesystem::relative(dir, m_gameDir).string(), error.message());
         }
     }
 }
@@ -255,5 +275,7 @@ void App::TweakService::SetupTweakImporter()
 
         m_recordManager->RegisterScriptableRecordSpecs();
         m_recordManager->DescribeScriptableRecordSpecs();
+
+        m_redscriptExporter->ExportRedscriptTypes(m_redscriptExportPath);
     }});
 }

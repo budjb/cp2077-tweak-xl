@@ -94,9 +94,15 @@ public:
     struct ScriptablePropertySpec
     {
         /**
-         * @brief The name of the property, adhering to typical TweakDB property naming conventions (camelCase).
+         * @brief The name of the property, typically camelCase or PascalCase.
          */
         std::string name;
+
+        /**
+         * @brief The name of the getter function to create for this property, which should be in PascalCase and
+         * typically match the property name but with the first letter capitalized.
+         */
+        std::string functionName;
 
         /**
          * @brief The CName of the property, which is used as the hash index when looking up properties in the record
@@ -225,6 +231,13 @@ public:
      * registered scriptable record specifications, their associated RTTI registrations, and active libFFI functions.
      */
     ~ScriptableRecordManager();
+
+    /**
+     * @brief Returns a vector containing shared pointers to all registered scriptable record specifications.
+     *
+     * @return A vector containing shared pointers to all registered scriptable record specifications.
+     */
+    Core::Vector<ScriptableRecordSpecPtr> GetRecordSpecs() const;
 
     /**
      * @brief Attempts to construct a scriptable record instance and insert it into the given TweakDB instance. This
@@ -364,14 +377,13 @@ private:
      * @param aClass The scriptable record class to which the property function will be added.
      * @param aName The name of the property function to create.
      * @param aContext The execution context to provide to the function invocation via the call stack.
-     * @param aFunc The actual function to invoke when the property function is called.
      * @param aCustomizer A function that receives the "native" CClassFunction after it is instantiated but before it is
      * registered and allows for configuration of the function, such as adding arguments and a return type.
      * @return A pointer to the created "script" function.
      */
+    template<auto AFunc>
     Red::CBaseFunction* CreateScriptFunction(ScriptableRecordClass* aClass, const std::string& aName,
-                                             const ContextPtr& aContext, const Red::ScriptingFunction_t<void*>& aFunc,
-                                             const FunctionCustomizer& aCustomizer);
+                                             const ContextPtr& aContext, const FunctionCustomizer& aCustomizer);
 
     // TODO: keep this?
     void LogPropertyFunction(const Red::CClassFunction* aFunc);

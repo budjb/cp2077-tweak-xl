@@ -4,6 +4,223 @@
 
 namespace App
 {
+void ScriptablePropertyHandler::RegisterFunctions()
+{
+    using namespace Red::TweakDBUtil;
+
+    for (const auto type : GetFlatTypes())
+    {
+        if (IsForeignKeyArray(type))
+        {
+        }
+        else if (IsForeignKey(type))
+        {
+        }
+        else if (IsResRefTokenArray(type))
+        {
+        }
+        else if (IsArrayType(type))
+        {
+        }
+        else
+        {
+            RegisterFunction<&ScriptablePropertyHandler::GetHandler>(
+                [type](Red::CGlobalFunction* func) { func->SetReturnType(type); });
+        }
+    }
+}
+
+void ScriptablePropertyHandler::GetRecordArrayHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                                      int64_t a4)
+{
+    Red::DynArray<Red::WeakHandle<Red::TweakDBRecord>>* outArray;
+    Red::GetParameter(aFrame, &outArray);
+
+    aFrame->code++; // Skip ParamEnd operand
+
+    const auto* context = GetContext(aFrame);
+
+    if (!aOut || !context)
+        return;
+
+    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+
+    *static_cast<RecordArray*>(aOut) = *GetRecordArray(flat, context);
+}
+
+void ScriptablePropertyHandler::GetArrayCountHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                                     int64_t a4)
+{
+    aFrame->code++; // Skip ParamEnd operand
+
+    const auto* context = GetContext(aFrame);
+
+    if (!aOut || !context)
+        return;
+
+    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+
+    *static_cast<int*>(aOut) = static_cast<int>(GetArrayCount(flat, context));
+}
+
+void ScriptablePropertyHandler::GetRecordItemHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                                     int64_t a4)
+{
+    int index;
+    Red::GetParameter(aFrame, &index);
+
+    aFrame->code++; // Skip ParamEnd operand
+
+    const auto* context = GetContext(aFrame);
+
+    if (!aOut || !context)
+        return;
+
+    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+
+    *static_cast<ScriptableRecordManager::RecordWHandle*>(aOut) = GetRecordItem(flat, context, index);
+}
+
+void ScriptablePropertyHandler::GetRecordItemHandleHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame,
+                                                           void* aOut, int64_t a4)
+{
+    int index;
+    Red::GetParameter(aFrame, &index);
+
+    aFrame->code++; // Skip ParamEnd operand
+
+    const auto* context = GetContext(aFrame);
+
+    if (!aOut || !context)
+        return;
+
+    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+
+    *static_cast<ScriptableRecordManager::RecordHandle*>(aOut) = GetRecordItemHandle(flat, context, index);
+}
+
+void ScriptablePropertyHandler::RecordArrayContainsHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame,
+                                                           void* aOut, int64_t a4)
+{
+    ScriptableRecordManager::RecordWHandle record;
+    Red::GetParameter(aFrame, &record);
+
+    aFrame->code++; // Skip ParamEnd operand
+
+    const auto* context = GetContext(aFrame);
+
+    if (!aOut || !context)
+        return;
+
+    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+
+    *static_cast<bool*>(aOut) = RecordArrayContains(flat, context, record);
+}
+
+void ScriptablePropertyHandler::GetRecordHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                                 int64_t a4)
+{
+    aFrame->code++; // Skip ParamEnd operand
+
+    const auto* context = GetContext(aFrame);
+
+    if (!aOut || !context)
+        return;
+
+    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+
+    *static_cast<ScriptableRecordManager::RecordWHandle*>(aOut) = GetRecord(flat, context);
+}
+
+void ScriptablePropertyHandler::GetRecordHandleHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame,
+                                                       void* aOut, int64_t a4)
+{
+    aFrame->code++; // Skip ParamEnd operand
+
+    const auto* context = GetContext(aFrame);
+
+    if (!aOut || !context)
+        return;
+
+    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+
+    *static_cast<ScriptableRecordManager::RecordHandle*>(aOut) = GetRecordHandle(flat, context);
+}
+
+void ScriptablePropertyHandler::GetArrayItemHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                                    int64_t a4)
+{
+    int index;
+    Red::GetParameter(aFrame, &index);
+
+    aFrame->code++; // Skip ParamEnd operand
+
+    const auto* context = GetContext(aFrame);
+
+    if (!aOut || !context)
+        return;
+
+    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+
+    if (flat.type != context->propSpec->flatType || flat.type->GetType() != Red::rtti::ERTTIType::Array)
+        return;
+
+    const auto* arrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(flat.type);
+    const auto* innerType = arrayType->GetInnerType();
+    const auto length = arrayType->GetLength(flat.instance);
+
+    if (index < 0 || index >= length)
+        return;
+
+    innerType->Assign(aOut, arrayType->GetElement(flat.instance, index));
+}
+
+void ScriptablePropertyHandler::ArrayContainsHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                                     int64_t a4)
+{
+    static constexpr uint32_t ContextOffset = OpSize + PtrSize + 1;
+    static constexpr uint32_t EndOffset = ContextOffset + PtrSize;
+
+    aFrame->code += ContextOffset;
+
+    const auto* context = GetContext(aFrame);
+
+    if (!aOut || !context)
+        return;
+
+    aFrame->code -= EndOffset;
+
+    const auto* arrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(context->propSpec->propertyType);
+    const auto* innerType = arrayType->GetInnerType();
+
+    const auto item = Red::MakeValue(innerType);
+    Red::GetParameter(aFrame, item->instance);
+
+    aFrame->code += EndOffset;
+
+    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+
+    *static_cast<bool*>(aOut) = ArrayContains(flat, context, item->instance);
+}
+
+void ScriptablePropertyHandler::GetHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                           int64_t a4)
+{
+    aFrame->code++;
+
+    const auto* context = GetContext(aFrame);
+
+    if (!aOut || !context)
+        return;
+
+    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+
+    if (flat.type == context->propSpec->propertyType)
+    {
+        flat.type->Assign(aOut, flat.instance);
+    }
+}
+
 Red::TweakDBID ScriptablePropertyHandler::GetFlatID(Red::Instance aInstance,
                                                     const ScriptableRecordManager::Context* aContext)
 {
@@ -201,196 +418,6 @@ const ScriptablePropertyHandler::Context* ScriptablePropertyHandler::GetContext(
     const auto* context = *reinterpret_cast<Context**>(aFrame->code);
     aFrame->code += sizeof(Context*); // Move past ctx pointer
     return context;
-}
-
-void ScriptablePropertyHandler::HandleGetRecordArray(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                     int64_t a4)
-{
-    Red::DynArray<Red::WeakHandle<Red::TweakDBRecord>>* outArray;
-    Red::GetParameter(aFrame, &outArray);
-
-    aFrame->code++; // Skip ParamEnd operand
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
-        return;
-
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
-
-    *static_cast<RecordArray*>(aOut) = *GetRecordArray(flat, context);
-}
-
-void ScriptablePropertyHandler::HandleGetArrayCount(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                    int64_t a4)
-{
-    aFrame->code++; // Skip ParamEnd operand
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
-        return;
-
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
-
-    *static_cast<int*>(aOut) = static_cast<int>(GetArrayCount(flat, context));
-}
-
-void ScriptablePropertyHandler::HandleGetRecordItem(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                    int64_t a4)
-{
-    int index;
-    Red::GetParameter(aFrame, &index);
-
-    aFrame->code++; // Skip ParamEnd operand
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
-        return;
-
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
-
-    *static_cast<ScriptableRecordManager::RecordWHandle*>(aOut) = GetRecordItem(flat, context, index);
-}
-
-void ScriptablePropertyHandler::HandleGetRecordItemHandle(Red::IScriptable* aInstance, Red::CStackFrame* aFrame,
-                                                          void* aOut, int64_t a4)
-{
-    int index;
-    Red::GetParameter(aFrame, &index);
-
-    aFrame->code++; // Skip ParamEnd operand
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
-        return;
-
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
-
-    *static_cast<ScriptableRecordManager::RecordHandle*>(aOut) = GetRecordItemHandle(flat, context, index);
-}
-
-void ScriptablePropertyHandler::HandleRecordArrayContains(Red::IScriptable* aInstance, Red::CStackFrame* aFrame,
-                                                          void* aOut, int64_t a4)
-{
-    ScriptableRecordManager::RecordWHandle record;
-    Red::GetParameter(aFrame, &record);
-
-    aFrame->code++; // Skip ParamEnd operand
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
-        return;
-
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
-
-    *static_cast<bool*>(aOut) = RecordArrayContains(flat, context, record);
-}
-
-void ScriptablePropertyHandler::HandleGetRecord(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                int64_t a4)
-{
-    aFrame->code++; // Skip ParamEnd operand
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
-        return;
-
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
-
-    *static_cast<ScriptableRecordManager::RecordWHandle*>(aOut) = GetRecord(flat, context);
-}
-
-void ScriptablePropertyHandler::HandleGetRecordHandle(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                      int64_t a4)
-{
-    aFrame->code++; // Skip ParamEnd operand
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
-        return;
-
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
-
-    *static_cast<ScriptableRecordManager::RecordHandle*>(aOut) = GetRecordHandle(flat, context);
-}
-
-void ScriptablePropertyHandler::HandleGetArrayItem(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                   int64_t a4)
-{
-    int index;
-    Red::GetParameter(aFrame, &index);
-
-    aFrame->code++; // Skip ParamEnd operand
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
-        return;
-
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
-
-    if (flat.type != context->propSpec->flatType || flat.type->GetType() != Red::rtti::ERTTIType::Array)
-        return;
-
-    const auto* arrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(flat.type);
-    const auto* innerType = arrayType->GetInnerType();
-    const auto length = arrayType->GetLength(flat.instance);
-
-    if (index < 0 || index >= length)
-        return;
-
-    innerType->Assign(aOut, arrayType->GetElement(flat.instance, index));
-}
-
-void ScriptablePropertyHandler::HandleArrayContains(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                    int64_t a4)
-{
-    static constexpr uint32_t ContextOffset = OpSize + PtrSize + 1;
-    static constexpr uint32_t EndOffset = ContextOffset + PtrSize;
-
-    aFrame->code += ContextOffset;
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
-        return;
-
-    aFrame->code -= EndOffset;
-
-    const auto* arrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(context->propSpec->propertyType);
-    const auto* innerType = arrayType->GetInnerType();
-
-    const auto item = Red::MakeValue(innerType);
-    Red::GetParameter(aFrame, item->instance);
-
-    aFrame->code += EndOffset;
-
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
-
-    *static_cast<bool*>(aOut) = ArrayContains(flat, context, item->instance);
-}
-
-void ScriptablePropertyHandler::HandleGet(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4)
-{
-    aFrame->code++;
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
-        return;
-
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
-
-    if (flat.type == context->propSpec->propertyType)
-    {
-        flat.type->Assign(aOut, flat.instance);
-    }
 }
 
 } // namespace App

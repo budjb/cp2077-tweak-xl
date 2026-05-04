@@ -1,0 +1,128 @@
+#pragma once
+
+#include "ScriptableRecordManager.hpp"
+#include <filesystem>
+#include <inja/inja.hpp>
+#include <nlohmann/json.hpp>
+
+namespace App
+{
+/**
+ * @brief The template for generating redscript class definitions for scriptable TweakDB records and functions for
+ * interacting with their properties. The generated functions vary based on the property's characteristics, such as
+ * whether it is an array, a foreign key, etc.
+ */
+static auto BaseRecordTemplate = R"RS(
+public abstract native class ScriptableTweakDBRecord extends TweakDBRecord {
+}
+)RS";
+
+// {% for prop in Properties %}
+// {% if prop.IsArray and prop.IsForeignKey %}
+// public native func {{ prop.Name }}(out outList: array<wref<{{ prop.ForeignType }}>>);
+// public native func Get{{ prop.Name }}Count() -> Int32;
+// public native func Get{{ prop.Name }}Item(index: Int32) -> wref<{{ prop.ForeignType }}>;
+// public native func Get{{ prop.Name }}ItemHandle(index: Int32) -> ref<{{ prop.ForeignType }}>;
+// public native func {{ prop.Name }}Contains(item: wref<{{ prop.ForeignType }}>) -> Bool;
+// {% else if prop.IsForeignKey %}
+// public native func {{ prop.Name }}() -> wref<{{ prop.ForeignType }}>;
+// public native func {{ prop.Name }}Handle() -> ref<{{ prop.ForeignType }}>;
+// {% else if prop.IsArray and prop.IsResRefTokenArray %}
+// public native func {{ prop.Name }}() -> array<ResRef>;
+// public native func Get{{ prop.Name }}Count() -> Int32;
+// public native func Get{{ prop.Name }}Item(index: Int32) -> ResRef;
+// {% else if prop.IsArray %}
+// public native func {{ prop.Name }}() -> array<{{ prop.ElementType }}>;
+// public native func Get{{ prop.Name }}Count() -> Int32;
+// public native func Get{{ prop.Name }}Item(index: Int32) -> {{ prop.ElementType }};
+// public native func {{ prop.Name }}Contains(item: {{ prop.ElementType }}) -> Bool;
+// {% else %}
+// public native func {{ prop.Name }}() -> {{ prop.Type }};
+// {% endif %}
+// {% endfor %}
+
+static auto ScriptableRecordTemplate = R"RS(
+public native class {{ TypeName }} extends {{ Parent }} {
+    {% for prop in Properties %}
+    {% if not prop.IsArray and not prop.IsForeignKey and not prop.IsResRefTokenArray %}
+    public func {{ prop.Name }}() -> {{ prop.Type }} {};
+    {% endif %}
+    {% endfor %}
+}
+)RS";
+
+/**
+ * @brief Provides functionality to export redscript class and property definitions for scriptable TweakDB records. This
+ * ensures that definitions are consistent with TweakXL and avoids requiring mod authors to define the definitions
+ * manually.
+ *
+ * Only scriptable TweakDB records and properties that have been successfully created will be exposed via redscript.
+ */
+class RedscriptTypesExporter : Core::LoggingAgent
+{
+public:
+    /**
+     * @brief Alias for the JSON type from the nlohmann/json library.
+     */
+    using Json = nlohmann::json;
+
+    /**
+     * @brief Constructs a new RedscriptTypesExporter instance with the given shared pointer to a
+     * ScriptableRecordManager. The ScriptableRecordManager is used to access scriptable record specs and their
+     * properties for redscript code generation.
+     *
+     * @param aRecordManager A shared pointer to the ScriptableRecordManager instance used to access scriptable record
+     * specs and their properties for redscript code generation.
+     */
+    explicit RedscriptTypesExporter(const Core::SharedPtr<ScriptableRecordManager>& aRecordManager);
+
+    /**
+     * @brief Exports redscript class and property definitions for the given vector of scriptable record specs to a file
+     * at the specified path. Only specs that have been successfully described will be exported.
+     *
+     * @param filePath The path to the file where the redscript definitions should be exported. If the file already
+     * exists, it will be overwritten.
+     * @return true if the export was successful, false otherwise.
+     */
+    void ExportRedscriptTypes(const std::filesystem::path& filePath);
+
+private:
+    /**
+     * @brief Converts the given scriptable record spec to a JSON representation that can be used for redscript code
+     * generation.
+     *
+     * @param aSpec The scriptable record spec to convert.
+     * @return A JSON object containing the converted scriptable record spec, or nullptr if the spec is not described.
+     */
+    [[nodiscard]] Json ToJson(const ScriptableRecordManager::ScriptableRecordSpecPtr& aSpec) const;
+
+    /**
+     * @brief Converts the given scriptable property spec to a JSON representation that can be used for redscript code
+     * generation.
+     *
+     * @param aSpec The scriptable property spec to convert.
+     * @return A JSON object containing the converted scriptable property spec, or nullptr if the spec is not described.
+     */
+    [[nodiscard]] Json ToJson(const ScriptableRecordManager::ScriptablePropertySpecPtr& aSpec) const;
+
+    std::string GetClassScriptName(const Red::CClass* aClass) const;
+
+    /**
+     * @brief The inja environment used for rendering the redscript code from the template.
+     */
+    inja::Environment m_env;
+
+    inja::Template m_baseTemplate;
+
+    /**
+     * @brief The parsed inja template used for generating the redscript code.
+     */
+    inja::Template m_recordTemplate;
+
+    /**
+     * @brief A shared pointer to the ScriptableRecordManager instance used to access scriptable record specs and their
+     * properties for redscript code generation.
+     */
+    Core::SharedPtr<ScriptableRecordManager> m_recordManager;
+};
+} // namespace App
