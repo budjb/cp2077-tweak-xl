@@ -369,21 +369,19 @@ private:
      * are reused across all scriptable record types, so execution context containing details of the property being
      * operated on must be provided to the invocation.
      *
-     * This function creates two class functions to implement the property getter: the "native" function which invokes
-     * the provided function, and a wrapping "script" function that proxies to the "native" function. Before invoking
+     * This function creates a wrapping "script" function that proxies to the given "native" function. Before invoking
      * the "native" function, the "script" function injects a pointer to the given execution context on the call stack
      * directly after the "ParamEnd" opcode.
      *
      * @param aClass The scriptable record class to which the property function will be added.
      * @param aName The name of the property function to create.
      * @param aContext The execution context to provide to the function invocation via the call stack.
-     * @param aCustomizer A function that receives the "native" CClassFunction after it is instantiated but before it is
-     * registered and allows for configuration of the function, such as adding arguments and a return type.
+     * @param aNativeFunc The native function that implements the logic of the property getter, which will be proxied to
+     * by the script function after the execution context is injected.
      * @return A pointer to the created "script" function.
      */
-    template<auto AFunc>
     Red::CBaseFunction* CreateScriptFunction(ScriptableRecordClass* aClass, const std::string& aName,
-                                             const ContextPtr& aContext, const FunctionCustomizer& aCustomizer);
+                                             const ContextPtr& aContext, Red::CGlobalFunction* aNativeFunc);
 
     // TODO: keep this?
     void LogPropertyFunction(const Red::CClassFunction* aFunc);
@@ -660,6 +658,8 @@ private:
      * @return
      */
     ScriptableRecordClass* CreateRecordClass(const ScriptableRecordSpecPtr& aSpec);
+
+    static void NoOpScriptFunction(Red::IScriptable*, Red::CStackFrame*, void*, int64_t);
 
 #ifndef NDEBUG
     /**

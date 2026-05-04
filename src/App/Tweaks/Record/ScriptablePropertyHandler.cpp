@@ -4,32 +4,6 @@
 
 namespace App
 {
-void ScriptablePropertyHandler::RegisterFunctions()
-{
-    using namespace Red::TweakDBUtil;
-
-    for (const auto type : GetFlatTypes())
-    {
-        if (IsForeignKeyArray(type))
-        {
-        }
-        else if (IsForeignKey(type))
-        {
-        }
-        else if (IsResRefTokenArray(type))
-        {
-        }
-        else if (IsArrayType(type))
-        {
-        }
-        else
-        {
-            RegisterFunction<&ScriptablePropertyHandler::GetHandler>(
-                [type](Red::CGlobalFunction* func) { func->SetReturnType(type); });
-        }
-    }
-}
-
 void ScriptablePropertyHandler::GetRecordArrayHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                                                       int64_t a4)
 {
