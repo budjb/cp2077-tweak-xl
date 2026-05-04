@@ -279,6 +279,19 @@ public:
     Red::CName RegisterScriptableRecordType(const std::string& aName,
                                             const std::optional<std::string>& aParentName = std::nullopt);
 
+    /**
+     * @brief Registers a scriptable property specification with a scriptable record type. This involves creating and
+     * registering RTTI functions for the property based on the provided specification.
+     *
+     * @param aRecordName The name of the scriptable record type to register the property with. This should correspond
+     * to the name of a registered scriptable record type.
+     * @param aPropertyName The name of the property to register.
+     * @param aTypeSpec The type specification of the property, containing both its TweakDB flat type details and the
+     * property type of the getter function.
+     * @param aDefaultValue The default value of the property that will be inherited by instances of the record type
+     * when no explicit value is provided for the instance.
+     * @return The CName of the registered property, or @c Red::CName::Empty if registration failed for any reason.
+     */
     Red::CName RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName,
                                           const TweakPropertySpecPtr& aTypeSpec,
                                           const Red::InstancePtr<>& aDefaultValue = nullptr);
@@ -319,6 +332,10 @@ public:
 #endif
 
 private:
+    /**
+     * @brief Defines a type alias for a function that receives a pointer to a CClassFunction and allows for
+     * customization of the function, such as adding arguments and a return type, before it is registered.
+     */
     using FunctionCustomizer = std::function<void(Red::CClassFunction*)>;
 
     /**

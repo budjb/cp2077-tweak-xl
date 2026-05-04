@@ -2,8 +2,38 @@
 
 #include "App/Tweaks/TweakPropertySpec.hpp"
 #include "App/Tweaks/TweakService.hpp"
+#include "ScriptablePropertyHandler.hpp"
 #include "ScriptableRecordClass.hpp"
 #include "ScriptableTweakDBRecord.hpp"
+
+namespace
+{
+constexpr auto arrayPrefix = Red::GetTypePrefixStr<Red::DynArray>();
+constexpr auto whandlePrefix = Red::GetTypePrefixStr<Red::WeakHandle>();
+constexpr auto handlePrefix = Red::GetTypePrefixStr<Red::Handle>();
+
+Red::rtti::IType* GetHandleType(const Red::CClass* aClass)
+{
+    std::string name = handlePrefix.data();
+    name.append(aClass->GetName().ToString());
+    return Red::CRTTISystem::Get()->GetType(Red::CNamePool::Add(name.c_str()));
+}
+
+Red::rtti::IType* GetWHandleType(const Red::CClass* aClass)
+{
+    std::string name = whandlePrefix.data();
+    name.append(aClass->GetName().ToString());
+    return Red::CRTTISystem::Get()->GetType(Red::CNamePool::Add(name.c_str()));
+}
+
+Red::rtti::IType* GetWHandleArrayType(const Red::CClass* aClass)
+{
+    std::string name = arrayPrefix.data();
+    name.append(whandlePrefix.data());
+    name.append(aClass->GetName().ToString());
+    return Red::CRTTISystem::Get()->GetType(Red::CNamePool::Add(name.c_str()));
+}
+} // namespace
 
 namespace App
 {
@@ -19,162 +49,6 @@ ScriptableRecordManager::~ScriptableRecordManager()
     {
         DeregisterScriptableRecord(spec);
     }
-}
-
-Red::CBaseFunction* ScriptableRecordManager::CreateScriptFunction(ScriptableRecordClass* aClass,
-                                                                  const std::string& aName, const ContextPtr& aContext,
-                                                                  const Red::ScriptingFunction_t<void*>& aFunc,
-                                                                  const FunctionCustomizer& aCustomizer)
-{
-    const std::string nativeName = Red::TweakDBUtil::CreateIgnoredPropertyName(aName);
-    auto* nativeFunc = Red::CClassFunction::Create(aClass, nativeName.c_str(), nativeName.c_str(), aFunc);
-    aCustomizer(nativeFunc);
-    aClass->RegisterFunction(nativeFunc);
-
-    const auto fullName = Red::Detail::MakeScriptFunctionName(nativeFunc, aName.c_str());
-    const auto scriptFunc = Red::CClassFunction::Create(aClass, fullName.c_str(), aName.c_str(), aFunc);
-    scriptFunc->params.Insert(scriptFunc->params.End(), nativeFunc->params.Begin(), nativeFunc->params.End());
-    scriptFunc->returnType = nativeFunc->returnType;
-    scriptFunc->flags = nativeFunc->flags;
-
-    const auto bytecode = CreateFunctionBytecode(aContext, nativeFunc);
-    scriptFunc->bytecode.bytecode.buffer.data = bytecode.data;
-    scriptFunc->bytecode.bytecode.buffer.size = bytecode.size;
-
-    scriptFunc->flags.isNative = false;
-    aClass->RegisterFunction(scriptFunc);
-
-    // TODO: keep this?
-    LogPropertyFunction(scriptFunc);
-
-    return scriptFunc;
-}
-
-// TODO: keep this?
-void ScriptableRecordManager::LogPropertyFunction(const Red::CClassFunction* aFunc)
-{
-    std::string args;
-
-    for (const auto arg : aFunc->params)
-    {
-        if (!args.empty())
-            args.append(", ");
-        args.append(GetFriendlyTypeName(arg->type));
-        args.append(" ");
-        args.append(arg->name.ToString());
-    }
-
-    std::string ret = aFunc->returnType ? GetFriendlyTypeName(aFunc->returnType->type) : "void";
-
-    LogDebug("Registered function '{} {}::{}({})", ret, GetFriendlyClassName(aFunc->parent),
-             aFunc->shortName.ToString(), args);
-}
-
-// TODO: keep this?
-std::string ScriptableRecordManager::GetFriendlyTypeName(const Red::CBaseRTTIType* aType)
-{
-    std::string name = aType->GetName().ToString();
-    bool isArray = false;
-    bool isFK = false;
-    bool isWeak = false;
-
-    if (name.starts_with("array:"))
-    {
-        isArray = true;
-        name.erase(0, std::strlen("array:"));
-    }
-
-    if (name.starts_with("handle:"))
-    {
-        isFK = true;
-        name.erase(0, std::strlen("handle:"));
-        name = Red::TweakDBUtil::GetRecordAliasName<std::string>(name);
-    }
-    else if (name.starts_with("whandle:"))
-    {
-        isFK = true;
-        isWeak = true;
-        name.erase(0, std::strlen("whandle:"));
-        name = Red::TweakDBUtil::GetRecordAliasName<std::string>(name);
-    }
-
-    if (isFK)
-    {
-        if (isWeak)
-            name = "wref<" + name + ">";
-        else
-            name = "ref<" + name + ">";
-    }
-
-    if (isArray)
-        name = "array<" + name + ">";
-
-    return name;
-}
-
-std::string ScriptableRecordManager::GetFriendlyClassName(const Red::CClass* aClass)
-{
-    return m_rtti->ConvertNativeToScriptName(aClass->GetName()).ToString();
-}
-
-Red::RawBuffer ScriptableRecordManager::CreateFunctionBytecode(const ContextPtr& aContext, Red::CBaseFunction* aFunc)
-{
-    constexpr uint8_t ParamOp = 25;
-    constexpr uint8_t CallStaticOp = 36;
-    constexpr uint8_t ParamEndOp = 38;
-    constexpr uint8_t ReturnOp = 39;
-    constexpr uint32_t OpSize = sizeof(char);
-    constexpr uint32_t OffsetSize = sizeof(uint16_t);
-    constexpr uint32_t FlagsSize = sizeof(uint16_t);
-    constexpr uint32_t PointerSize = sizeof(void*);
-    constexpr uint32_t BaseCodeSize = OpSize + OffsetSize * 2 + PointerSize + FlagsSize + OpSize;
-    constexpr uint16_t BaseExitOffset = BaseCodeSize - OpSize - OffsetSize;
-
-    const uint32_t extraCodeSize =
-        aFunc->params.Size() * (OpSize + PointerSize) + PointerSize + (aFunc->returnType ? 1 : 0);
-    const uint32_t finalCodeSize = BaseCodeSize + extraCodeSize;
-    const uint16_t finalExitOffset = BaseExitOffset + extraCodeSize;
-
-    constexpr Red::Memory::EngineAllocator allocator;
-    auto* memory = allocator.Alloc(finalCodeSize).memory;
-    auto* code = static_cast<uint8_t*>(memory);
-
-    if (aFunc->returnType)
-    {
-        *code = ReturnOp;
-        code += OpSize;
-    }
-
-    *code = CallStaticOp;
-    code += OpSize;
-
-    *reinterpret_cast<uint16_t*>(code) = finalExitOffset;
-    code += OffsetSize;
-
-    *reinterpret_cast<uint16_t*>(code) = 0;
-    code += OffsetSize;
-
-    *reinterpret_cast<void**>(code) = aFunc;
-    code += PointerSize;
-
-    *reinterpret_cast<uint16_t*>(code) = 0;
-    code += FlagsSize;
-
-    for (const auto& param : aFunc->params)
-    {
-        *code = ParamOp;
-        code += OpSize;
-
-        *reinterpret_cast<void**>(code) = param;
-        code += PointerSize;
-    }
-
-    *code = ParamEndOp;
-    code += OpSize;
-
-    *reinterpret_cast<const Context**>(code) = aContext.get();
-
-    return {memory, finalCodeSize};
 }
 
 bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, const uint32_t aHash,
@@ -307,6 +181,162 @@ void ScriptableRecordManager::InsertScriptableRecordDefaults()
     {
         InsertScriptableRecordDefaults(spec);
     }
+}
+
+Red::CBaseFunction* ScriptableRecordManager::CreateScriptFunction(ScriptableRecordClass* aClass,
+                                                                  const std::string& aName, const ContextPtr& aContext,
+                                                                  const Red::ScriptingFunction_t<void*>& aFunc,
+                                                                  const FunctionCustomizer& aCustomizer)
+{
+    const std::string nativeName = Red::TweakDBUtil::CreateIgnoredPropertyName(aName);
+    auto* nativeFunc = Red::CClassFunction::Create(aClass, nativeName.c_str(), nativeName.c_str(), aFunc);
+    aCustomizer(nativeFunc);
+    aClass->RegisterFunction(nativeFunc);
+
+    const auto fullName = Red::Detail::MakeScriptFunctionName(nativeFunc, aName.c_str());
+    const auto scriptFunc = Red::CClassFunction::Create(aClass, fullName.c_str(), aName.c_str(), aFunc);
+    scriptFunc->params.Insert(scriptFunc->params.End(), nativeFunc->params.Begin(), nativeFunc->params.End());
+    scriptFunc->returnType = nativeFunc->returnType;
+    scriptFunc->flags = nativeFunc->flags;
+
+    const auto bytecode = CreateFunctionBytecode(aContext, nativeFunc);
+    scriptFunc->bytecode.bytecode.buffer.data = bytecode.data;
+    scriptFunc->bytecode.bytecode.buffer.size = bytecode.size;
+
+    scriptFunc->flags.isNative = false;
+    aClass->RegisterFunction(scriptFunc);
+
+    // TODO: keep this?
+    LogPropertyFunction(scriptFunc);
+
+    return scriptFunc;
+}
+
+// TODO: keep this?
+void ScriptableRecordManager::LogPropertyFunction(const Red::CClassFunction* aFunc)
+{
+    std::string args;
+
+    for (const auto arg : aFunc->params)
+    {
+        if (!args.empty())
+            args.append(", ");
+        args.append(GetFriendlyTypeName(arg->type));
+        args.append(" ");
+        args.append(arg->name.ToString());
+    }
+
+    std::string ret = aFunc->returnType ? GetFriendlyTypeName(aFunc->returnType->type) : "void";
+
+    LogDebug("Registered function '{} {}::{}({})", ret, GetFriendlyClassName(aFunc->parent),
+             aFunc->shortName.ToString(), args);
+}
+
+// TODO: keep this?
+std::string ScriptableRecordManager::GetFriendlyTypeName(const RED4ext::rtti::IType* aType)
+{
+    std::string name = aType->GetName().ToString();
+    bool isArray = false;
+    bool isFK = false;
+    bool isWeak = false;
+
+    if (name.starts_with("array:"))
+    {
+        isArray = true;
+        name.erase(0, std::strlen("array:"));
+    }
+
+    if (name.starts_with("handle:"))
+    {
+        isFK = true;
+        name.erase(0, std::strlen("handle:"));
+        name = Red::TweakDBUtil::GetRecordAliasName<std::string>(name);
+    }
+    else if (name.starts_with("whandle:"))
+    {
+        isFK = true;
+        isWeak = true;
+        name.erase(0, std::strlen("whandle:"));
+        name = Red::TweakDBUtil::GetRecordAliasName<std::string>(name);
+    }
+
+    if (isFK)
+    {
+        if (isWeak)
+            name = "wref<" + name + ">";
+        else
+            name = "ref<" + name + ">";
+    }
+
+    if (isArray)
+        name = "array<" + name + ">";
+
+    return name;
+}
+
+std::string ScriptableRecordManager::GetFriendlyClassName(const Red::CClass* aClass)
+{
+    return m_rtti->ConvertNativeToScriptName(aClass->GetName()).ToString();
+}
+
+Red::RawBuffer ScriptableRecordManager::CreateFunctionBytecode(const ContextPtr& aContext, Red::CBaseFunction* aFunc)
+{
+    constexpr uint8_t ParamOp = 25;
+    constexpr uint8_t CallStaticOp = 36;
+    constexpr uint8_t ParamEndOp = 38;
+    constexpr uint8_t ReturnOp = 39;
+    constexpr uint32_t OpSize = sizeof(char);
+    constexpr uint32_t OffsetSize = sizeof(uint16_t);
+    constexpr uint32_t FlagsSize = sizeof(uint16_t);
+    constexpr uint32_t PointerSize = sizeof(void*);
+    constexpr uint32_t BaseCodeSize = OpSize + OffsetSize * 2 + PointerSize + FlagsSize + OpSize;
+    constexpr uint16_t BaseExitOffset = BaseCodeSize - OpSize - OffsetSize;
+
+    const uint32_t extraCodeSize =
+        aFunc->params.Size() * (OpSize + PointerSize) + PointerSize + (aFunc->returnType ? 1 : 0);
+    const uint32_t finalCodeSize = BaseCodeSize + extraCodeSize;
+    const uint16_t finalExitOffset = BaseExitOffset + extraCodeSize;
+
+    constexpr Red::Memory::EngineAllocator allocator;
+    auto* memory = allocator.Alloc(finalCodeSize).memory;
+    auto* code = static_cast<uint8_t*>(memory);
+
+    if (aFunc->returnType)
+    {
+        *code = ReturnOp;
+        code += OpSize;
+    }
+
+    *code = CallStaticOp;
+    code += OpSize;
+
+    *reinterpret_cast<uint16_t*>(code) = finalExitOffset;
+    code += OffsetSize;
+
+    *reinterpret_cast<uint16_t*>(code) = 0;
+    code += OffsetSize;
+
+    *reinterpret_cast<void**>(code) = aFunc;
+    code += PointerSize;
+
+    *reinterpret_cast<uint16_t*>(code) = 0;
+    code += FlagsSize;
+
+    for (const auto& param : aFunc->params)
+    {
+        *code = ParamOp;
+        code += OpSize;
+
+        *reinterpret_cast<void**>(code) = param;
+        code += PointerSize;
+    }
+
+    *code = ParamEndOp;
+    code += OpSize;
+
+    *reinterpret_cast<const Context**>(code) = aContext.get();
+
+    return {memory, finalCodeSize};
 }
 
 ScriptableRecordManager::ScriptableRecordSpecPtr ScriptableRecordManager::GetRecordSpec(Red::CName aName) const
@@ -479,8 +509,6 @@ bool ScriptableRecordManager::DeregisterScriptableRecord(const ScriptableRecordS
         return false;
     }
 
-    auto* type = aSpec->type;
-
     for (const auto& prop : aSpec->props | std::views::values)
     {
         prop->isDescribed = false;
@@ -595,5 +623,179 @@ void ScriptableRecordManager::TestScriptableRecord()
 }
 
 #endif
+
+void ScriptableRecordManager::CreateGetterFunctions(ScriptableRecordClass* aClass,
+                                                    const ScriptablePropertySpecPtr& aSpec)
+{
+    const auto context = Core::MakeShared<Context>();
+
+    context->appendix = aSpec->appendix;
+    context->propSpec = aSpec->typeSpec;
+    context->recordManager = ToShared();
+    context->tweakManager = m_tweakManager;
+
+    {
+        std::unique_lock lockRW(m_contextsMutex);
+        m_contexts[aClass->name][aSpec->cname] = context;
+    }
+
+    const auto typeSpec = aSpec->typeSpec;
+    const auto name = Red::TweakDBUtil::Capitalize(aSpec->name);
+
+    if (typeSpec->isArray && typeSpec->isForeignKey)
+    {
+        CreateGetRecords(aClass, name, context);
+        CreateGetArrayCount(aClass, name, context);
+        CreateGetRecordItem(aClass, name, context);
+        CreateGetRecordItemHandle(aClass, name, context);
+        CreateRecordArrayContains(aClass, name, context);
+    }
+    else if (typeSpec->isForeignKey)
+    {
+        CreateGetRecord(aClass, name, context);
+        CreateGetRecordHandle(aClass, name, context);
+    }
+    else if (typeSpec->isArray && Red::TweakDBUtil::IsResRefTokenArray(typeSpec->propertyTypeName))
+    {
+        CreateGet(aClass, name, context);
+        CreateGetArrayCount(aClass, name, context);
+        CreateGetArrayItem(aClass, name, context);
+    }
+    else if (typeSpec->isArray)
+    {
+        CreateGet(aClass, name, context);
+        CreateGetArrayCount(aClass, name, context);
+        CreateGetArrayItem(aClass, name, context);
+        CreateArrayContains(aClass, name, context);
+    }
+    else
+    {
+        CreateGet(aClass, name, context);
+    }
+}
+
+void ScriptableRecordManager::CreateGetRecords(ScriptableRecordClass* aClass, const std::string& aName,
+                                               const ContextPtr& aContext)
+{
+    const FunctionCustomizer customizer = [aContext](Red::CClassFunction* func) {
+        func->AddParam(GetWHandleArrayType(aContext->propSpec->foreignType)->GetName(), "outList", true, false);
+    };
+
+    CreateScriptFunction(aClass, aName, aContext, &ScriptablePropertyHandler::HandleGetRecordArray, customizer);
+}
+
+void ScriptableRecordManager::CreateGetRecordItem(ScriptableRecordClass* aClass, const std::string& aName,
+                                                  const ContextPtr& aContext)
+{
+    const std::string name = "Get" + aName + "Item";
+
+    const FunctionCustomizer customizer = [aContext](Red::CClassFunction* func) {
+        func->AddParam(Red::GetTypeName<int>(), "index", false, false);
+        func->SetReturnType(GetWHandleType(aContext->propSpec->foreignType)->GetName());
+    };
+
+    CreateScriptFunction(aClass, name, aContext, &ScriptablePropertyHandler::HandleGetRecordItem, customizer);
+}
+
+void ScriptableRecordManager::CreateGetRecordItemHandle(ScriptableRecordClass* aClass, const std::string& aName,
+                                                        const ContextPtr& aContext)
+{
+    const std::string name = "Get" + aName + "ItemHandle";
+
+    const FunctionCustomizer customizer = [aContext](Red::CClassFunction* func) {
+        func->AddParam(Red::GetTypeName<int>(), "index", false, false);
+        func->SetReturnType(GetHandleType(aContext->propSpec->foreignType)->GetName());
+    };
+
+    CreateScriptFunction(aClass, name, aContext, &ScriptablePropertyHandler::HandleGetRecordItemHandle, customizer);
+}
+
+void ScriptableRecordManager::CreateRecordArrayContains(ScriptableRecordClass* aClass, const std::string& aName,
+                                                        const ContextPtr& aContext)
+{
+    const std::string name = aName + "Contains";
+
+    const FunctionCustomizer customizer = [aContext](Red::CClassFunction* func) {
+        func->AddParam(GetWHandleType(aContext->propSpec->foreignType)->GetName(), "item", false, false);
+        func->SetReturnType(Red::GetTypeName<bool>());
+    };
+
+    CreateScriptFunction(aClass, name, aContext, &ScriptablePropertyHandler::HandleRecordArrayContains, customizer);
+}
+
+void ScriptableRecordManager::CreateGetRecord(ScriptableRecordClass* aClass, const std::string& aName,
+                                              const ContextPtr& aContext)
+{
+    const std::string& name = aName;
+
+    const FunctionCustomizer customizer = [aContext](Red::CClassFunction* func) {
+        func->SetReturnType(GetWHandleType(aContext->propSpec->foreignType)->GetName());
+    };
+
+    CreateScriptFunction(aClass, name, aContext, &ScriptablePropertyHandler::HandleGetRecord, customizer);
+}
+
+void ScriptableRecordManager::CreateGetRecordHandle(ScriptableRecordClass* aClass, const std::string& aName,
+                                                    const ContextPtr& aContext)
+{
+    const std::string name = aName + "Handle";
+
+    const FunctionCustomizer customizer = [aContext](Red::CClassFunction* func) {
+        func->SetReturnType(GetHandleType(aContext->propSpec->foreignType)->GetName());
+    };
+
+    CreateScriptFunction(aClass, name, aContext, &ScriptablePropertyHandler::HandleGetRecordHandle, customizer);
+}
+
+void ScriptableRecordManager::CreateGetArrayCount(ScriptableRecordClass* aClass, const std::string& aName,
+                                                  const ContextPtr& aContext)
+{
+    const std::string name = "Get" + aName + "Count";
+
+    const FunctionCustomizer customizer = [](Red::CClassFunction* func) {
+        func->SetReturnType(Red::GetTypeName<int>());
+    };
+
+    CreateScriptFunction(aClass, name, aContext, &ScriptablePropertyHandler::HandleGetArrayCount, customizer);
+}
+
+void ScriptableRecordManager::CreateGetArrayItem(ScriptableRecordClass* aClass, const std::string& aName,
+                                                 const ContextPtr& aContext)
+{
+    const std::string name = "Get" + aName + "Item";
+
+    const FunctionCustomizer customizer = [aContext](Red::CClassFunction* func) {
+        func->AddParam(Red::GetTypeName<int>(), "index", false, false);
+        func->SetReturnType(aContext->propSpec->propertyType->GetName());
+    };
+
+    CreateScriptFunction(aClass, name, aContext, &ScriptablePropertyHandler::HandleGetArrayItem, customizer);
+}
+
+void ScriptableRecordManager::CreateArrayContains(ScriptableRecordClass* aClass, const std::string& aName,
+                                                  const ContextPtr& aContext)
+{
+    const std::string name = aName + "Contains";
+
+    const FunctionCustomizer customizer = [aContext](Red::CClassFunction* func) {
+        const auto* arrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(aContext->propSpec->propertyType);
+        func->AddParam(arrayType->GetInnerType()->GetName(), "item", false, false);
+        func->SetReturnType(Red::GetTypeName<bool>());
+    };
+
+    CreateScriptFunction(aClass, name, aContext, &ScriptablePropertyHandler::HandleArrayContains, customizer);
+}
+
+void ScriptableRecordManager::CreateGet(ScriptableRecordClass* aClass, const std::string& aName,
+                                        const ContextPtr& aContext)
+{
+    const std::string& name = aName;
+
+    const FunctionCustomizer customizer = [aContext](Red::CClassFunction* func) {
+        func->SetReturnType(aContext->propSpec->propertyType->GetName());
+    };
+
+    CreateScriptFunction(aClass, name, aContext, &ScriptablePropertyHandler::HandleGet, customizer);
+}
 
 } // namespace App
