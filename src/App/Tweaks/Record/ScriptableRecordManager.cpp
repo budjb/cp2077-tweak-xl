@@ -675,7 +675,7 @@ void ScriptableRecordManager::CreateGetRecords(ScriptableRecordClass* aClass, co
                                                const ContextPtr& aContext)
 {
     using Handlers = ScriptablePropertyHandler;
-    CreateScriptFunction(aClass, aName, aContext, Handlers::CreateGetRecordsFunction(aContext->propSpec->foreignType));
+    CreateScriptFunction(aClass, aName, aContext, Handlers::CreateGetRecordsFunction());
 }
 
 void ScriptableRecordManager::CreateGetRecordItem(ScriptableRecordClass* aClass, const std::string& aName,
@@ -683,8 +683,7 @@ void ScriptableRecordManager::CreateGetRecordItem(ScriptableRecordClass* aClass,
 {
     using Handlers = ScriptablePropertyHandler;
     const std::string name = "Get" + aName + "Item";
-    CreateScriptFunction(aClass, name, aContext,
-                         Handlers::CreateGetRecordItemFunction(aContext->propSpec->foreignType));
+    CreateScriptFunction(aClass, name, aContext, Handlers::CreateGetRecordItemFunction());
 }
 
 void ScriptableRecordManager::CreateGetRecordItemHandle(ScriptableRecordClass* aClass, const std::string& aName,
@@ -692,8 +691,7 @@ void ScriptableRecordManager::CreateGetRecordItemHandle(ScriptableRecordClass* a
 {
     using Handlers = ScriptablePropertyHandler;
     const std::string name = "Get" + aName + "ItemHandle";
-    CreateScriptFunction(aClass, name, aContext,
-                         Handlers::CreateGetRecordItemHandleFunction(aContext->propSpec->foreignType));
+    CreateScriptFunction(aClass, name, aContext, Handlers::CreateGetRecordItemHandleFunction());
 }
 
 void ScriptableRecordManager::CreateRecordArrayContains(ScriptableRecordClass* aClass, const std::string& aName,
@@ -701,8 +699,7 @@ void ScriptableRecordManager::CreateRecordArrayContains(ScriptableRecordClass* a
 {
     using Handlers = ScriptablePropertyHandler;
     const std::string name = aName + "Contains";
-    CreateScriptFunction(aClass, name, aContext,
-                         Handlers::CreateRecordArrayContainsFunction(aContext->propSpec->foreignType));
+    CreateScriptFunction(aClass, name, aContext, Handlers::CreateRecordArrayContainsFunction());
 }
 
 void ScriptableRecordManager::CreateGetRecord(ScriptableRecordClass* aClass, const std::string& aName,
@@ -710,7 +707,7 @@ void ScriptableRecordManager::CreateGetRecord(ScriptableRecordClass* aClass, con
 {
     using Handlers = ScriptablePropertyHandler;
     const std::string& name = aName;
-    CreateScriptFunction(aClass, name, aContext, Handlers::CreateGetRecordFunction(aContext->propSpec->foreignType));
+    CreateScriptFunction(aClass, name, aContext, Handlers::CreateGetRecordFunction());
 }
 
 void ScriptableRecordManager::CreateGetRecordHandle(ScriptableRecordClass* aClass, const std::string& aName,
@@ -718,8 +715,7 @@ void ScriptableRecordManager::CreateGetRecordHandle(ScriptableRecordClass* aClas
 {
     using Handlers = ScriptablePropertyHandler;
     const std::string name = aName + "Handle";
-    CreateScriptFunction(aClass, name, aContext,
-                         Handlers::CreateGetRecordHandleFunction(aContext->propSpec->foreignType));
+    CreateScriptFunction(aClass, name, aContext, Handlers::CreateGetRecordHandleFunction());
 }
 
 void ScriptableRecordManager::CreateGetArrayCount(ScriptableRecordClass* aClass, const std::string& aName,
@@ -735,8 +731,7 @@ void ScriptableRecordManager::CreateGetArrayItem(ScriptableRecordClass* aClass, 
 {
     using Handlers = ScriptablePropertyHandler;
     const std::string name = "Get" + aName + "Item";
-    CreateScriptFunction(aClass, name, aContext,
-                         Handlers::CreateGetArrayItemFunction(aContext->propSpec->propertyTypeName));
+    CreateScriptFunction(aClass, name, aContext, Handlers::CreateGetArrayItemFunction());
 }
 
 void ScriptableRecordManager::CreateArrayContains(ScriptableRecordClass* aClass, const std::string& aName,
@@ -744,8 +739,7 @@ void ScriptableRecordManager::CreateArrayContains(ScriptableRecordClass* aClass,
 {
     using Handlers = ScriptablePropertyHandler;
     const std::string name = aName + "Contains";
-    CreateScriptFunction(aClass, name, aContext,
-                         Handlers::CreateArrayContainsFunction(aContext->propSpec->propertyTypeName));
+    CreateScriptFunction(aClass, name, aContext, Handlers::CreateArrayContainsFunction());
 }
 
 void ScriptableRecordManager::CreateGet(ScriptableRecordClass* aClass, const std::string& aName,
@@ -753,7 +747,7 @@ void ScriptableRecordManager::CreateGet(ScriptableRecordClass* aClass, const std
 {
     using Handlers = ScriptablePropertyHandler;
     const std::string& name = aName;
-    CreateScriptFunction(aClass, name, aContext, Handlers::CreateGetFunction(aContext->propSpec->propertyTypeName));
+    CreateScriptFunction(aClass, name, aContext, Handlers::CreateGetFunction());
 }
 
 } // namespace App

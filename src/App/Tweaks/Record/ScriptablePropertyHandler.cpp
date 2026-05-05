@@ -4,6 +4,156 @@
 
 namespace App
 {
+Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetRecordsFunction()
+{
+    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecords";
+    static Red::CRTTISystem* rtti = Red::CRTTISystem::Get();
+    static Red::CGlobalFunction* function;
+
+    if (!function)
+    {
+        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordArrayHandler);
+        rtti->RegisterFunction(function);
+    }
+
+    return function;
+}
+
+Red::CGlobalFunction* ScriptablePropertyHandler::CreateRecordArrayContainsFunction()
+{
+    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_RecordArrayContains";
+    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
+    static Red::CGlobalFunction* function;
+
+    if (!function)
+    {
+        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &RecordArrayContainsHandler);
+        rtti->RegisterFunction(function);
+    }
+
+    return function;
+}
+
+Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetRecordItemFunction()
+{
+    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecordItem";
+    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
+    static Red::CGlobalFunction* function;
+
+    if (!function)
+    {
+        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordItemHandler);
+        rtti->RegisterFunction(function);
+    }
+
+    return function;
+}
+
+Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetRecordItemHandleFunction()
+{
+    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecordItemHandle";
+    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
+    static Red::CGlobalFunction* function;
+
+    if (!function)
+    {
+        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordHandleHandler);
+        rtti->RegisterFunction(function);
+    }
+
+    return function;
+}
+
+Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetRecordFunction()
+{
+    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecord";
+    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
+    static Red::CGlobalFunction* function;
+
+    if (!function)
+    {
+        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordHandler);
+        rtti->RegisterFunction(function);
+    }
+
+    return function;
+}
+
+Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetRecordHandleFunction()
+{
+    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecordHandle";
+    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
+    static Red::CGlobalFunction* function;
+
+    if (!function)
+    {
+        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordHandleHandler);
+        rtti->RegisterFunction(function);
+    }
+
+    return function;
+}
+
+Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetFunction()
+{
+    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_Get";
+    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
+    static Red::CGlobalFunction* function;
+
+    if (!function)
+    {
+        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetHandler);
+        rtti->RegisterFunction(function);
+    }
+
+    return function;
+}
+
+Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetArrayCountFunction()
+{
+    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetArrayCount";
+    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
+    static Red::CGlobalFunction* function;
+
+    if (!function)
+    {
+        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetArrayCountHandler);
+        rtti->RegisterFunction(function);
+    }
+
+    return function;
+}
+
+Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetArrayItemFunction()
+{
+    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetArrayItem";
+    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
+    static Red::CGlobalFunction* function;
+
+    if (!function)
+    {
+        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetArrayItemHandler);
+        rtti->RegisterFunction(function);
+    }
+
+    return function;
+}
+
+Red::CGlobalFunction* ScriptablePropertyHandler::CreateArrayContainsFunction()
+{
+    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_ArrayContains";
+    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
+    static Red::CGlobalFunction* function;
+
+    if (!function)
+    {
+        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &ArrayContainsHandler);
+        rtti->RegisterFunction(function);
+    }
+
+    return function;
+}
+
 void ScriptablePropertyHandler::GetRecordArrayHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                                                       int64_t a4)
 {

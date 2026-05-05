@@ -387,7 +387,7 @@ private:
     void LogPropertyFunction(const Red::CClassFunction* aFunc);
 
     // TODO: keep this?
-    std::string GetFriendlyTypeName(const Red::CBaseRTTIType* aType);
+    std::string GetFriendlyTypeName(const RED4ext::rtti::IType* aType);
 
     // TODO: keep this?
     std::string GetFriendlyClassName(const Red::CClass* aClass);

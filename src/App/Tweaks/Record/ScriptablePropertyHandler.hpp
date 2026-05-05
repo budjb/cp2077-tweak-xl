@@ -60,31 +60,12 @@ public:
      * represent arrays of foreign keys to other TweakDB record types.
      *
      * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function. Native functions that return the same TweakDB record type will be reused for
-     * all properties of that type.
+     * stack via a wrapper script function.
      *
-     * @param aClass The class type of the TweakDB record pointed to by the foreign key.
      * @return A pointer to the created native function that retrieves an array of related records based on a foreign
      * key relationship.
      */
-    static Red::CGlobalFunction* CreateGetRecordsFunction(const Red::CClass* aClass)
-    {
-        static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-
-        const auto* type = GetWHandleArrayType(aClass);
-        const std::string name = GetFunctionName("GetRecords", std::nullopt, type->GetName());
-
-        if (auto* func = GetFunction(name.c_str()))
-            return func;
-
-        auto* func = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordArrayHandler);
-        func->AddParam(type->GetName(), "outList", true, false);
-        rtti->RegisterFunction(func);
-
-        AddFunction(func->shortName, func);
-
-        return func;
-    }
+    static Red::CGlobalFunction* CreateGetRecordsFunction();
 
     /**
      * @brief Creates and registers the native function for a scriptable record property that checks whether a given
@@ -93,66 +74,25 @@ public:
      * keys to other TweakDB record types.
      *
      * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function. Native functions that accept the same TweakDB record type will be reused for
-     * all properties of that type.
+     * stack via a wrapper script function.
      *
-     * @param aClass The class type of the TweakDB record pointed to by the foreign key.
      * @return A pointer to the created native function that checks whether a given weak handle to a TweakDB instance is
      * contained in the array of related records based on a foreign key relationship.
      */
-    static Red::CGlobalFunction* CreateRecordArrayContainsFunction(const Red::CClass* aClass)
-    {
-        static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-        static constexpr auto boolName = Red::CName{Red::ERTDBFlatType::Bool};
+    static Red::CGlobalFunction* CreateRecordArrayContainsFunction();
 
-        const auto* type = GetWHandleType(aClass);
-        const std::string name = GetFunctionName("RecordArrayContains", boolName, type->GetName());
-
-        if (auto* func = GetFunction(name.c_str()))
-            return func;
-
-        auto* func = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &RecordArrayContainsHandler);
-        func->AddParam(type->GetName(), "item", false, false);
-        func->SetReturnType(boolName);
-        rtti->RegisterFunction(func);
-
-        AddFunction(func->shortName, func);
-
-        return func;
-    }
     /**
      * @brief Creates and registers the native function for a scriptable record property that retrieves an individual
      * related record based on a foreign key relationship from an array. This function implements the getter for
      * properties that represent foreign keys to other TweakDB record types.
      *
      * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function. Native functions that return the same TweakDB record type will be reused for
-     * all properties of that type.
+     * stack via a wrapper script function.
      *
-     * @param aClass The class type of the TweakDB record pointed to by the foreign key.
      * @return A pointer to the created native function that retrieves an individual related record based on a foreign
      * key relationship from an array.
      */
-    static Red::CGlobalFunction* CreateGetRecordItemFunction(const Red::CClass* aClass)
-    {
-        static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-        static constexpr auto intName = Red::CName{Red::ERTDBFlatType::Int};
-
-        const auto* type = GetWHandleType(aClass);
-        const std::string name = GetFunctionName("GetRecordItem", type->GetName(), intName);
-
-        if (auto* func = GetFunction(name.c_str()))
-            return func;
-
-        auto* func = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordItemHandler);
-        func->AddParam(intName, "item", false, false);
-        func->SetReturnType(type->GetName());
-        rtti->RegisterFunction(func);
-
-        AddFunction(func->shortName, func);
-
-        return func;
-    }
+    static Red::CGlobalFunction* CreateGetRecordItemFunction();
 
     /**
      * @brief Creates and registers the native function for a scriptable record property that retrieves an individual
@@ -160,64 +100,25 @@ public:
      * properties that represent foreign keys to other TweakDB record types when a stronger reference is needed.
      *
      * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function. Native functions that return the same TweakDB record type will be reused for
-     * all properties of that type.
+     * stack via a wrapper script function.
      *
-     * @param aClass The class type of the TweakDB record pointed to by the foreign key.
      * @return A pointer to the created native function that retrieves an individual related record based on a foreign
      * key relationship from an array.
      */
-    static Red::CGlobalFunction* CreateGetRecordItemHandleFunction(const Red::CClass* aClass)
-    {
-        static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-        static constexpr auto intName = Red::CName{Red::ERTDBFlatType::Int};
+    static Red::CGlobalFunction* CreateGetRecordItemHandleFunction();
 
-        const auto* type = GetHandleType(aClass);
-        const std::string name = GetFunctionName("GetRecordItemHandle", type->GetName(), intName);
-
-        if (auto* func = GetFunction(name.c_str()))
-            return func;
-
-        auto* func = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordHandleHandler);
-        func->AddParam(intName, "item", false, false);
-        func->SetReturnType(type->GetName());
-        rtti->RegisterFunction(func);
-
-        AddFunction(func->shortName, func);
-
-        return func;
-    }
     /**
      * @brief Creates and registers the native function for a scriptable record property that retrieves a related record
      * based on a foreign key relationship. This function implements the getter for properties that represent foreign
      * keys to other TweakDB record types.
      *
      * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function. Native functions that return the same TweakDB record type will be reused for
-     * all properties of that type.
+     * stack via a wrapper script function.
      *
-     * @param aClass The class type of the TweakDB record pointed to by the foreign key.
      * @return A pointer to the created native function that retrieves a related record based on a foreign key
      * relationship.
      */
-    static Red::CGlobalFunction* CreateGetRecordFunction(const Red::CClass* aClass)
-    {
-        static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-
-        const auto* type = GetWHandleType(aClass);
-        const std::string name = GetFunctionName("GetRecord", type->GetName());
-
-        if (auto* func = GetFunction(name.c_str()))
-            return func;
-
-        auto* func = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordHandler);
-        func->SetReturnType(type->GetName());
-        rtti->RegisterFunction(func);
-
-        AddFunction(func->shortName, func);
-
-        return func;
-    }
+    static Red::CGlobalFunction* CreateGetRecordFunction();
 
     /**
      * @brief Creates and registers the native function for a scriptable record property that retrieves a related record
@@ -225,31 +126,12 @@ public:
      * keys to other TweakDB record types when a stronger reference is needed.
      *
      * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function. Native functions that return the same TweakDB record type will be reused for
-     * all properties of that type.
+     * stack via a wrapper script function.
      *
-     * @param aClass The class type of the TweakDB record pointed to by the foreign key.
      * @return A pointer to the created native function that retrieves a related record based on a foreign key
      * relationship.
      */
-    static Red::CGlobalFunction* CreateGetRecordHandleFunction(const Red::CClass* aClass)
-    {
-        static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-
-        const auto* type = GetHandleType(aClass);
-        const std::string name = GetFunctionName("GetRecordHandle", type->GetName());
-
-        if (auto* func = GetFunction(name.c_str()))
-            return func;
-
-        auto* func = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordHandleHandler);
-        func->SetReturnType(type->GetName());
-        rtti->RegisterFunction(func);
-
-        AddFunction(func->shortName, func);
-
-        return func;
-    }
+    static Red::CGlobalFunction* CreateGetRecordHandleFunction();
 
     /**
      * @brief Creates and registers the native function for a scriptable record property that retrieves the property's
@@ -257,58 +139,23 @@ public:
      * arrays, but is not intended for use with foreign keys to other TweakDB records.
      *
      * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function. Native functions that return the same type will be reused for all properties
-     * of that type.
+     * stack via a wrapper script function.
      *
-     * @param aType The hash of the property type to retrieve from TweakDB and return.
      * @return A pointer to the created native function that retrieves a property value from TweakDB.
      */
-    static Red::CGlobalFunction* CreateGetFunction(const Red::CName aType)
-    {
-        static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-
-        const std::string name = GetFunctionName("Get", aType);
-
-        if (auto* func = GetFunction(name.c_str()))
-            return func;
-
-        auto* func = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetHandler);
-        func->SetReturnType(aType);
-        rtti->RegisterFunction(func);
-
-        AddFunction(func->shortName, func);
-
-        return func;
-    }
+    static Red::CGlobalFunction* CreateGetFunction();
 
     /**
      * @brief Creates and registers the native function for a scriptable record property that retrieves the number of
      * elements in an array property from TweakDB. This function is suitable for use with any type of array property.
      *
      * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function. This native function will be reused for all array properties regardless of
-     * their element type.
+     * stack via a wrapper script function.
      *
      * @return A pointer to the created native function that retrieves the number of elements in an array property from
      * TweakDB.
      */
-    static Red::CGlobalFunction* CreateGetArrayCountFunction()
-    {
-        static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-
-        const std::string name = GetFunctionName("GetArrayCount", Red::ERTDBFlatType::Int);
-
-        if (auto* func = GetFunction(name.c_str()))
-            return func;
-
-        auto* func = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetArrayCountHandler);
-        func->SetReturnType(Red::ERTDBFlatType::Int);
-        rtti->RegisterFunction(func);
-
-        AddFunction(func->shortName, func);
-
-        return func;
-    }
+    static Red::CGlobalFunction* CreateGetArrayCountFunction();
 
     /**
      * @brief Creates and registers the native function for a scriptable record property that retrieves an individual
@@ -316,37 +163,12 @@ public:
      * array property other than arrays of foreign keys to other TweakDB records.
      *
      * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function. Native functions that return the same type will be reused for all properties
-     * of that type.
+     * stack via a wrapper script function.
      *
-     * @param aType The hash of the property type of the array item to retrieve from TweakDB and return.
      * @return A pointer to the created native function that retrieves an individual item from an array property based
      * on its index from TweakDB.
      */
-    static Red::CGlobalFunction* CreateGetArrayItemFunction(const Red::CName aType)
-    {
-        static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-        static constexpr auto intName = Red::CName{Red::ERTDBFlatType::Int};
-
-        auto type = aType;
-
-        if (Red::TweakDBUtil::IsArrayType(type))
-            type = Red::TweakDBUtil::GetElementTypeName(type);
-
-        const std::string name = GetFunctionName("GetArrayItem", type, intName);
-
-        if (auto* func = GetFunction(name.c_str()))
-            return func;
-
-        auto* func = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetArrayItemHandler);
-        func->AddParam(intName, "index", false, false);
-        func->SetReturnType(type);
-        rtti->RegisterFunction(func);
-
-        AddFunction(func->shortName, func);
-
-        return func;
-    }
+    static Red::CGlobalFunction* CreateGetArrayItemFunction();
 
     /**
      * @brief Creates and registers the native function for a scriptable record property that checks whether a given
@@ -354,38 +176,12 @@ public:
      * property other than arrays of foreign keys to other TweakDB records.
      *
      * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function. Native functions that accept the same type will be reused for all properties
-     * of that type.
+     * stack via a wrapper script function.
      *
-     * @param aType The hash of the property type of the item to check for containment in the array property from
-     * TweakDB.
      * @return A pointer to the created native function that checks whether a given item is contained in an array
      * property from TweakDB.
      */
-    static Red::CGlobalFunction* CreateArrayContainsFunction(const Red::CName aType)
-    {
-        static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-        static constexpr auto boolName = Red::CName{Red::ERTDBFlatType::Bool};
-
-        auto type = aType;
-
-        if (Red::TweakDBUtil::IsArrayType(type))
-            type = Red::TweakDBUtil::GetElementTypeName(type);
-
-        const std::string name = GetFunctionName("ArrayContains", boolName, type);
-
-        if (auto* func = GetFunction(name.c_str()))
-            return func;
-
-        auto* func = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &ArrayContainsHandler);
-        func->AddParam(type, "item", false, false);
-        func->SetReturnType(boolName);
-        rtti->RegisterFunction(func);
-
-        AddFunction(func->shortName, func);
-
-        return func;
-    }
+    static Red::CGlobalFunction* CreateArrayContainsFunction();
 
     /**
      * @brief Handles the retrieval of an array of foreign keys to other TweakDB record instances from a scriptable
@@ -534,54 +330,6 @@ private:
      */
     static constexpr auto PtrSize = sizeof(void*);
 
-    static constexpr auto ArrayPrefix = Red::GetTypePrefixStr<Red::DynArray>();
-    static constexpr auto WHandlePrefix = Red::GetTypePrefixStr<Red::WeakHandle>();
-    static constexpr auto HandlePrefix = Red::GetTypePrefixStr<Red::Handle>();
-
-    static Red::rtti::IType* GetHandleType(const Red::CClass* aClass)
-    {
-        std::string name = HandlePrefix.data();
-        name.append(aClass->GetName().ToString());
-        return Red::CRTTISystem::Get()->GetType(Red::CNamePool::Add(name.c_str()));
-    }
-
-    static Red::rtti::IType* GetWHandleType(const Red::CClass* aClass)
-    {
-        std::string name = WHandlePrefix.data();
-        name.append(aClass->GetName().ToString());
-        return Red::CRTTISystem::Get()->GetType(Red::CNamePool::Add(name.c_str()));
-    }
-
-    static Red::rtti::IType* GetWHandleArrayType(const Red::CClass* aClass)
-    {
-        std::string name = ArrayPrefix.data();
-        name.append(WHandlePrefix.data());
-        name.append(aClass->GetName().ToString());
-        return Red::CRTTISystem::Get()->GetType(Red::CNamePool::Add(name.c_str()));
-    }
-
-    template<typename... Args,
-             typename = std::enable_if_t<(std::is_same_v<std::remove_cvref_t<Args>, Red::CName> && ...)>>
-    static std::string GetFunctionName(const std::string& aName, const std::optional<Red::CName>& aReturn, Args... args)
-    {
-        const std::string ret = aReturn.has_value() ? std::string{*aReturn->ToString()} : std::string{"Void"};
-
-        std::string name = ScriptablePropertyHandlerPrefix;
-        name.append(";");
-        name.append(ret);
-        name.append(";");
-        name.append(aName);
-
-        auto process = [&](const auto& arg) {
-            name.append(";");
-            name.append(arg.ToString());
-        };
-
-        (process(args), ...);
-
-        return name;
-    }
-
     /**
      * @brief Retrieves the TweakDB ID corresponding to the property being accessed on a scriptable TweakDB record
      * instance, using the provided execution context to determine the appropriate appendix to append to the record ID.
@@ -723,54 +471,5 @@ private:
      * @return A pointer to the execution context for the scriptable property handler function.
      */
     static const Context* GetContext(Red::CStackFrame* aFrame);
-
-    /**
-     * @brief Retrieves a registered function handler from the internal registry based on the provided function name.
-     * The function name is expected to be in the format generated by the @c GetFunctionName function, which includes
-     * the handler type, return type, and parameter types.
-     *
-     * @param aName The name of the function handler to retrieve, expected to be in the format generated by the @c
-     * GetFunctionName function.
-     * @return A pointer to the registered function handler corresponding to the provided name, or @c nullptr if no such
-     * function handler is found in the registry.
-     */
-    static Red::CGlobalFunction* GetFunction(const Red::CName aName)
-    {
-        std::shared_lock lockR(s_mutex);
-
-        if (const auto it = s_functions.find(aName); it != s_functions.end())
-            return it->second;
-
-        return nullptr;
-    }
-
-    /**
-     * @brief Adds a function handler to the internal registry with the provided name. The function name is expected to
-     * be in the format generated by the @c GetFunctionName function, which includes the handler type, return type, and
-     * parameter types.
-     *
-     * @param aName The name of the function handler to add, expected to be in the format generated by the @c
-     * GetFunctionName function.
-     * @param aFunc A pointer to the function handler to add to the registry.
-     */
-    static void AddFunction(Red::CName aName, Red::CGlobalFunction* aFunc)
-    {
-        std::unique_lock lockW(s_mutex);
-        s_functions.emplace(aName, aFunc);
-    }
-
-    /**
-     * @brief A shared mutex used for synchronizing access to the internal registry of function handlers, allowing for
-     * thread-safe retrieval and addition of function handlers.
-     */
-    static inline std::shared_mutex s_mutex;
-
-    /**
-     * @brief An internal registry mapping function names to their corresponding function handler pointers. The function
-     * names are expected to be in the format generated by the @c GetFunctionName function, which includes the handler
-     * type, return type, and parameter types. This registry allows for efficient reuse of function handlers based on
-     * their signatures when handling property access for scriptable TweakDB records.
-     */
-    static inline Core::Map<Red::CName, Red::CGlobalFunction*> s_functions;
 };
 } // namespace App
