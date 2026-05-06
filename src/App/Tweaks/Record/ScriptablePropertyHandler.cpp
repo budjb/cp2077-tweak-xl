@@ -1,5 +1,6 @@
 #include "ScriptablePropertyHandler.hpp"
 #include "ScriptableTweakDBRecord.hpp"
+#include <RED4ext/Scripting/Natives/Generated/game/data/Vehicle_Record.hpp>
 #include <spdlog/fmt/bundled/format.h>
 #include <spdlog/fmt/bundled/ranges.h>
 
@@ -35,8 +36,6 @@ template<template<typename> typename THandle>
 auto ScriptablePropertyHandler::GetRecordArray(const Red::Value<>& aValue, const Context* aContext)
     -> Core::SharedPtr<Red::DynArray<THandle<Red::TweakDBRecord>>>
 {
-    static const auto EmptyHandle = THandle<Red::TweakDBRecord>();
-
     if (!aContext->typeSpec->foreignType || aValue.type->GetType() != Red::rtti::ERTTIType::Array)
         return nullptr;
 
@@ -54,13 +53,9 @@ auto ScriptablePropertyHandler::GetRecordArray(const Red::Value<>& aValue, const
         const auto record = aContext->tweakManager->GetRecord(recordID);
 
         if (record && record->GetType()->IsA(aContext->typeSpec->foreignType))
-        {
             outArray->At(i) = record;
-        }
         else
-        {
-            outArray->At(i) = EmptyHandle;
-        }
+            outArray->At(i) = nullptr;
     }
 
     return outArray;
@@ -111,9 +106,7 @@ void GetRecordArrayHandler::HandleInvocation(Red::IScriptable* aInstance, Red::C
     const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
 
     if (const auto result = GetRecordArray<Red::WeakHandle>(flat, context))
-    {
         *static_cast<RecordArray*>(out) = *result;
-    }
 }
 
 Red::CName RecordArrayContainsHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
@@ -206,8 +199,6 @@ void GetRecordItemHandler::Register()
 void GetRecordItemHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                                             int64_t a4)
 {
-    static const auto EmptyHandle = Red::WeakHandle<Red::TweakDBRecord>();
-
     (void)a4;
 
     if (!aInstance || !aFrame)
@@ -221,10 +212,7 @@ void GetRecordItemHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CS
     const Context* context = GetContext(aFrame);
 
     if (index < 0)
-    {
-        *static_cast<RecordWHandle*>(aOut) = EmptyHandle;
         return;
-    }
 
     if (const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context)))
     {
@@ -236,13 +224,10 @@ void GetRecordItemHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CS
                     record.instance->GetType()->IsA(context->typeSpec->foreignType))
                 {
                     *static_cast<RecordWHandle*>(aOut) = result->At(index);
-                    return;
                 }
             }
         }
     }
-
-    *static_cast<RecordWHandle*>(aOut) = EmptyHandle;
 }
 
 Red::CName GetRecordItemHandleHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
@@ -275,8 +260,6 @@ void GetRecordItemHandleHandler::Register()
 void GetRecordItemHandleHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                                                   int64_t a4)
 {
-    static const auto EmptyHandle = Red::Handle<Red::TweakDBRecord>();
-
     (void)a4;
 
     if (!aInstance || !aFrame)
@@ -290,10 +273,7 @@ void GetRecordItemHandleHandler::HandleInvocation(Red::IScriptable* aInstance, R
     const Context* context = GetContext(aFrame);
 
     if (index < 0)
-    {
-        *static_cast<RecordHandle*>(aOut) = EmptyHandle;
         return;
-    }
 
     if (const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context)))
     {
@@ -305,13 +285,10 @@ void GetRecordItemHandleHandler::HandleInvocation(Red::IScriptable* aInstance, R
                     record.instance->GetType()->IsA(context->typeSpec->foreignType))
                 {
                     *static_cast<RecordHandle*>(aOut) = result->At(index);
-                    return;
                 }
             }
         }
     }
-
-    *static_cast<RecordHandle*>(aOut) = EmptyHandle;
 }
 
 Red::CName GetRecordHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
@@ -338,8 +315,6 @@ void GetRecordHandler::Register()
 
 void GetRecordHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4)
 {
-    static const auto EmptyHandle = Red::WeakHandle<Red::TweakDBRecord>();
-
     (void)a4;
 
     if (!aInstance || !aFrame)
@@ -357,11 +332,8 @@ void GetRecordHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStack
             record && record->GetType()->IsA(context->typeSpec->foreignType))
         {
             *static_cast<RecordWHandle*>(aOut) = record;
-            return;
         }
     }
-
-    *static_cast<RecordWHandle*>(aOut) = EmptyHandle;
 }
 
 Red::CName GetRecordHandleHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
@@ -391,8 +363,6 @@ void GetRecordHandleHandler::Register()
 void GetRecordHandleHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                                               int64_t a4)
 {
-    static const auto EmptyHandle = Red::Handle<Red::TweakDBRecord>();
-
     (void)a4;
 
     if (!aInstance || !aFrame)
@@ -410,11 +380,8 @@ void GetRecordHandleHandler::HandleInvocation(Red::IScriptable* aInstance, Red::
             record && record->GetType()->IsA(context->typeSpec->foreignType))
         {
             *static_cast<RecordHandle*>(aOut) = record;
-            return;
         }
     }
-
-    *static_cast<RecordHandle*>(aOut) = EmptyHandle;
 }
 
 Red::CName GetArrayCountHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
@@ -476,7 +443,7 @@ Red::CName GetArrayItemHandler::GetFunctionHash(const ScriptableRecordSpecPtr& a
 
     std::vector<std::string> segments;
     segments.emplace_back(aRecordSpec->name);
-    segments.emplace_back(aPropSpec->typeSpec->propertyType->GetName().ToString());
+    segments.emplace_back(aPropSpec->typeSpec->elementType->GetName().ToString());
     segments.emplace_back(funcName);
     segments.emplace_back(IntName.data());
 
@@ -511,7 +478,7 @@ void GetArrayItemHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CSt
 
     const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
 
-    if (flat.type != context->typeSpec->propertyType || flat.type->GetType() == Red::rtti::ERTTIType::Array)
+    if (flat.type != context->typeSpec->propertyType || flat.type->GetType() != Red::rtti::ERTTIType::Array)
         return;
 
     const auto* arrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(flat.type);
@@ -535,7 +502,7 @@ Red::CName ArrayContainsHandler::GetFunctionHash(const ScriptableRecordSpecPtr& 
     segments.emplace_back(aRecordSpec->name);
     segments.emplace_back(BoolName.data());
     segments.emplace_back(funcName);
-    segments.emplace_back(aPropSpec->typeSpec->propertyType->GetName().ToString());
+    segments.emplace_back(aPropSpec->typeSpec->elementType->GetName().ToString());
 
     return fmt::format("{}", fmt::join(segments, ";")).c_str();
 }
@@ -568,7 +535,7 @@ void ArrayContainsHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CS
 
     const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
 
-    if (flat.type != context->typeSpec->propertyType || flat.type->GetType() == Red::rtti::ERTTIType::Array)
+    if (flat.type != context->typeSpec->propertyType || flat.type->GetType() != Red::rtti::ERTTIType::Array)
     {
         *static_cast<bool*>(aOut) = false;
         return;
@@ -651,6 +618,71 @@ void ScriptablePropertyHandlerRegistry::RegisterRTTIFunctions()
     s_getValueHandler.Register();
 }
 
+void ScriptablePropertyHandlerRegistry::RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                                   const ScriptablePropertySpecPtr& aPropSpec)
+{
+    if (aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isForeignKey)
+    {
+        RegisterPropertyFunction<GetterType::GetRecordArray>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetArrayCount>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetRecordItem>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetRecordItemHandle>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::RecordArrayContains>(aRecordSpec, aPropSpec);
+    }
+    else if (!aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isForeignKey)
+    {
+        RegisterPropertyFunction<GetterType::GetRecord>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetRecordHandle>(aRecordSpec, aPropSpec);
+    }
+    else if (aPropSpec->typeSpec->isArray && Red::TweakDBUtil::IsResRefTokenArray(aPropSpec->typeSpec->propertyType))
+    {
+        RegisterPropertyFunction<GetterType::Get>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetArrayCount>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetArrayItem>(aRecordSpec, aPropSpec);
+    }
+    else if (aPropSpec->typeSpec->isArray)
+    {
+        RegisterPropertyFunction<GetterType::Get>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetArrayCount>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetArrayItem>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::ArrayContains>(aRecordSpec, aPropSpec);
+    }
+    else
+    {
+        RegisterPropertyFunction<GetterType::Get>(aRecordSpec, aPropSpec);
+    }
+}
+
+bool ScriptablePropertyHandlerRegistry::AdaptScriptFunction(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                            Red::CClassFunction* aFunc)
+{
+    const auto functionHash = GetFunctionHash(aRecordSpec, aFunc);
+
+    std::shared_lock lockR(m_functionTypesMutex);
+
+    if (const auto it = m_functionTypes.find(aRecordSpec->cname); it != m_functionTypes.end())
+    {
+        if (const auto it2 = it->second.find(functionHash); it2 != it->second.end())
+        {
+            const auto handler = GetHandler(it2->second);
+            const auto baseFunctionName = handler->GetFunctionBaseName(aFunc->shortName.ToString());
+
+            if (const auto propSpec = aRecordSpec->FindPropertyByFunctionName(baseFunctionName))
+            {
+                // TODO: truncate it here?
+                if (!propSpec->isDescribed)
+                    return false;
+
+                const auto context = GetContext(aRecordSpec, propSpec);
+                ReplaceScriptFunction(aFunc, context, handler->GetRTTIFunction());
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 ScriptablePropertyHandler* ScriptablePropertyHandlerRegistry::GetHandler(const GetterType aType)
 {
     // clang-format off
@@ -699,41 +731,6 @@ ContextPtr ScriptablePropertyHandlerRegistry::GetContext(const ScriptableRecordS
     return context;
 }
 
-void ScriptablePropertyHandlerRegistry::RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
-                                                                   const ScriptablePropertySpecPtr& aPropSpec)
-{
-    if (aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isForeignKey)
-    {
-        RegisterPropertyFunction<GetterType::GetRecordArray>(aRecordSpec, aPropSpec);
-        RegisterPropertyFunction<GetterType::GetArrayCount>(aRecordSpec, aPropSpec);
-        RegisterPropertyFunction<GetterType::GetRecordItem>(aRecordSpec, aPropSpec);
-        RegisterPropertyFunction<GetterType::GetRecordItemHandle>(aRecordSpec, aPropSpec);
-        RegisterPropertyFunction<GetterType::RecordArrayContains>(aRecordSpec, aPropSpec);
-    }
-    else if (!aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isForeignKey)
-    {
-        RegisterPropertyFunction<GetterType::GetRecord>(aRecordSpec, aPropSpec);
-        RegisterPropertyFunction<GetterType::GetRecordHandle>(aRecordSpec, aPropSpec);
-    }
-    else if (aPropSpec->typeSpec->isArray && Red::TweakDBUtil::IsResRefTokenArray(aPropSpec->typeSpec->propertyType))
-    {
-        RegisterPropertyFunction<GetterType::Get>(aRecordSpec, aPropSpec);
-        RegisterPropertyFunction<GetterType::GetArrayCount>(aRecordSpec, aPropSpec);
-        RegisterPropertyFunction<GetterType::GetArrayItem>(aRecordSpec, aPropSpec);
-    }
-    else if (aPropSpec->typeSpec->isArray)
-    {
-        RegisterPropertyFunction<GetterType::Get>(aRecordSpec, aPropSpec);
-        RegisterPropertyFunction<GetterType::GetArrayCount>(aRecordSpec, aPropSpec);
-        RegisterPropertyFunction<GetterType::GetArrayItem>(aRecordSpec, aPropSpec);
-        RegisterPropertyFunction<GetterType::ArrayContains>(aRecordSpec, aPropSpec);
-    }
-    else
-    {
-        RegisterPropertyFunction<GetterType::Get>(aRecordSpec, aPropSpec);
-    }
-}
-
 template<GetterType Type>
 void ScriptablePropertyHandlerRegistry::RegisterPropertyFunction(const ScriptableRecordSpecPtr& aRecordSpec,
                                                                  const ScriptablePropertySpecPtr& aPropSpec)
@@ -744,42 +741,6 @@ void ScriptablePropertyHandlerRegistry::RegisterPropertyFunction(const Scriptabl
     m_functionTypes[aRecordSpec->cname][hash] = Type;
 }
 
-bool ScriptablePropertyHandlerRegistry::AdaptScriptFunction(const ScriptableRecordSpecPtr& aRecordSpec,
-                                                            Red::CClassFunction* aFunc)
-{
-    const auto functionHash = GetFunctionHash(aRecordSpec, aFunc);
-
-    std::shared_lock lockR(m_functionTypesMutex);
-
-    if (const auto it = m_functionTypes.find(aRecordSpec->cname); it != m_functionTypes.end())
-    {
-        if (const auto it2 = it->second.find(functionHash); it2 != it->second.end())
-        {
-            const auto handler = GetHandler(it2->second);
-            const auto baseFunctionName = handler->GetFunctionBaseName(aFunc->shortName.ToString());
-
-            if (const auto propSpec = aRecordSpec->FindPropertyByFunctionName(baseFunctionName))
-            {
-                // TODO: truncate it here?
-                if (!propSpec->isDescribed)
-                    return false;
-
-                const auto context = GetContext(aRecordSpec, propSpec);
-                ReplaceScriptFunction(aFunc, context, handler->GetRTTIFunction());
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-void ScriptablePropertyHandlerRegistry::TruncateScriptFunction(Red::CClassFunction* aFunction)
-{
-    aFunction->bytecode.bytecode.buffer.data = nullptr;
-    aFunction->bytecode.bytecode.buffer.size = 0;
-}
-
 void ScriptablePropertyHandlerRegistry::ReplaceScriptFunction(Red::CClassFunction* aFunction,
                                                               const ContextPtr& aContext,
                                                               Red::CGlobalFunction* aNativeFunc)
@@ -787,6 +748,12 @@ void ScriptablePropertyHandlerRegistry::ReplaceScriptFunction(Red::CClassFunctio
     const auto bytecode = CreateFunctionBytecode(aContext, aFunction, aNativeFunc);
     aFunction->bytecode.bytecode.buffer.data = bytecode.data;
     aFunction->bytecode.bytecode.buffer.size = bytecode.size;
+}
+
+void ScriptablePropertyHandlerRegistry::TruncateScriptFunction(Red::CClassFunction* aFunction)
+{
+    aFunction->bytecode.bytecode.buffer.data = nullptr;
+    aFunction->bytecode.bytecode.buffer.size = 0;
 }
 
 Red::RawBuffer ScriptablePropertyHandlerRegistry::CreateFunctionBytecode(const ContextPtr& aContext,
