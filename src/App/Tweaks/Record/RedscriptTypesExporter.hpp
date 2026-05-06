@@ -8,44 +8,42 @@
 namespace App
 {
 /**
- * @brief The template for generating redscript class definitions for scriptable TweakDB records and functions for
- * interacting with their properties. The generated functions vary based on the property's characteristics, such as
- * whether it is an array, a foreign key, etc.
+ * @brief The template for generating the base redscript class definition for scriptable TweakDB records, which all
+ * generated scriptable record classes will inherit from.
  */
 static auto BaseRecordTemplate = R"RS(
 public abstract native class ScriptableTweakDBRecord extends TweakDBRecord {
 }
 )RS";
 
-// {% for prop in Properties %}
-// {% if prop.IsArray and prop.IsForeignKey %}
-// public native func {{ prop.Name }}(out outList: array<wref<{{ prop.ForeignType }}>>);
-// public native func Get{{ prop.Name }}Count() -> Int32;
-// public native func Get{{ prop.Name }}Item(index: Int32) -> wref<{{ prop.ForeignType }}>;
-// public native func Get{{ prop.Name }}ItemHandle(index: Int32) -> ref<{{ prop.ForeignType }}>;
-// public native func {{ prop.Name }}Contains(item: wref<{{ prop.ForeignType }}>) -> Bool;
-// {% else if prop.IsForeignKey %}
-// public native func {{ prop.Name }}() -> wref<{{ prop.ForeignType }}>;
-// public native func {{ prop.Name }}Handle() -> ref<{{ prop.ForeignType }}>;
-// {% else if prop.IsArray and prop.IsResRefTokenArray %}
-// public native func {{ prop.Name }}() -> array<ResRef>;
-// public native func Get{{ prop.Name }}Count() -> Int32;
-// public native func Get{{ prop.Name }}Item(index: Int32) -> ResRef;
-// {% else if prop.IsArray %}
-// public native func {{ prop.Name }}() -> array<{{ prop.ElementType }}>;
-// public native func Get{{ prop.Name }}Count() -> Int32;
-// public native func Get{{ prop.Name }}Item(index: Int32) -> {{ prop.ElementType }};
-// public native func {{ prop.Name }}Contains(item: {{ prop.ElementType }}) -> Bool;
-// {% else %}
-// public native func {{ prop.Name }}() -> {{ prop.Type }};
-// {% endif %}
-// {% endfor %}
-
+/**
+ * @brief The template for generating redscript class definitions for scriptable TweakDB records and functions for
+ * interacting with their properties. The generated functions vary based on the property's characteristics, such as
+ * whether it is an array, a foreign key, etc.
+ */
 static auto ScriptableRecordTemplate = R"RS(
 public native class {{ TypeName }} extends {{ Parent }} {
     {% for prop in Properties %}
-    {% if not prop.IsArray and not prop.IsForeignKey and not prop.IsResRefTokenArray %}
-    public func {{ prop.Name }}() -> {{ prop.Type }} {};
+    {% if prop.IsArray and prop.IsForeignKey %}
+    public func {{ prop.Name }}(out outList: array<wref<{{ prop.ForeignType }}>>) {}
+    public func Get{{ prop.Name }}Count() -> Int32 {}
+    public func Get{{ prop.Name }}Item(index: Int32) -> wref<{{ prop.ForeignType }}> {}
+    public func Get{{ prop.Name }}ItemHandle(index: Int32) -> ref<{{ prop.ForeignType }}> {}
+    public func {{ prop.Name }}Contains(item: wref<{{ prop.ForeignType }}>) -> Bool {}
+    {% else if prop.IsForeignKey %}
+    public func {{ prop.Name }}() -> wref<{{ prop.ForeignType }}> {}
+    public func {{ prop.Name }}Handle() -> ref<{{ prop.ForeignType }}> {}
+    {% else if prop.IsArray and prop.IsResRefTokenArray %}
+    public func {{ prop.Name }}() -> array<ResRef> {}
+    public func Get{{ prop.Name }}Count() -> Int32 {}
+    public func Get{{ prop.Name }}Item(index: Int32) -> ResRef {}
+    {% else if prop.IsArray %}
+    public func {{ prop.Name }}() -> array<{{ prop.ElementType }}> {}
+    public func Get{{ prop.Name }}Count() -> Int32 {}
+    public func Get{{ prop.Name }}Item(index: Int32) -> {{ prop.ElementType }} {}
+    public func {{ prop.Name }}Contains(item: {{ prop.ElementType }}) -> Bool {}
+    {% else %}
+    public func {{ prop.Name }}() -> {{ prop.Type }} {}
     {% endif %}
     {% endfor %}
 }
@@ -94,7 +92,7 @@ private:
      * @param aSpec The scriptable record spec to convert.
      * @return A JSON object containing the converted scriptable record spec, or nullptr if the spec is not described.
      */
-    [[nodiscard]] Json ToJson(const ScriptableRecordManager::ScriptableRecordSpecPtr& aSpec) const;
+    [[nodiscard]] Json ToJson(const ScriptableRecordSpecPtr& aSpec) const;
 
     /**
      * @brief Converts the given scriptable property spec to a JSON representation that can be used for redscript code
@@ -103,8 +101,18 @@ private:
      * @param aSpec The scriptable property spec to convert.
      * @return A JSON object containing the converted scriptable property spec, or nullptr if the spec is not described.
      */
-    [[nodiscard]] Json ToJson(const ScriptableRecordManager::ScriptablePropertySpecPtr& aSpec) const;
+    [[nodiscard]] Json ToJson(const ScriptablePropertySpecPtr& aSpec) const;
 
+    /**
+     * @brief Retrieves the script name of a given scriptable record class, which is used for redscript code generation.
+     *
+     * The script name is derived from the class's name and is used as the name of the generated redscript class
+     * definition for the record type.
+     *
+     * @param aClass The scriptable record class for which to retrieve the script name. This should be a valid class
+     * corresponding to a described scriptable record spec.
+     * @return The script name of the given scriptable record class, which is used for redscript code generation.
+     */
     std::string GetClassScriptName(const Red::CClass* aClass) const;
 
     /**
@@ -112,10 +120,13 @@ private:
      */
     inja::Environment m_env;
 
+    /**
+     * @brief The parsed inja template used for declaring the @c ScriptableTweakDBRecord type.
+     */
     inja::Template m_baseTemplate;
 
     /**
-     * @brief The parsed inja template used for generating the redscript code.
+     * @brief The parsed inja template used for declaring a scriptable record type and its property functions.
      */
     inja::Template m_recordTemplate;
 

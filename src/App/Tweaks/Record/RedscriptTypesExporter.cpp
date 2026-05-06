@@ -52,8 +52,7 @@ void RedscriptTypesExporter::ExportRedscriptTypes(const std::filesystem::path& f
     }
 }
 
-RedscriptTypesExporter::Json RedscriptTypesExporter::ToJson(
-    const ScriptableRecordManager::ScriptableRecordSpecPtr& aSpec) const
+RedscriptTypesExporter::Json RedscriptTypesExporter::ToJson(const ScriptableRecordSpecPtr& aSpec) const
 {
     if (!aSpec->isDescribed)
         return nullptr;
@@ -73,8 +72,7 @@ RedscriptTypesExporter::Json RedscriptTypesExporter::ToJson(
     return json;
 }
 
-RedscriptTypesExporter::Json RedscriptTypesExporter::ToJson(
-    const ScriptableRecordManager::ScriptablePropertySpecPtr& aSpec) const
+RedscriptTypesExporter::Json RedscriptTypesExporter::ToJson(const ScriptablePropertySpecPtr& aSpec) const
 {
     if (!aSpec->isDescribed)
         return nullptr;

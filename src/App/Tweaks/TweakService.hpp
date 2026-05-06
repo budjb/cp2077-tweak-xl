@@ -53,6 +53,7 @@ protected:
     void InsertScriptableRecordDefaults();
     void SetupScriptableRecords();
     void SetupTweakImporter();
+    void OnValidateScripts(Red::ScriptBundle* aBundle);
 
     std::filesystem::path m_gameDir;
     std::filesystem::path m_tweaksDir;

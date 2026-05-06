@@ -6,7 +6,7 @@ namespace App
  * @brief Contains a specification for App::ScriptableTweakDBRecord property, including its TweakDB flat type and getter
  * closure return type details.
  */
-struct TweakPropertySpec
+struct TweakTypeSpec
 {
     /**
      * @brief The RTTI type that should be returned from the property's getter closure. For foreign key types, this
@@ -66,13 +66,16 @@ struct TweakPropertySpec
      * is guaranteed to be added to the CName pool.
      */
     Red::CName foreignTypeName;
+
+
+    const Red::CBaseRTTIType* elementType{};
 };
-RED4EXT_ASSERT_SIZE(TweakPropertySpec, 0x60);
+RED4EXT_ASSERT_SIZE(TweakTypeSpec, 0x68);
 
 /**
- * @brief A shared pointer to a TweakPropertySpec struct.
+ * @brief A shared pointer to a TweakTypeSpec struct.
  */
-using TweakPropertySpecPtr = Core::SharedPtr<TweakPropertySpec>;
+using TweakTypeSpecPtr = Core::SharedPtr<TweakTypeSpec>;
 
 /**
  * @brief Parses the given string and infers the TweakDB property and flat details for a scriptable record. This is
@@ -101,7 +104,7 @@ using TweakPropertySpecPtr = Core::SharedPtr<TweakPropertySpec>;
  * @return A property spec containing the parsed property and flat details, or nullptr if the given string is not
  * a valid TweakDB property type.
  */
-TweakPropertySpecPtr GetTweakPropertySpec(const std::string& aValue);
+TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue);
 
 /**
  * @brief Creates a set of details for a TweakDB property based on the given type hash and optional foreign type name.
@@ -112,6 +115,6 @@ TweakPropertySpecPtr GetTweakPropertySpec(const std::string& aValue);
  * @return A property spec containing the parsed property and flat details, or nullptr if the given string is not
  * a valid TweakDB property type.
  */
-TweakPropertySpecPtr GetTweakPropertySpec(const std::string& aValue, uint64_t aHash,
+TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue, uint64_t aHash,
                                           const std::optional<std::string>& aForeignType = std::nullopt);
 } // namespace App

@@ -6,7 +6,6 @@ namespace
 {
 constexpr auto NameSeparator = Red::TweakGrammar::Name::Separator;
 constexpr auto PropSeparator = std::string_view(NameSeparator);
-constexpr auto IgnorePropertyPrefix = std::string_view("__ignore__");
 } // namespace
 
 Red::TweakDBReflection::TweakDBReflection()
@@ -67,9 +66,6 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
     for (uint32_t funcIndex = 0u; funcIndex < aType->funcs.Size(); ++funcIndex)
     {
         const auto func = aType->funcs[funcIndex];
-
-        if (TweakDBUtil::IsIgnoredProperty(func->shortName))
-            continue;
 
         auto propName = ResolvePropertyName(aType, func->shortName);
 

@@ -3,46 +3,6 @@
 namespace Red::TweakDBUtil
 {
 /**
- * @brief A string constant representing the prefix used to identify properties that should be ignored when
- * collecting TweakDB record information. Any property whose name starts with this prefix will be excluded from
- * consideration as a valid TweakDB property and will not be included in the collected record information.
- */
-constexpr auto ignoredPropertyPrefix = std::string_view("__ignore__");
-
-/**
- * @brief Checks whether a property with the given name should be ignored when collecting TweakDB record information.
- * This is determined by checking if the property name starts with a specific prefix defined by @c ignorePropertyPrefix.
- *
- * @param aPropName The name of the property to check.
- * @return true if the property name starts with the ignore prefix and should be ignored, false otherwise.
- */
-bool IsIgnoredProperty(CName aPropName);
-
-/**
- * @brief Generates a property name that should be ignored when collecting TweakDB record information based on the
- * provided name. This is done by prepending a specific prefix defined by @c ignorePropertyPrefix to the provided name,
- * creating a new property name that will be recognized as an ignored property by the record information collection
- * logic.
- *
- * @param aName The base name to generate the ignored property name from.
- * @return The provided property name with the ignore prefix prepended.
- */
-std::string CreateIgnoredPropertyName(const std::string& aName);
-
-/**
- * @brief Generates a property name that should be ignored when collecting TweakDB record information based on the
- * provided name. This is done by prepending a specific prefix defined by @c ignorePropertyPrefix to the provided name,
- * creating a new property name that will be recognized as an ignored property by the record information collection
- * logic.
- *
- * @param aName The base name to generate the ignored property name from.
- * @return The provided property name with the ignore prefix prepended.
- */
-std::string CreateIgnoredPropertyName(const char* aName);
-
-std::array<uint64_t, 26> GetFlatTypes();
-
-/**
  * @brief Gets the RTTI type of a TweakDB flat type by its type hash if the hash represents a valid TweakDB flat type.
  *
  * @param aType The hash of the flat type to get.
@@ -851,5 +811,36 @@ std::string Decapitalize(const std::string& aName);
  * @return The decapitalized version of the given name.
  */
 std::string Decapitalize(const char* aName);
+
+template<typename T>
+T GetHandleTypeName(const CClass* aClass);
+
+template<typename T>
+T GetWHandleTypeName(const CClass* aClass);
+
+template<typename T>
+T GetWHandleArrayTypeName(const CClass* aClass);
+
+template<>
+std::string GetHandleTypeName(const CClass* aClass);
+
+template<>
+std::string GetWHandleTypeName(const CClass* aClass);
+
+template<>
+std::string GetWHandleArrayTypeName(const CClass* aClass);
+
+template<>
+CName GetHandleTypeName(const CClass* aClass);
+
+template<>
+CName GetWHandleTypeName(const CClass* aClass);
+
+template<>
+CName GetWHandleArrayTypeName(const CClass* aClass);
+
+CHandle* GetHandleType(const CClass* aClass);
+CWeakHandle* GetWHandleType(const CClass* aClass);
+CRTTIBaseArrayType* GetWHandleArrayType(const CClass* aClass);
 
 } // namespace Red::TweakDBUtil

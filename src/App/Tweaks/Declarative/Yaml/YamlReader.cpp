@@ -241,7 +241,7 @@ void App::YamlReader::HandleSchemaPropertyNode(const std::string& aRecordName, c
         }
 
         m_recordManager->RegisterScriptableProperty(aRecordName.c_str(), aPropName,
-                                                    GetTweakPropertySpec(propType.ToString()), propInstance);
+                                                    GetTweakTypeSpec(propType.ToString()), propInstance);
         return;
     }
 
@@ -811,12 +811,12 @@ bool App::YamlReader::HandleMutations(TweakChangeset& aChangeset, const std::str
     return isMutation;
 }
 
-App::TweakPropertySpecPtr App::YamlReader::ResolvePropertyFlatInfo(const YAML::Node& aNode)
+App::TweakTypeSpecPtr App::YamlReader::ResolvePropertyFlatInfo(const YAML::Node& aNode)
 {
     if (!aNode.IsScalar())
         return nullptr;
 
-    return GetTweakPropertySpec(aNode.Scalar());
+    return GetTweakTypeSpec(aNode.Scalar());
 }
 
 const Red::CBaseRTTIType* App::YamlReader::ResolveFlatType(const YAML::Node& aNode)

@@ -1,547 +1,870 @@
 #include "ScriptablePropertyHandler.hpp"
-
 #include "ScriptableTweakDBRecord.hpp"
+#include <spdlog/fmt/bundled/format.h>
+#include <spdlog/fmt/bundled/ranges.h>
 
 namespace App
 {
-Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetRecordsFunction()
+std::string ScriptablePropertyHandler::GetFunctionBaseName(const std::string& aName) const
 {
-    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecords";
-    static Red::CRTTISystem* rtti = Red::CRTTISystem::Get();
-    static Red::CGlobalFunction* function;
-
-    if (!function)
-    {
-        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordArrayHandler);
-        rtti->RegisterFunction(function);
-    }
-
-    return function;
+    return aName.substr(m_prefixLength, aName.length() - m_prefixLength - m_suffixLength);
 }
 
-Red::CGlobalFunction* ScriptablePropertyHandler::CreateRecordArrayContainsFunction()
+Red::CGlobalFunction* ScriptablePropertyHandler::GetRTTIFunction() const
 {
-    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_RecordArrayContains";
-    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-    static Red::CGlobalFunction* function;
-
-    if (!function)
-    {
-        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &RecordArrayContainsHandler);
-        rtti->RegisterFunction(function);
-    }
-
-    return function;
+    return m_rttiFunction;
 }
 
-Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetRecordItemFunction()
+Context* ScriptablePropertyHandler::GetContext(Red::CStackFrame* aFrame)
 {
-    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecordItem";
-    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-    static Red::CGlobalFunction* function;
+    static constexpr auto PtrSize = sizeof(void*);
 
-    if (!function)
-    {
-        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordItemHandler);
-        rtti->RegisterFunction(function);
-    }
-
-    return function;
+    auto* context = *reinterpret_cast<Context**>(aFrame->code);
+    aFrame->code += PtrSize;
+    return context;
 }
 
-Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetRecordItemHandleFunction()
+Red::TweakDBID ScriptablePropertyHandler::GetFlatID(Red::Instance aInstance, const Context* aContext)
 {
-    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecordItemHandle";
-    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-    static Red::CGlobalFunction* function;
-
-    if (!function)
-    {
-        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordHandleHandler);
-        rtti->RegisterFunction(function);
-    }
-
-    return function;
+    return static_cast<ScriptableTweakDBRecord*>(aInstance)->recordID + aContext->appendix;
 }
 
-Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetRecordFunction()
+template<template<typename> typename THandle>
+    requires(std::is_same_v<THandle<Red::TweakDBRecord>, Red::Handle<Red::TweakDBRecord>> ||
+             std::is_same_v<THandle<Red::TweakDBRecord>, Red::WeakHandle<Red::TweakDBRecord>>)
+auto ScriptablePropertyHandler::GetRecordArray(const Red::Value<>& aValue, const Context* aContext)
+    -> Core::SharedPtr<Red::DynArray<THandle<Red::TweakDBRecord>>>
 {
-    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecord";
-    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-    static Red::CGlobalFunction* function;
+    static const auto EmptyHandle = THandle<Red::TweakDBRecord>();
 
-    if (!function)
+    if (!aContext->typeSpec->foreignType || aValue.type->GetType() != Red::rtti::ERTTIType::Array)
+        return nullptr;
+
+    const auto* flatArrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(aValue.type);
+
+    if (!Red::TweakDBUtil::IsArrayType(flatArrayType))
+        return nullptr;
+
+    const auto count = flatArrayType->GetLength(aValue.instance);
+    const auto outArray = Core::MakeShared<Red::DynArray<THandle<Red::TweakDBRecord>>>(count);
+
+    for (uint32_t i = 0; i < count; ++i)
     {
-        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordHandler);
-        rtti->RegisterFunction(function);
+        const auto recordID = *static_cast<Red::TweakDBID*>(flatArrayType->GetElement(aValue.instance, i));
+        const auto record = aContext->tweakManager->GetRecord(recordID);
+
+        if (record && record->GetType()->IsA(aContext->typeSpec->foreignType))
+        {
+            outArray->At(i) = record;
+        }
+        else
+        {
+            outArray->At(i) = EmptyHandle;
+        }
     }
 
-    return function;
+    return outArray;
 }
 
-Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetRecordHandleFunction()
+Red::CName GetRecordArrayHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                  const ScriptablePropertySpecPtr& aPropSpec) const
 {
-    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecordHandle";
-    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-    static Red::CGlobalFunction* function;
+    static constexpr auto VoidName = Red::GetTypeNameStr<void>();
 
-    if (!function)
-    {
-        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetRecordHandleHandler);
-        rtti->RegisterFunction(function);
-    }
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(VoidName.data());
+    segments.emplace_back(aPropSpec->functionName);
+    segments.emplace_back(
+        Red::TweakDBUtil::GetWHandleArrayType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
 
-    return function;
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
 }
 
-Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetFunction()
+void GetRecordArrayHandler::Register()
 {
-    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_Get";
-    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-    static Red::CGlobalFunction* function;
-
-    if (!function)
-    {
-        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetHandler);
-        rtti->RegisterFunction(function);
-    }
-
-    return function;
-}
-
-Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetArrayCountFunction()
-{
-    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetArrayCount";
-    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-    static Red::CGlobalFunction* function;
-
-    if (!function)
-    {
-        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetArrayCountHandler);
-        rtti->RegisterFunction(function);
-    }
-
-    return function;
-}
-
-Red::CGlobalFunction* ScriptablePropertyHandler::CreateGetArrayItemFunction()
-{
-    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_GetArrayItem";
-    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-    static Red::CGlobalFunction* function;
-
-    if (!function)
-    {
-        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &GetArrayItemHandler);
-        rtti->RegisterFunction(function);
-    }
-
-    return function;
-}
-
-Red::CGlobalFunction* ScriptablePropertyHandler::CreateArrayContainsFunction()
-{
-    static const auto name = std::string(ScriptablePropertyHandlerPrefix) + "_ArrayContains";
-    static Red::CRTTISystem* rtti = RED4ext::CRTTISystem::Get();
-    static Red::CGlobalFunction* function;
-
-    if (!function)
-    {
-        function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &ArrayContainsHandler);
-        rtti->RegisterFunction(function);
-    }
-
-    return function;
-}
-
-void ScriptablePropertyHandler::GetRecordArrayHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                      int64_t a4)
-{
-    Red::DynArray<Red::WeakHandle<Red::TweakDBRecord>>* outArray;
-    Red::GetParameter(aFrame, &outArray);
-
-    aFrame->code++; // Skip ParamEnd operand
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
+    if (m_rttiFunction)
         return;
+
+    const std::string name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecordArrayHandler";
+    auto* function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &HandleInvocation);
+    Red::CRTTISystem::Get()->RegisterFunction(function);
+    m_rttiFunction = function;
+}
+
+void GetRecordArrayHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                             int64_t a4)
+{
+    (void)aOut;
+    (void)a4;
+
+    if (!aInstance || !aFrame)
+        return;
+
+    void* out;
+    Red::GetParameter(aFrame, &out);
+
+    ++aFrame->code; // ParamEnd
+
+    const Context* context = GetContext(aFrame);
 
     const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
 
-    *static_cast<RecordArray*>(aOut) = *GetRecordArray(flat, context);
+    if (const auto result = GetRecordArray<Red::WeakHandle>(flat, context))
+    {
+        *static_cast<RecordArray*>(out) = *result;
+    }
 }
 
-void ScriptablePropertyHandler::GetArrayCountHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                     int64_t a4)
+Red::CName RecordArrayContainsHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                       const ScriptablePropertySpecPtr& aPropSpec) const
 {
-    aFrame->code++; // Skip ParamEnd operand
+    static constexpr auto BoolName = Red::GetTypeNameStr<bool>();
 
-    const auto* context = GetContext(aFrame);
+    std::string funcName = aPropSpec->functionName + "Contains";
 
-    if (!aOut || !context)
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(BoolName.data());
+    segments.emplace_back(funcName);
+    segments.emplace_back(Red::TweakDBUtil::GetWHandleType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
+
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
+}
+
+void RecordArrayContainsHandler::Register()
+{
+    if (m_rttiFunction)
         return;
+
+    const std::string name = std::string(ScriptablePropertyHandlerPrefix) + "_RecordArrayContainsHandler";
+    auto* function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &HandleInvocation);
+    Red::CRTTISystem::Get()->RegisterFunction(function);
+    m_rttiFunction = function;
+}
+
+void RecordArrayContainsHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                                  int64_t a4)
+{
+    (void)a4;
+
+    if (!aInstance || !aFrame)
+        return;
+
+    Red::WeakHandle<Red::TweakDBRecord>* item;
+    Red::GetParameter(aFrame, &item);
+
+    ++aFrame->code; // ParamEnd
+
+    const Context* context = GetContext(aFrame);
 
     const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
 
-    *static_cast<int*>(aOut) = static_cast<int>(GetArrayCount(flat, context));
+    if (const auto result = GetRecordArray<Red::WeakHandle>(flat, context))
+    {
+        for (const auto& record : *result)
+        {
+            if (record.instance->recordID == item->instance->recordID &&
+                record.instance->GetType() == item->instance->GetType())
+            {
+                *static_cast<bool*>(aOut) = true;
+                return;
+            }
+        }
+    }
+
+    *static_cast<bool*>(aOut) = false;
 }
 
-void ScriptablePropertyHandler::GetRecordItemHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                     int64_t a4)
+Red::CName GetRecordItemHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                 const ScriptablePropertySpecPtr& aPropSpec) const
 {
+    static constexpr auto IntName = Red::GetTypeNameStr<int>();
+
+    std::string funcName = "Get" + aPropSpec->functionName + "Item";
+
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(Red::TweakDBUtil::GetWHandleType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
+    segments.emplace_back(funcName);
+    segments.emplace_back(IntName.data());
+
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
+}
+
+void GetRecordItemHandler::Register()
+{
+    if (m_rttiFunction)
+        return;
+
+    const std::string name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecordItemHandler";
+    auto* function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &HandleInvocation);
+    Red::CRTTISystem::Get()->RegisterFunction(function);
+    m_rttiFunction = function;
+}
+
+void GetRecordItemHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                            int64_t a4)
+{
+    static const auto EmptyHandle = Red::WeakHandle<Red::TweakDBRecord>();
+
+    (void)a4;
+
+    if (!aInstance || !aFrame)
+        return;
+
     int index;
     Red::GetParameter(aFrame, &index);
 
-    aFrame->code++; // Skip ParamEnd operand
+    ++aFrame->code; // ParamEnd
 
-    const auto* context = GetContext(aFrame);
+    const Context* context = GetContext(aFrame);
 
-    if (!aOut || !context)
+    if (index < 0)
+    {
+        *static_cast<RecordWHandle*>(aOut) = EmptyHandle;
         return;
+    }
 
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+    if (const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context)))
+    {
+        if (const auto result = GetRecordArray<Red::WeakHandle>(flat, context))
+        {
+            if (index < result->Size())
+            {
+                if (const auto record = result->At(index);
+                    record.instance->GetType()->IsA(context->typeSpec->foreignType))
+                {
+                    *static_cast<RecordWHandle*>(aOut) = result->At(index);
+                    return;
+                }
+            }
+        }
+    }
 
-    *static_cast<ScriptableRecordManager::RecordWHandle*>(aOut) = GetRecordItem(flat, context, index);
+    *static_cast<RecordWHandle*>(aOut) = EmptyHandle;
 }
 
-void ScriptablePropertyHandler::GetRecordItemHandleHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame,
-                                                           void* aOut, int64_t a4)
+Red::CName GetRecordItemHandleHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                       const ScriptablePropertySpecPtr& aPropSpec) const
 {
+    static constexpr auto IntName = Red::GetTypeNameStr<int>();
+
+    std::string funcName = "Get" + aPropSpec->functionName + "ItemHandle";
+
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(Red::TweakDBUtil::GetHandleType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
+    segments.emplace_back(funcName);
+    segments.emplace_back(IntName.data());
+
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
+}
+
+void GetRecordItemHandleHandler::Register()
+{
+    if (m_rttiFunction)
+        return;
+
+    const std::string name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecordItemHandleHandler";
+    auto* function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &HandleInvocation);
+    Red::CRTTISystem::Get()->RegisterFunction(function);
+    m_rttiFunction = function;
+}
+
+void GetRecordItemHandleHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                                  int64_t a4)
+{
+    static const auto EmptyHandle = Red::Handle<Red::TweakDBRecord>();
+
+    (void)a4;
+
+    if (!aInstance || !aFrame)
+        return;
+
     int index;
     Red::GetParameter(aFrame, &index);
 
-    aFrame->code++; // Skip ParamEnd operand
+    ++aFrame->code; // ParamEnd
 
-    const auto* context = GetContext(aFrame);
+    const Context* context = GetContext(aFrame);
 
-    if (!aOut || !context)
+    if (index < 0)
+    {
+        *static_cast<RecordHandle*>(aOut) = EmptyHandle;
         return;
+    }
 
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+    if (const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context)))
+    {
+        if (const auto result = GetRecordArray<Red::Handle>(flat, context))
+        {
+            if (index < result->Size())
+            {
+                if (const auto record = result->At(index);
+                    record.instance->GetType()->IsA(context->typeSpec->foreignType))
+                {
+                    *static_cast<RecordHandle*>(aOut) = result->At(index);
+                    return;
+                }
+            }
+        }
+    }
 
-    *static_cast<ScriptableRecordManager::RecordHandle*>(aOut) = GetRecordItemHandle(flat, context, index);
+    *static_cast<RecordHandle*>(aOut) = EmptyHandle;
 }
 
-void ScriptablePropertyHandler::RecordArrayContainsHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame,
-                                                           void* aOut, int64_t a4)
+Red::CName GetRecordHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const
 {
-    ScriptableRecordManager::RecordWHandle record;
-    Red::GetParameter(aFrame, &record);
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(Red::TweakDBUtil::GetWHandleType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
+    segments.emplace_back(aPropSpec->functionName);
 
-    aFrame->code++; // Skip ParamEnd operand
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
-        return;
-
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
-
-    *static_cast<bool*>(aOut) = RecordArrayContains(flat, context, record);
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
 }
 
-void ScriptablePropertyHandler::GetRecordHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                 int64_t a4)
+void GetRecordHandler::Register()
 {
-    aFrame->code++; // Skip ParamEnd operand
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
+    if (m_rttiFunction)
         return;
 
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
-
-    *static_cast<ScriptableRecordManager::RecordWHandle*>(aOut) = GetRecord(flat, context);
+    const std::string name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecordHandler";
+    auto* function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &HandleInvocation);
+    Red::CRTTISystem::Get()->RegisterFunction(function);
+    m_rttiFunction = function;
 }
 
-void ScriptablePropertyHandler::GetRecordHandleHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame,
-                                                       void* aOut, int64_t a4)
+void GetRecordHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4)
 {
-    aFrame->code++; // Skip ParamEnd operand
+    static const auto EmptyHandle = Red::WeakHandle<Red::TweakDBRecord>();
 
-    const auto* context = GetContext(aFrame);
+    (void)a4;
 
-    if (!aOut || !context)
+    if (!aInstance || !aFrame)
         return;
 
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+    ++aFrame->code;
 
-    *static_cast<ScriptableRecordManager::RecordHandle*>(aOut) = GetRecordHandle(flat, context);
+    const Context* context = GetContext(aFrame);
+
+    if (const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context)))
+    {
+        const auto* id = static_cast<Red::TweakDBID*>(flat.instance);
+
+        if (const auto record = context->tweakManager->GetRecord(*id);
+            record && record->GetType()->IsA(context->typeSpec->foreignType))
+        {
+            *static_cast<RecordWHandle*>(aOut) = record;
+            return;
+        }
+    }
+
+    *static_cast<RecordWHandle*>(aOut) = EmptyHandle;
 }
 
-void ScriptablePropertyHandler::GetArrayItemHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                    int64_t a4)
+Red::CName GetRecordHandleHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                   const ScriptablePropertySpecPtr& aPropSpec) const
 {
+    std::string funcName = aPropSpec->functionName + "Handle";
+
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(Red::TweakDBUtil::GetHandleType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
+    segments.emplace_back(funcName);
+
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
+}
+
+void GetRecordHandleHandler::Register()
+{
+    if (m_rttiFunction)
+        return;
+
+    const std::string name = std::string(ScriptablePropertyHandlerPrefix) + "_GetRecordHandleHandler";
+    auto* function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &HandleInvocation);
+    Red::CRTTISystem::Get()->RegisterFunction(function);
+    m_rttiFunction = function;
+}
+
+void GetRecordHandleHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                              int64_t a4)
+{
+    static const auto EmptyHandle = Red::Handle<Red::TweakDBRecord>();
+
+    (void)a4;
+
+    if (!aInstance || !aFrame)
+        return;
+
+    ++aFrame->code;
+
+    const Context* context = GetContext(aFrame);
+
+    if (const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context)))
+    {
+        const auto* id = static_cast<Red::TweakDBID*>(flat.instance);
+
+        if (const auto record = context->tweakManager->GetRecord(*id);
+            record && record->GetType()->IsA(context->typeSpec->foreignType))
+        {
+            *static_cast<RecordHandle*>(aOut) = record;
+            return;
+        }
+    }
+
+    *static_cast<RecordHandle*>(aOut) = EmptyHandle;
+}
+
+Red::CName GetArrayCountHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                 const ScriptablePropertySpecPtr& aPropSpec) const
+{
+    static constexpr auto IntName = Red::GetTypeNameStr<int>();
+
+    std::string funcName = "Get" + aPropSpec->functionName + "Count";
+
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(IntName.data());
+    segments.emplace_back(funcName);
+
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
+}
+
+void GetArrayCountHandler::Register()
+{
+    if (m_rttiFunction)
+        return;
+
+    const std::string name = std::string(ScriptablePropertyHandlerPrefix) + "_GetArrayCountHandler";
+    auto* function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &HandleInvocation);
+    Red::CRTTISystem::Get()->RegisterFunction(function);
+    m_rttiFunction = function;
+}
+
+void GetArrayCountHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                            int64_t a4)
+{
+    (void)a4;
+
+    if (!aInstance || !aFrame)
+        return;
+
+    ++aFrame->code;
+
+    const Context* context = GetContext(aFrame);
+
+    if (const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+        flat.type->GetType() == Red::rtti::ERTTIType::Array)
+    {
+        const auto* arrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(flat.type);
+        *static_cast<uint32_t*>(aOut) = arrayType->GetLength(flat.instance);
+    }
+    else
+    {
+        *static_cast<int*>(aOut) = 0;
+    }
+}
+
+Red::CName GetArrayItemHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                const ScriptablePropertySpecPtr& aPropSpec) const
+{
+    static constexpr auto IntName = Red::GetTypeNameStr<int>();
+
+    std::string funcName = "Get" + aPropSpec->functionName + "Item";
+
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(aPropSpec->typeSpec->propertyType->GetName().ToString());
+    segments.emplace_back(funcName);
+    segments.emplace_back(IntName.data());
+
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
+}
+
+void GetArrayItemHandler::Register()
+{
+    if (m_rttiFunction)
+        return;
+
+    const std::string name = std::string(ScriptablePropertyHandlerPrefix) + "_GetArrayItemHandler";
+    auto* function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &HandleInvocation);
+    Red::CRTTISystem::Get()->RegisterFunction(function);
+    m_rttiFunction = function;
+}
+
+void GetArrayItemHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                           int64_t a4)
+{
+    (void)a4;
+
+    if (!aInstance || !aFrame)
+        return;
+
     int index;
     Red::GetParameter(aFrame, &index);
 
-    aFrame->code++; // Skip ParamEnd operand
+    ++aFrame->code; // ParamEnd
 
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
-        return;
+    const Context* context = GetContext(aFrame);
 
     const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
 
-    if (flat.type != context->propSpec->flatType || flat.type->GetType() != Red::rtti::ERTTIType::Array)
+    if (flat.type != context->typeSpec->propertyType || flat.type->GetType() == Red::rtti::ERTTIType::Array)
         return;
 
     const auto* arrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(flat.type);
     const auto* innerType = arrayType->GetInnerType();
     const auto length = arrayType->GetLength(flat.instance);
 
-    if (index < 0 || index >= length)
-        return;
-
-    innerType->Assign(aOut, arrayType->GetElement(flat.instance, index));
+    if (index >= 0 && static_cast<uint32_t>(index) < length)
+    {
+        innerType->Assign(aOut, arrayType->GetElement(flat.instance, index));
+    }
 }
 
-void ScriptablePropertyHandler::ArrayContainsHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                                     int64_t a4)
+Red::CName ArrayContainsHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                 const ScriptablePropertySpecPtr& aPropSpec) const
 {
-    static constexpr uint32_t ContextOffset = OpSize + PtrSize + 1;
-    static constexpr uint32_t EndOffset = ContextOffset + PtrSize;
+    static constexpr auto BoolName = Red::GetTypeNameStr<bool>();
 
-    aFrame->code += ContextOffset;
+    std::string funcName = aPropSpec->functionName + "Contains";
 
-    const auto* context = GetContext(aFrame);
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(BoolName.data());
+    segments.emplace_back(funcName);
+    segments.emplace_back(aPropSpec->typeSpec->propertyType->GetName().ToString());
 
-    if (!aOut || !context)
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
+}
+
+void ArrayContainsHandler::Register()
+{
+    if (m_rttiFunction)
         return;
 
-    aFrame->code -= EndOffset;
+    const std::string name = std::string(ScriptablePropertyHandlerPrefix) + "_ArrayContainsHandler";
+    auto* function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &HandleInvocation);
+    Red::CRTTISystem::Get()->RegisterFunction(function);
+    m_rttiFunction = function;
+}
 
-    const auto* arrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(context->propSpec->propertyType);
-    const auto* innerType = arrayType->GetInnerType();
+void ArrayContainsHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                            int64_t a4)
+{
+    (void)a4;
 
-    const auto item = Red::MakeValue(innerType);
-    Red::GetParameter(aFrame, item->instance);
+    if (!aInstance || !aFrame)
+        return;
 
-    aFrame->code += EndOffset;
+    void* item;
+    Red::GetParameter(aFrame, &item);
+
+    ++aFrame->code; // ParamEnd
+
+    const Context* context = GetContext(aFrame);
 
     const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
 
-    *static_cast<bool*>(aOut) = ArrayContains(flat, context, item->instance);
-}
-
-void ScriptablePropertyHandler::GetHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                           int64_t a4)
-{
-    aFrame->code++;
-
-    const auto* context = GetContext(aFrame);
-
-    if (!aOut || !context)
+    if (flat.type != context->typeSpec->propertyType || flat.type->GetType() == Red::rtti::ERTTIType::Array)
+    {
+        *static_cast<bool*>(aOut) = false;
         return;
-
-    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
-
-    if (flat.type == context->propSpec->propertyType)
-    {
-        flat.type->Assign(aOut, flat.instance);
-    }
-}
-
-Red::TweakDBID ScriptablePropertyHandler::GetFlatID(Red::Instance aInstance,
-                                                    const ScriptableRecordManager::Context* aContext)
-{
-    if (!aInstance || !aContext)
-        return {};
-
-    const auto* record = static_cast<ScriptableTweakDBRecord*>(aInstance);
-    return record->recordID + aContext->appendix;
-}
-
-ScriptablePropertyHandler::RecordArrayPtr ScriptablePropertyHandler::GetRecordArray(const Red::Value<>& aValue,
-                                                                                    const Context* aContext)
-{
-    static const auto* tweakDBIDArrayType = Red::TypeLocator<Red::ERTDBFlatType::TweakDBID>::GetArray();
-
-    const auto propSpec = aContext->propSpec;
-
-    if (!propSpec->isForeignKey || !propSpec->isArray || aValue.type != propSpec->flatType)
-        return nullptr;
-
-    const auto* targetArrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(propSpec->propertyType);
-    const auto* innerType = targetArrayType->GetInnerType();
-
-    if (!innerType || innerType->GetType() != Red::rtti::ERTTIType::WeakHandle)
-        return nullptr;
-
-    const auto length = tweakDBIDArrayType->GetLength(aValue.instance);
-    const auto result = Red::MakeInstance<ScriptableRecordManager::RecordArray>(length);
-
-    for (uint32_t i = 0; i < length; ++i)
-    {
-        auto& element = result->At(i);
-        const auto& id = *static_cast<Red::TweakDBID*>(tweakDBIDArrayType->GetElement(aValue.instance, i));
-        const auto record = aContext->tweakManager->GetRecord(id);
-        const auto instance = targetArrayType->GetElement(&element, i);
-
-        if (!record || !record->GetType()->IsA(propSpec->foreignType))
-        {
-            if (innerType->GetType() == Red::rtti::ERTTIType::WeakHandle)
-            {
-                *static_cast<Red::WeakHandle<Red::TweakDBRecord>*>(instance) = Red::WeakHandle<Red::TweakDBRecord>{};
-            }
-            else
-            {
-                *static_cast<Red::Handle<Red::TweakDBRecord>*>(instance) = nullptr;
-            }
-        }
-        else
-        {
-            if (innerType->GetType() == Red::rtti::ERTTIType::WeakHandle)
-            {
-                *static_cast<Red::WeakHandle<Red::TweakDBRecord>*>(instance) = record;
-            }
-            else
-            {
-                *static_cast<Red::Handle<Red::TweakDBRecord>*>(instance) = record;
-            }
-        }
     }
 
-    return result;
-}
-
-ScriptablePropertyHandler::RecordHandle ScriptablePropertyHandler::GetRecordItemHandle(const Red::Value<>& aValue,
-                                                                                       const Context* aContext,
-                                                                                       const int aIndex)
-{
-    static const auto* tweakDBIDArrayType = Red::TypeLocator<Red::ERTDBFlatType::TweakDBID>::GetArray();
-
-    const auto propSpec = aContext->propSpec;
-
-    if (!propSpec->isForeignKey || !propSpec->isArray ||
-        propSpec->propertyType->GetType() != Red::rtti::ERTTIType::Array)
-        return nullptr;
-
-    const auto* targetArrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(propSpec->propertyType);
-    const auto* innerType = targetArrayType->GetInnerType();
-
-    if (!innerType || innerType->GetType() != Red::rtti::ERTTIType::Handle)
-        return nullptr;
-
-    const auto length = tweakDBIDArrayType->GetLength(aValue.instance);
-
-    if (aIndex < 0 || aIndex >= length)
-        return {};
-
-    const auto& id = *static_cast<Red::TweakDBID*>(targetArrayType->GetElement(aValue.instance, aIndex));
-    auto record = aContext->tweakManager->GetRecord(id);
-
-    if (record && record->GetType()->IsA(propSpec->foreignType))
-        return record;
-
-    return nullptr;
-}
-
-ScriptablePropertyHandler::RecordWHandle ScriptablePropertyHandler::GetRecordItem(const Red::Value<>& aValue,
-                                                                                  const Context* aContext,
-                                                                                  const int aIndex)
-{
-    return GetRecordItemHandle(aValue, aContext, aIndex);
-}
-
-bool ScriptablePropertyHandler::RecordArrayContains(const Red::Value<>& aValue, const Context* aContext,
-                                                    const RecordWHandle& aRecord)
-{
-    static auto* arrayType =
-        reinterpret_cast<Red::CRTTIBaseArrayType*>(Red::TypeLocator<Red::ERTDBFlatType::TweakDBIDArray>::Get());
-    static auto* innerType = Red::TypeLocator<Red::ERTDBFlatType::TweakDBID>::Get();
-
-    const auto propSpec = aContext->propSpec;
-
-    if (propSpec->flatType != arrayType)
-        return false;
-
-    const auto length = arrayType->GetLength(aValue.instance);
-
-    for (uint32_t i = 0; i < length; ++i)
-    {
-        if (innerType->IsEqual(arrayType->GetElement(aValue.instance, i), &aRecord.instance->recordID))
-            return true;
-    }
-
-    return false;
-}
-
-ScriptablePropertyHandler::RecordWHandle ScriptablePropertyHandler::GetRecord(const Red::Value<>& aValue,
-                                                                              const Context* aContext)
-{
-    const auto propSpec = aContext->propSpec;
-
-    if (!propSpec->isForeignKey || propSpec->propertyType->GetType() != Red::rtti::ERTTIType::WeakHandle)
-        return {};
-
-    const auto& id = *static_cast<Red::TweakDBID*>(aValue.instance);
-    auto record = aContext->tweakManager->GetRecord(id);
-
-    if (record && record->GetType()->IsA(propSpec->foreignType))
-        return record;
-
-    return {};
-}
-
-ScriptablePropertyHandler::RecordHandle ScriptablePropertyHandler::GetRecordHandle(const Red::Value<>& aValue,
-                                                                                   const Context* aContext)
-{
-    const auto propSpec = aContext->propSpec;
-
-    if (!propSpec->isForeignKey || propSpec->propertyType->GetType() != Red::rtti::ERTTIType::Handle)
-        return {};
-
-    const auto& id = *static_cast<Red::TweakDBID*>(aValue.instance);
-    auto record = aContext->tweakManager->GetRecord(id);
-
-    if (record && record->GetType()->IsA(propSpec->foreignType))
-        return record;
-
-    return {};
-}
-
-uint32_t ScriptablePropertyHandler::GetArrayCount(const Red::Value<>& aValue, const Context* aContext)
-{
-    const auto propSpec = aContext->propSpec;
-
-    if (propSpec->propertyType != aValue.type || aValue.type->GetType() != Red::rtti::ERTTIType::Array)
-        return 0;
-
-    const auto* targetArrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(aValue.type);
-    return targetArrayType->GetLength(aValue.instance);
-}
-
-bool ScriptablePropertyHandler::ArrayContains(const Red::Value<>& aValue, const Context* aContext, Red::Instance item)
-{
-    const auto propSpec = aContext->propSpec;
-
-    if (propSpec->propertyType->GetType() != Red::rtti::ERTTIType::Array || aValue.type != propSpec->propertyType)
-        return false;
-
-    auto* arrayType =
-        const_cast<Red::CRTTIBaseArrayType*>(reinterpret_cast<const Red::CRTTIBaseArrayType*>(propSpec->propertyType));
+    const auto* arrayType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(flat.type);
     auto* innerType = arrayType->GetInnerType();
-
-    const auto length = arrayType->GetLength(aValue.instance);
+    const auto length = arrayType->GetLength(flat.instance);
 
     for (uint32_t i = 0; i < length; ++i)
     {
-        if (innerType->IsEqual(arrayType->GetElement(aValue.instance, i), item))
-            return true;
+        if (innerType->IsEqual(arrayType->GetElement(flat.instance, i), item))
+        {
+            *static_cast<bool*>(aOut) = true;
+            return;
+        }
+    }
+
+    *static_cast<bool*>(aOut) = false;
+}
+
+Red::CName GetValueHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                            const ScriptablePropertySpecPtr& aPropSpec) const
+{
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(aPropSpec->typeSpec->propertyType->GetName().ToString());
+    segments.emplace_back(aPropSpec->functionName);
+
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
+}
+
+void GetValueHandler::Register()
+{
+    if (m_rttiFunction)
+        return;
+
+    const std::string name = std::string(ScriptablePropertyHandlerPrefix) + "_GetValueHandler";
+    auto* function = Red::CGlobalFunction::Create(name.c_str(), name.c_str(), &HandleInvocation);
+    Red::CRTTISystem::Get()->RegisterFunction(function);
+    m_rttiFunction = function;
+}
+
+void GetValueHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4)
+{
+    (void)a4;
+
+    if (!aInstance || !aFrame)
+        return;
+
+    ++aFrame->code;
+
+    const Context* context = GetContext(aFrame);
+
+    const auto flat = context->tweakManager->GetFlat(GetFlatID(aInstance, context));
+
+    if (flat.type != context->typeSpec->propertyType)
+        return;
+
+    flat.type->Assign(aOut, flat.instance);
+}
+
+ScriptablePropertyHandlerRegistry::ScriptablePropertyHandlerRegistry(
+    const Core::DeferredPtr<Red::TweakDBManager>& aManager)
+    : m_manager(aManager)
+{
+}
+
+void ScriptablePropertyHandlerRegistry::RegisterRTTIFunctions()
+{
+    s_getRecordArrayHandler.Register();
+    s_recordArrayContainsHandler.Register();
+    s_getRecordItemHandler.Register();
+    s_getRecordItemHandleHandler.Register();
+    s_getRecordHandler.Register();
+    s_getRecordHandleHandler.Register();
+    s_getArrayCountHandler.Register();
+    s_getArrayItemHandler.Register();
+    s_getArrayContainsHandler.Register();
+    s_getValueHandler.Register();
+}
+
+ScriptablePropertyHandler* ScriptablePropertyHandlerRegistry::GetHandler(const GetterType aType)
+{
+    // clang-format off
+    switch (aType)
+    {
+    case GetterType::GetRecordArray: return &s_getRecordArrayHandler;
+    case GetterType::RecordArrayContains: return &s_recordArrayContainsHandler;
+    case GetterType::GetRecordItem: return &s_getRecordItemHandler;
+    case GetterType::GetRecordItemHandle: return &s_getRecordItemHandleHandler;
+    case GetterType::GetRecord: return &s_getRecordHandler;
+    case GetterType::GetRecordHandle: return &s_getRecordHandleHandler;
+    case GetterType::GetArrayCount: return &s_getArrayCountHandler;
+    case GetterType::GetArrayItem: return &s_getArrayItemHandler;
+    case GetterType::ArrayContains: return &s_getArrayContainsHandler;
+    case GetterType::Get: return &s_getValueHandler;
+    default: return nullptr;
+    }
+    // clang-format on
+}
+
+ContextPtr ScriptablePropertyHandlerRegistry::GetContext(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                         const ScriptablePropertySpecPtr& aPropSpec)
+{
+    {
+        std::shared_lock lockRW(m_contextsMutex);
+        if (const auto it = m_contexts.find(aRecordSpec->cname); it != m_contexts.end())
+        {
+            if (const auto it2 = it->second.find(aPropSpec->cname); it2 != it->second.end())
+            {
+                return it2->second;
+            }
+        }
+    }
+
+    const auto context = Core::MakeShared<Context>();
+
+    context->tweakManager = m_manager;
+    context->typeSpec = aPropSpec->typeSpec;
+    context->appendix = aPropSpec->appendix;
+
+    {
+        std::unique_lock lockRW(m_contextsMutex);
+        m_contexts[aRecordSpec->cname][aPropSpec->cname] = context;
+    }
+
+    return context;
+}
+
+void ScriptablePropertyHandlerRegistry::RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                                   const ScriptablePropertySpecPtr& aPropSpec)
+{
+    if (aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isForeignKey)
+    {
+        RegisterPropertyFunction<GetterType::GetRecordArray>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetArrayCount>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetRecordItem>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetRecordItemHandle>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::RecordArrayContains>(aRecordSpec, aPropSpec);
+    }
+    else if (!aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isForeignKey)
+    {
+        RegisterPropertyFunction<GetterType::GetRecord>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetRecordHandle>(aRecordSpec, aPropSpec);
+    }
+    else if (aPropSpec->typeSpec->isArray && Red::TweakDBUtil::IsResRefTokenArray(aPropSpec->typeSpec->propertyType))
+    {
+        RegisterPropertyFunction<GetterType::Get>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetArrayCount>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetArrayItem>(aRecordSpec, aPropSpec);
+    }
+    else if (aPropSpec->typeSpec->isArray)
+    {
+        RegisterPropertyFunction<GetterType::Get>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetArrayCount>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::GetArrayItem>(aRecordSpec, aPropSpec);
+        RegisterPropertyFunction<GetterType::ArrayContains>(aRecordSpec, aPropSpec);
+    }
+    else
+    {
+        RegisterPropertyFunction<GetterType::Get>(aRecordSpec, aPropSpec);
+    }
+}
+
+template<GetterType Type>
+void ScriptablePropertyHandlerRegistry::RegisterPropertyFunction(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                                 const ScriptablePropertySpecPtr& aPropSpec)
+{
+    const auto* handler = GetHandler(Type);
+    const auto hash = handler->GetFunctionHash(aRecordSpec, aPropSpec);
+    std::unique_lock lockRW(m_functionTypesMutex);
+    m_functionTypes[aRecordSpec->cname][hash] = Type;
+}
+
+bool ScriptablePropertyHandlerRegistry::AdaptScriptFunction(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                            Red::CClassFunction* aFunc)
+{
+    const auto functionHash = GetFunctionHash(aRecordSpec, aFunc);
+
+    std::shared_lock lockR(m_functionTypesMutex);
+
+    if (const auto it = m_functionTypes.find(aRecordSpec->cname); it != m_functionTypes.end())
+    {
+        if (const auto it2 = it->second.find(functionHash); it2 != it->second.end())
+        {
+            const auto handler = GetHandler(it2->second);
+            const auto baseFunctionName = handler->GetFunctionBaseName(aFunc->shortName.ToString());
+
+            if (const auto propSpec = aRecordSpec->FindPropertyByFunctionName(baseFunctionName))
+            {
+                // TODO: truncate it here?
+                if (!propSpec->isDescribed)
+                    return false;
+
+                const auto context = GetContext(aRecordSpec, propSpec);
+                ReplaceScriptFunction(aFunc, context, handler->GetRTTIFunction());
+                return true;
+            }
+        }
     }
 
     return false;
 }
 
-const ScriptablePropertyHandler::Context* ScriptablePropertyHandler::GetContext(Red::CStackFrame* aFrame)
+void ScriptablePropertyHandlerRegistry::TruncateScriptFunction(Red::CClassFunction* aFunction)
 {
-    const auto* context = *reinterpret_cast<Context**>(aFrame->code);
-    aFrame->code += sizeof(Context*); // Move past ctx pointer
-    return context;
+    aFunction->bytecode.bytecode.buffer.data = nullptr;
+    aFunction->bytecode.bytecode.buffer.size = 0;
+}
+
+void ScriptablePropertyHandlerRegistry::ReplaceScriptFunction(Red::CClassFunction* aFunction,
+                                                              const ContextPtr& aContext,
+                                                              Red::CGlobalFunction* aNativeFunc)
+{
+    const auto bytecode = CreateFunctionBytecode(aContext, aFunction, aNativeFunc);
+    aFunction->bytecode.bytecode.buffer.data = bytecode.data;
+    aFunction->bytecode.bytecode.buffer.size = bytecode.size;
+}
+
+Red::RawBuffer ScriptablePropertyHandlerRegistry::CreateFunctionBytecode(const ContextPtr& aContext,
+                                                                         Red::CClassFunction* aFunction,
+                                                                         Red::CGlobalFunction* aNativeFunction)
+{
+    constexpr uint8_t ParamOp = 25;
+    constexpr uint8_t CallStaticOp = 36;
+    constexpr uint8_t ParamEndOp = 38;
+    constexpr uint8_t ReturnOp = 39;
+    constexpr uint32_t OpSize = sizeof(char);
+    constexpr uint32_t OffsetSize = sizeof(uint16_t);
+    constexpr uint32_t FlagsSize = sizeof(uint16_t);
+    constexpr uint32_t PointerSize = sizeof(void*);
+    constexpr uint32_t BaseCodeSize = OpSize + OffsetSize * 2 + PointerSize + FlagsSize + OpSize;
+    constexpr uint16_t BaseExitOffset = BaseCodeSize - OpSize - OffsetSize;
+
+    const uint32_t extraCodeSize =
+        aFunction->params.Size() * (OpSize + PointerSize) + PointerSize + (aFunction->returnType ? 1 : 0);
+    const uint32_t finalCodeSize = BaseCodeSize + extraCodeSize;
+    const uint16_t finalExitOffset = BaseExitOffset + extraCodeSize;
+
+    constexpr Red::Memory::EngineAllocator allocator;
+    auto* memory = allocator.Alloc(finalCodeSize).memory;
+    auto* code = static_cast<uint8_t*>(memory);
+
+    if (aFunction->returnType)
+    {
+        *code = ReturnOp;
+        code += OpSize;
+    }
+
+    *code = CallStaticOp;
+    code += OpSize;
+
+    *reinterpret_cast<uint16_t*>(code) = finalExitOffset;
+    code += OffsetSize;
+
+    *reinterpret_cast<uint16_t*>(code) = 0;
+    code += OffsetSize;
+
+    *reinterpret_cast<void**>(code) = aNativeFunction;
+    code += PointerSize;
+
+    *reinterpret_cast<uint16_t*>(code) = 0;
+    code += FlagsSize;
+
+    for (const auto& param : aFunction->params)
+    {
+        *code = ParamOp;
+        code += OpSize;
+
+        *reinterpret_cast<void**>(code) = param;
+        code += PointerSize;
+    }
+
+    *code = ParamEndOp;
+    code += OpSize;
+
+    *reinterpret_cast<const Context**>(code) = aContext.get();
+
+    return {memory, finalCodeSize};
+}
+
+Red::CName ScriptablePropertyHandlerRegistry::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                              Red::CClassFunction* aFunction)
+{
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(aFunction->returnType ? aFunction->returnType->type->GetName().ToString() : "void");
+    segments.emplace_back(aFunction->shortName.ToString());
+
+    for (const auto& param : aFunction->params)
+    {
+        segments.emplace_back(param->type->GetName().ToString());
+    }
+
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
 }
 
 } // namespace App

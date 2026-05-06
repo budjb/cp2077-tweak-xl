@@ -23,59 +23,6 @@ constexpr auto PropSeparator = std::string_view(NameSeparator);
 
 namespace Red::TweakDBUtil
 {
-bool IsIgnoredProperty(CName aPropName)
-{
-    return std::string_view(aPropName.ToString()).starts_with(ignoredPropertyPrefix);
-}
-
-std::string CreateIgnoredPropertyName(const std::string& aName)
-{
-    std::string result(ignoredPropertyPrefix);
-    result.append(aName);
-    return result;
-}
-
-std::string CreateIgnoredPropertyName(const char* aName)
-{
-    std::string result(ignoredPropertyPrefix);
-    result.append(aName);
-    return result;
-}
-
-std::array<uint64_t, 26> GetFlatTypes()
-{
-    // clang-format off
-    return {
-        ERTDBFlatType::Int,
-        ERTDBFlatType::Float,
-        ERTDBFlatType::Bool,
-        ERTDBFlatType::String,
-        ERTDBFlatType::CName,
-        ERTDBFlatType::LocKey,
-        ERTDBFlatType::ResRef,
-        ERTDBFlatType::TweakDBID,
-        ERTDBFlatType::Quaternion,
-        ERTDBFlatType::EulerAngles,
-        ERTDBFlatType::Vector3,
-        ERTDBFlatType::Vector2,
-        ERTDBFlatType::Color,
-        ERTDBFlatType::IntArray,
-        ERTDBFlatType::FloatArray,
-        ERTDBFlatType::BoolArray,
-        ERTDBFlatType::StringArray,
-        ERTDBFlatType::CNameArray,
-        ERTDBFlatType::LocKeyArray,
-        ERTDBFlatType::ResRefArray,
-        ERTDBFlatType::TweakDBIDArray,
-        ERTDBFlatType::QuaternionArray,
-        ERTDBFlatType::EulerAnglesArray,
-        ERTDBFlatType::Vector3Array,
-        ERTDBFlatType::Vector2Array,
-        ERTDBFlatType::ColorArray
-    };
-    // clang-format on
-}
-
 CBaseRTTIType* GetFlatType(const uint64_t aType)
 {
     // clang-format off
@@ -680,6 +627,113 @@ std::string Decapitalize(const char* aName)
         name[0] = static_cast<char>(std::tolower(name[0]));
     }
     return name;
+}
+
+template<>
+std::string GetHandleTypeName(const CClass* aClass)
+{
+    static constexpr auto HandlePrefix = Red::GetTypePrefixStr<Handle>();
+
+    if (!aClass)
+        return {};
+
+    std::string name = HandlePrefix.data();
+    name.append(aClass->GetName().ToString());
+
+    return name;
+}
+
+template<>
+std::string GetWHandleTypeName(const CClass* aClass)
+{
+    static constexpr auto WeakHandlePrefix = Red::GetTypePrefixStr<WeakHandle>();
+
+    if (!aClass)
+        return {};
+
+    std::string name = WeakHandlePrefix.data();
+    name.append(aClass->GetName().ToString());
+
+    return name;
+}
+
+template<>
+std::string GetWHandleArrayTypeName(const CClass* aClass)
+{
+    static constexpr auto WeakHandlePrefix = Red::GetTypePrefixStr<WeakHandle>();
+    static constexpr auto ArrayPrefix = Red::GetTypePrefixStr<DynArray>();
+
+    if (!aClass)
+        return {};
+
+    std::string name = ArrayPrefix.data();
+    name.append(WeakHandlePrefix.data());
+    name.append(aClass->GetName().ToString());
+
+    return name;
+}
+
+template<>
+CName GetHandleTypeName(const CClass* aClass)
+{
+    return {GetHandleTypeName<std::string>(aClass).c_str()};
+}
+
+template<>
+CName GetWHandleTypeName(const CClass* aClass)
+{
+    return {GetWHandleTypeName<std::string>(aClass).c_str()};
+}
+
+template<>
+CName GetWHandleArrayTypeName(const CClass* aClass)
+{
+    return {GetWHandleArrayTypeName<std::string>(aClass).c_str()};
+}
+
+CHandle* GetHandleType(const CClass* aClass)
+{
+    static auto* rtti = CRTTISystem::Get();
+
+    if (!aClass)
+        return nullptr;
+
+    auto* type = rtti->GetType(GetHandleTypeName<CName>(aClass));
+
+    if (!type || type->GetType() != ERTTIType::Handle)
+        return nullptr;
+
+    return reinterpret_cast<CHandle*>(type);
+}
+
+CWeakHandle* GetWHandleType(const CClass* aClass)
+{
+    static auto* rtti = Red::CRTTISystem::Get();
+
+    if (!aClass)
+        return nullptr;
+
+    auto* type = rtti->GetType(GetWHandleTypeName<CName>(aClass));
+
+    if (!type || type->GetType() != ERTTIType::WeakHandle)
+        return nullptr;
+
+    return reinterpret_cast<CWeakHandle*>(type);
+}
+
+CRTTIBaseArrayType* GetWHandleArrayType(const CClass* aClass)
+{
+    static auto* rtti = Red::CRTTISystem::Get();
+
+    if (!aClass)
+        return nullptr;
+
+    auto* type = rtti->GetType(GetWHandleArrayTypeName<CName>(aClass));
+
+    if (!type || type->GetType() != ERTTIType::Array)
+        return nullptr;
+
+    return reinterpret_cast<CRTTIBaseArrayType*>(type);
 }
 
 } // namespace Red::TweakDBUtil

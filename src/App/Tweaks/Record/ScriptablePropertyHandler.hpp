@@ -1,475 +1,723 @@
 #pragma once
 
-#include <type_traits>
+#include <string_view>
 
-#include "ScriptableRecordManager.hpp"
+#include "Core/Logging/LoggingAgent.hpp"
+#include "ScriptableRecordTypes.hpp"
 
 namespace App
 {
 /**
- * @brief A static utility class responsible for handling the functions related to properties of scriptable TweakDB
- * records. The function handlers contained within this class are reusable across any dynamically-defined TweakDB record
- * type.
+ * @brief An enumeration of the different types of property getter functions that can be registered for scriptable
+ * TweakDB records, used to identify the appropriate function handler for a given function based on its name. The
+ * function handlers corresponding to each getter type are implemented in App::ScriptablePropertyHandler and its derived
+ * classes.
+ */
+enum class GetterType : uint8_t
+{
+    GetRecordArray,
+    RecordArrayContains,
+    GetRecordItem,
+    GetRecordItemHandle,
+    GetRecord,
+    GetRecordHandle,
+    GetArrayCount,
+    GetArrayItem,
+    ArrayContains,
+    Get
+};
+
+/**
+ * @brief A base class for handling the registration and invocation of script functions that serve as property getters
+ * for scriptable TweakDB records. Each derived class corresponds to a specific type of getter function, identified by
+ * the GetterType enumeration, and implements the necessary logic for:
  *
- * Crucially, all function handlers expect an execution context to be provided to the invocation via a pointer in the
- * call stack directly after the ParamEnd opcode. This context contains necessary information for the function handlers
- * to determine which property is being accessed and details about the flat and property types, as well as pointers to
- * @c Red::TweakDBManager and @c App::ScriptableRecordManager.
+ * - Registering the function with the scripting system.
+ * - Generating the appropriate script bytecode for invoking the function.
+ * - Handling the function's invocation at runtime.
+ *
+ * This class (and its derived classes) can only be created at compile time.
  */
 class ScriptablePropertyHandler
 {
 public:
+    /**
+     * @brief A prefix added to the names of generated script functions for scriptable record properties to identify
+     * them as property handlers and avoid naming conflicts with user-defined functions.
+     */
     static constexpr auto ScriptablePropertyHandlerPrefix = "_ScriptablePropertyHandler";
 
     /**
-     * @brief A type alias for a strong handle to a TweakDB record instance.
+     * @brief Constructs a ScriptablePropertyHandler with the given type, prefix, and suffix.
+     *
+     * The prefix and suffix are used to generate the names of the script functions that this handler will manage, which
+     * follow the format @c <prefix><property_name><suffix>. For example, if the prefix is @c Get and the suffix is @c
+     * Item, a property named @c MyProperty would correspond to a function named @c GetMyPropertyItem.
+     *
+     * @param aPrefix The prefix added to the names of generated script functions for this handler.
+     * @param aSuffix The suffix added to the names of generated script functions for this handler.
      */
-    using RecordHandle = ScriptableRecordManager::RecordHandle;
+    consteval explicit ScriptablePropertyHandler(const std::string_view aPrefix, const std::string_view aSuffix)
+        : m_prefix(aPrefix)
+        , m_suffix(aSuffix)
+        , m_prefixLength(aPrefix.length())
+        , m_suffixLength(aSuffix.length())
+    {
+    }
 
     /**
-     * @brief A type alias for a weak handle to a TweakDB record instance.
+     * @brief Virtual destructor for ScriptablePropertyHandler.
      */
-    using RecordWHandle = ScriptableRecordManager::RecordWHandle;
+    virtual ~ScriptablePropertyHandler() = default;
 
     /**
-     * @brief A type alias for an array of weak handles to TweakDB record instances.
+     * @brief Generates the hash of the function name corresponding to the given record and property specifications for
+     * this property handler. This has is used to establish a link between a function parsed from redscript to the
+     * property specification associated with it.
+     *
+     * The function name is generated based on the naming convention defined by this handler's
+     * prefix and suffix, as well as the function name specified in the property specification. For example, if the
+     * prefix is @c Get and the suffix is @c Item, a property with the function name @c MyProperty would correspond to a
+     * function named @c GetMyPropertyItem.
+     *
+     * The hash is a combination of various string segments joined by semicolons. The segment order is as follows:
+     *
+     * - Record class name.
+     * - Function return type, or "void" if it does not have a return.
+     * - Generated function name for the handler.
+     * - Types for all function arguments, sequentially, if the function has any.
+     *
+     * @param aRecordSpec The specification of the scriptable record type that this function belongs to.
+     * @param aPropSpec The specification of the property that this function serves as a getter for.
+     * @return The hash of the function name corresponding to the given record and property specifications for this
+     * property handler.
      */
-    using RecordArray = ScriptableRecordManager::RecordArray;
+    [[nodiscard]] virtual Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                     const ScriptablePropertySpecPtr& aPropSpec) const = 0;
 
     /**
-     * @brief A type alias for a shared pointer to an array of weak handles to TweakDB record instances.
+     * @brief Extracts the base property name from a given function name by removing the handler's prefix and suffix.
+     * For example, if the handler's prefix is @c Get and suffix is @c Item, a function name @c GetMyPropertyItem would
+     * yield a base property name of @c MyProperty.
+     *
+     * @param aName The function name to extract the base property name from.
+     * @return The base property name extracted from the given function name, or an empty string if the function name
+     * does not conform to the expected format with this handler's prefix and suffix.
      */
-    using RecordArrayPtr = ScriptableRecordManager::RecordArrayPtr;
+    [[nodiscard]] std::string GetFunctionBaseName(const std::string& aName) const;
 
     /**
-     * @brief A type alias for the execution context used in scriptable property handlers, containing necessary
-     * information for property access and manipulation.
+     * @brief Registers the reusable native function corresponding to this property handler with the RTTI system. After
+     * registration, the handler's GetHandler() function should return a valid function pointer that can be used to
+     * invoke the handler for this getter type.
      */
-    using Context = ScriptableRecordManager::Context;
+    virtual void Register() = 0;
 
     /**
-     * @brief Deletes the default constructor to prevent instantiation of the ScriptablePropertyHandler class, as it is
-     * intended to be used as a static utility class for handling functions related to properties of scriptable TweakDB
-     * records.
+     * @brief Retrieves the RTTI global function object corresponding to this property handler, which is created and
+     * registered in the Register() function. This can be used to directly invoke the handler function at runtime, such
+     * as in the HandleInvocation() functions of the various property handlers.
+     *
+     * @return The RTTI function object for this property handler, or nullptr if it has not been registered yet.
      */
-    ScriptablePropertyHandler() = delete;
+    [[nodiscard]] Red::CGlobalFunction* GetRTTIFunction() const;
+
+protected:
+    /**
+     * @brief Retrieves the script execution context from the given stack frame. After execution of this function
+     * completes, the stack frame will be advanced past the pointer to the execution context.
+     *
+     * @param aFrame The stack frame provided to the handler's invocation from which to retrieve the execution context.
+     * @return A pointer to the execution context.
+     */
+    static Context* GetContext(Red::CStackFrame* aFrame);
 
     /**
-     * @brief Creates and registers the native function for a scriptable record property that retrieves an array of
-     * related records based on a foreign key relationship. This function implements the getter for properties that
-     * represent arrays of foreign keys to other TweakDB record types.
+     * @brief Retrieves the TweakDB ID of a property's flat value by appending the property's flat appendix to the given
+     * scriptable record instance's TweakDB ID.
      *
-     * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function.
-     *
-     * @return A pointer to the created native function that retrieves an array of related records based on a foreign
-     * key relationship.
+     * @param aInstance The scriptable record instance for which to retrieve the record's ID.
+     * @param aContext The execution context containing the property specification from which to retrieve the flat ID
+     * appendix.
+     * @return The TweakDB ID of the property's flat value, which is used to retrieve the flat instance from TweakDB at
+     * runtime.
      */
-    static Red::CGlobalFunction* CreateGetRecordsFunction();
+    static Red::TweakDBID GetFlatID(Red::Instance aInstance, const Context* aContext);
 
     /**
-     * @brief Creates and registers the native function for a scriptable record property that checks whether a given
-     * weak handle to a TweakDB instance is contained in the array of related records based on a foreign key
-     * relationship. This function is intended to be used as a helper for properties that represent arrays of foreign
-     * keys to other TweakDB record types.
+     * @brief Retrieves an array of record handles from a TweakDB flat value corresponding to a property, if the flat
+     * value is valid and of the expected type. This is used by various property handlers to retrieve the array of
+     * records associated with a property from TweakDB at runtime.
      *
-     * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function.
-     *
-     * @return A pointer to the created native function that checks whether a given weak handle to a TweakDB instance is
-     * contained in the array of related records based on a foreign key relationship.
+     * @tparam THandle The type of handle to use for the records in the array, which can be either Red::Handle or
+     * Red::WeakHandle.
+     * @param aValue The TweakDB flat value from which to retrieve the array of record handles. This is expected to be
+     * an array of TweakDB IDs.
+     * @param aContext The execution context containing the property specification from which to retrieve the expected
+     * type of the records in the array.
+     * @return A shared pointer to a dynamic array of record handles retrieved from the given flat value, or nullptr if
+     * the flat value is invalid or not of the expected type.
      */
-    static Red::CGlobalFunction* CreateRecordArrayContainsFunction();
+    template<template<typename> typename THandle>
+        requires(std::is_same_v<THandle<Red::TweakDBRecord>, Red::Handle<Red::TweakDBRecord>> ||
+                 std::is_same_v<THandle<Red::TweakDBRecord>, Red::WeakHandle<Red::TweakDBRecord>>)
+    static Core::SharedPtr<Red::DynArray<THandle<Red::TweakDBRecord>>> GetRecordArray(const Red::Value<>& aValue,
+                                                                                      const Context* aContext);
+    /**
+     * @brief A prefix added to the names of generated script functions for this property handler based on the name of
+     * the property.
+     *
+     * For example, if the prefix is @c Get and the property name is @c MyProperty, the generated function
+     * name would be updated to @c GetMyProperty.
+     */
+    const std::string_view m_prefix;
 
     /**
-     * @brief Creates and registers the native function for a scriptable record property that retrieves an individual
-     * related record based on a foreign key relationship from an array. This function implements the getter for
-     * properties that represent foreign keys to other TweakDB record types.
+     * @brief A suffix added to the names of generated script functions for this property handler based on the name of
+     * the property.
      *
-     * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function.
-     *
-     * @return A pointer to the created native function that retrieves an individual related record based on a foreign
-     * key relationship from an array.
+     * For example, if the suffix is @c Item and the property name is @c MyProperty, the generated function name would
+     * be updated to @c GetMyPropertyItem.
      */
-    static Red::CGlobalFunction* CreateGetRecordItemFunction();
+    const std::string_view m_suffix;
 
     /**
-     * @brief Creates and registers the native function for a scriptable record property that retrieves an individual
-     * related record based on a foreign key relationship from an array. This function implements the getter for
-     * properties that represent foreign keys to other TweakDB record types when a stronger reference is needed.
-     *
-     * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function.
-     *
-     * @return A pointer to the created native function that retrieves an individual related record based on a foreign
-     * key relationship from an array.
+     * @brief The length of the prefix string, cached for efficiency in extracting the base property name from function
+     * names.
      */
-    static Red::CGlobalFunction* CreateGetRecordItemHandleFunction();
+    const size_t m_prefixLength;
 
     /**
-     * @brief Creates and registers the native function for a scriptable record property that retrieves a related record
-     * based on a foreign key relationship. This function implements the getter for properties that represent foreign
-     * keys to other TweakDB record types.
-     *
-     * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function.
-     *
-     * @return A pointer to the created native function that retrieves a related record based on a foreign key
-     * relationship.
+     * @brief The length of the suffix string, cached for efficiency in extracting the base property name from function
+     * names.
      */
-    static Red::CGlobalFunction* CreateGetRecordFunction();
+    const size_t m_suffixLength;
 
     /**
-     * @brief Creates and registers the native function for a scriptable record property that retrieves a related record
-     * based on a foreign key relationship. This function implements the getter for properties that represent foreign
-     * keys to other TweakDB record types when a stronger reference is needed.
-     *
-     * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function.
-     *
-     * @return A pointer to the created native function that retrieves a related record based on a foreign key
-     * relationship.
+     * @brief The global function object registered with RTTI for this property handler, which can be used to directly
+     * invoke the handler at runtime. This is initialized in the Register() function and should be valid after
+     * registration.
      */
-    static Red::CGlobalFunction* CreateGetRecordHandleFunction();
+    Red::CGlobalFunction* m_rttiFunction = nullptr;
+};
+
+/**
+ * @brief A template class for handling the registration and invocation of script functions that serve as property
+ * getters for scriptable TweakDB records, providing the ability to create specialized handlers per getter type.
+ */
+template<GetterType>
+class TTypedPropertyHandler : public ScriptablePropertyHandler
+{
+public:
+    /**
+     * @brief Constructs a TTypedPropertyHandler with no name prefix or suffix.
+     */
+    consteval TTypedPropertyHandler()
+        : ScriptablePropertyHandler("", "")
+    {
+    }
 
     /**
-     * @brief Creates and registers the native function for a scriptable record property that retrieves the property's
-     * value from TweakDB. This function is suitable for retrieving most scriptable record property types, including
-     * arrays, but is not intended for use with foreign keys to other TweakDB records.
+     * @brief Constructs a TTypedPropertyHandler with the given name suffix and no prefix.
      *
-     * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function.
-     *
-     * @return A pointer to the created native function that retrieves a property value from TweakDB.
+     * @param aSuffix The suffix added to the names of generated script functions for this handler.
      */
-    static Red::CGlobalFunction* CreateGetFunction();
+    consteval explicit TTypedPropertyHandler(const std::string_view aSuffix)
+        : ScriptablePropertyHandler("", aSuffix)
+    {
+    }
 
     /**
-     * @brief Creates and registers the native function for a scriptable record property that retrieves the number of
-     * elements in an array property from TweakDB. This function is suitable for use with any type of array property.
+     * @brief Constructs a TTypedPropertyHandler with the given name prefix and no suffix.
      *
-     * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function.
-     *
-     * @return A pointer to the created native function that retrieves the number of elements in an array property from
-     * TweakDB.
+     * @param aPrefix The prefix added to the names of generated script functions for this handler.
+     * @param aSuffix The suffix added to the names of generated script functions for this handler.
      */
-    static Red::CGlobalFunction* CreateGetArrayCountFunction();
+    consteval explicit TTypedPropertyHandler(const std::string_view aPrefix, const std::string_view aSuffix)
+        : ScriptablePropertyHandler(aPrefix, aSuffix)
+    {
+    }
+};
+
+/**
+ * @brief A property handler for getter functions that retrieve an array of foreign keys to TweakDB records from a
+ * scriptable record property.
+ *
+ * The generated function name for this handler has no additional prefix or suffix beyond the base property name. For
+ * example, a property named @c MyProperty would correspond to a function named @c MyProperty.
+ *
+ * The TweakDB flat associated with the property is expected to contain an array of TweakDB IDs that point to TweakDB
+ * records of a specific type, as defined by the property. During processing, the results are validated to ensure that
+ * target records conform to the expected type. On success, the handler will return an array of weak handles to the
+ * target TweakDB records.
+ */
+class GetRecordArrayHandler : public TTypedPropertyHandler<GetterType::GetRecordArray>
+{
+public:
+    consteval GetRecordArrayHandler() = default;
+    [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void Register() override;
+
+private:
+    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+};
+
+/**
+ * @brief A property handler for getter functions that check whether a TweakDB record is contained within an array of
+ * foreign keys to TweakDB records associated with a scriptable record property.
+ *
+ * The generated function name for this handler has the suffix @c Contains and no prefix. For example, a property named
+ * @c MyProperty would correspond to a function named @c MyPropertyContains.
+ *
+ * The TweakDB flat associated with the property is expected to contain an array of TweakDB IDs that point to TweakDB
+ * records of a specific type, as defined by the property. During processing, the results are validated to ensure that
+ * target records conform to the expected type. The handler takes a weak handle to a TweakDB record as an argument and
+ * checks whether it is contained within the array of records associated with the property, returning true if it is and
+ * false otherwise.
+ */
+class RecordArrayContainsHandler : public TTypedPropertyHandler<GetterType::RecordArrayContains>
+{
+public:
+    consteval RecordArrayContainsHandler()
+        : TTypedPropertyHandler("Contains")
+    {
+    }
+
+    [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void Register() override;
+
+private:
+    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+};
+
+/**
+ * @brief A property handler for getter functions that return a foreign key to a TweakDB record from an array of TweakDB
+ * records from scriptable record property.
+ *
+ * The generated function name for this handler has the prefix @c Get and the suffix @c Item. For example, a property
+ * named @c MyProperty would correspond to a function named @c GetMyPropertyItem.
+ *
+ * The TweakDB flat associated with the property is expected to contain an array of TweakDB IDs that point to TweakDB
+ * records of a specific type, as defined by the property. During processing, the results are validated to ensure that
+ * target records conform to the expected type. The handler takes an index as an argument and returns a weak handle to
+ * the TweakDB record at that index within the array of records associated with the property.
+ */
+class GetRecordItemHandler : public TTypedPropertyHandler<GetterType::GetRecordItem>
+{
+public:
+    consteval GetRecordItemHandler()
+        : TTypedPropertyHandler("Get", "Item")
+    {
+    }
+
+    [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void Register() override;
+
+private:
+    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+};
+
+/**
+ * @brief A property handler for getter functions that return a foreign key to a TweakDB record from an array of TweakDB
+ * records from scriptable record property, where the returned handle is a strong handle rather than a weak handle.
+ *
+ * The generated function name for this handler has the prefix @c Get and the suffix @c ItemHandle. For example, a
+ * property named @c MyProperty would correspond to a function named @c GetMyPropertyItemHandle.
+ *
+ * The TweakDB flat associated with the property is expected to contain an array of TweakDB IDs that point to TweakDB
+ * records of a specific type, as defined by the property. During processing, the results are validated to ensure that
+ * target records conform to the expected type. The handler takes an index as an argument and returns a strong handle to
+ * the TweakDB record at that index within the array of records associated with the property.
+ */
+class GetRecordItemHandleHandler : public TTypedPropertyHandler<GetterType::GetRecordItemHandle>
+{
+public:
+    consteval GetRecordItemHandleHandler()
+        : TTypedPropertyHandler("Get", "ItemHandle")
+    {
+    }
+
+    [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void Register() override;
+
+private:
+    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+};
+
+/**
+ * @brief A property handler for getter functions that retrieve a foreign key to a TweakDB record from a scriptable
+ * record property.
+ *
+ * The generated function name for this handler has no additional prefix or suffix beyond the base property name. For
+ * example, a property named @c MyProperty would correspond to a function named @c MyProperty.
+ *
+ * The TweakDB flat associated with the property is expected to contain a TweakDB ID that points to a TweakDB record of
+ * a specific type, as defined by the property. During processing, the result is validated to ensure that the target
+ * record conforms to the expected type. On success, the handler will return a weak handle to the target TweakDB record.
+ */
+class GetRecordHandler : public TTypedPropertyHandler<GetterType::GetRecord>
+{
+public:
+    consteval GetRecordHandler() = default;
+
+    [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void Register() override;
+
+private:
+    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+};
+
+/**
+ * @brief A property handler for getter functions that retrieve a foreign key to a TweakDB record from a scriptable
+ * record property, where the returned handle is a strong handle rather than a weak handle.
+ *
+ * The generated function name for this handler has the suffix @c Handle and no prefix. For example, a property named
+ * @c MyProperty would correspond to a function named @c MyPropertyHandle.
+ *
+ * The TweakDB flat associated with the property is expected to contain a TweakDB ID that points to a TweakDB record of
+ * a specific type, as defined by the property. During processing, the result is validated to ensure that the target
+ * record conforms to the expected type. On success, the handler will return a strong handle to the target TweakDB
+ * record.
+ */
+class GetRecordHandleHandler : public TTypedPropertyHandler<GetterType::GetRecordHandle>
+{
+public:
+    consteval GetRecordHandleHandler()
+        : TTypedPropertyHandler("Handle")
+    {
+    }
+
+    [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void Register() override;
+
+private:
+    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+};
+
+/**
+ * @brief A property handler for getter functions that retrieve the count of items in an array associated with a
+ * scriptable record property.
+ *
+ * The generated function name for this handler has the prefix @c Get and the suffix @c Count. For example, a property
+ * named
+ * @c MyProperty would correspond to a function named @c GetMyPropertyCount.
+ *
+ * The TweakDB flat associated with the property is expected to contain an array of any type. During processing, the
+ * result is validated to ensure that it is an array. On success, the handler will return the count of items in the
+ * array.
+ */
+class GetArrayCountHandler : public TTypedPropertyHandler<GetterType::GetArrayCount>
+{
+public:
+    consteval GetArrayCountHandler()
+        : TTypedPropertyHandler("Get", "Count")
+    {
+    }
+
+    [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void Register() override;
+
+private:
+    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+};
+
+/**
+ * @brief A property handler for getter functions that retrieve an item at a specific index from an array associated
+ * with a scriptable record property.
+ *
+ * The generated function name for this handler has the prefix @c Get and the suffix @c Item. For example, a property
+ * named @c MyProperty would correspond to a function named @c GetMyPropertyItem.
+ *
+ * The TweakDB flat associated with the property is expected to contain an array of any type other than foreign keys to
+ * other TweakDB records. During processing, the result is validated to ensure that it is an array and that its elements
+ * are of the expected type as defined by the property specification. On success, the handler will return the item at
+ * the specified index in the array.
+ */
+class GetArrayItemHandler : public TTypedPropertyHandler<GetterType::GetArrayItem>
+{
+public:
+    consteval GetArrayItemHandler()
+        : TTypedPropertyHandler("Get", "Item")
+    {
+    }
+
+    [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void Register() override;
+
+private:
+    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+};
+
+/**
+ * @brief A property handler for getter functions that check whether a specific item is contained within an array
+ * associated with a scriptable record property.
+ *
+ * The generated function name for this handler has the suffix @c Contains and the prefix @c Get. For example, a
+ * property named @c MyProperty would correspond to a function named @c GetMyPropertyContains.
+ *
+ * The TweakDB flat associated with the property is expected to contain an array of any type other than foreign keys to
+ * other TweakDB records. During processing, the result is validated to ensure that it is an array and that its elements
+ * are of the expected type as defined by the property specification. The handler takes an item as an argument and
+ * checks whether it is contained within the array associated with the property, returning true if it is and false
+ * otherwise.
+ */
+class ArrayContainsHandler : public TTypedPropertyHandler<GetterType::ArrayContains>
+{
+public:
+    consteval ArrayContainsHandler()
+        : TTypedPropertyHandler("Contains")
+    {
+    }
+
+    [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void Register() override;
+
+private:
+    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+};
+
+/**
+ * @brief A property handler for getter functions that retrieve a simple value (i.e., a value that is simply returned
+ * from its TweakDB flat) from a scriptable record property.
+ *
+ * The generated function name for this handler has no additional prefix or suffix beyond the base property name. For
+ * example, a property named @c MyProperty would correspond to a function named @c MyProperty.
+ *
+ * The TweakDB flat associated with the property is expected to contain a value of a simple type (e.g., int, float,
+ * bool, enum, arrays, etc.) that can be directly returned without additional processing. During processing, the result
+ * is validated to ensure that it is of the expected type as defined by the property specification. On success, the
+ * handler will return the value from TweakDB.
+ */
+class GetValueHandler : public TTypedPropertyHandler<GetterType::Get>
+{
+public:
+    consteval GetValueHandler() = default;
+
+    [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void Register() override;
+
+private:
+    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+};
+
+/**
+ * @brief A registry for managing the registration and invocation of script functions that serve as property getters for
+ * scriptable TweakDB records.
+ */
+class ScriptablePropertyHandlerRegistry
+    : Core::LoggingAgent
+    , Core::ShareFromThis<ScriptablePropertyHandlerRegistry>
+{
+public:
+    /**
+     * @brief Constructs a ScriptablePropertyHandlerRegistry instance with the given TweakDB manager.
+     *
+     * @param aManager A deferred pointer to the TweakDB manager used to retrieve scriptable record property values from
+     * TweakDB at runtime.
+     */
+    explicit ScriptablePropertyHandlerRegistry(const Core::DeferredPtr<Red::TweakDBManager>& aManager);
 
     /**
-     * @brief Creates and registers the native function for a scriptable record property that retrieves an individual
-     * item from an array property based on its index from TweakDB. This function is suitable for use with any type of
-     * array property other than arrays of foreign keys to other TweakDB records.
-     *
-     * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function.
-     *
-     * @return A pointer to the created native function that retrieves an individual item from an array property based
-     * on its index from TweakDB.
+     * @brief Registers the reusable native functions corresponding to all property handlers with the RTTI system. After
+     * registration, the GetRTTIFunction() function of each handler should return a valid function pointer that can be
+     * used to invoke the handler for its corresponding getter type.
      */
-    static Red::CGlobalFunction* CreateGetArrayItemFunction();
+    static void RegisterRTTIFunctions();
 
     /**
-     * @brief Creates and registers the native function for a scriptable record property that checks whether a given
-     * item is contained in an array property from TweakDB. This function is suitable for use with any type of array
-     * property other than arrays of foreign keys to other TweakDB records.
+     * @brief Registers a script function as a property getter for a scriptable record type based on the given record
+     * and property specifications.
      *
-     * The native function should not be directly called as it requires an execution context to be placed on the call
-     * stack via a wrapper script function.
+     * This process does not create any functions with RTTI or the scripting system, but merely stages downstream
+     * processing so that functions parsed from redscript can be modified to invoke the correct property handler. Based
+     * on the characteristics of the property one or many functions will be created according to typical TweakDB
+     * conventions.
      *
-     * @return A pointer to the created native function that checks whether a given item is contained in an array
-     * property from TweakDB.
+     * This function must be called for each valid property of a scriptable record in order to function correctly.
+     *
+     * @param aRecordSpec The specification of the scriptable record type that this property belongs to.
+     * @param aPropSpec The specification of the property that this function serves as a getter for.
      */
-    static Red::CGlobalFunction* CreateArrayContainsFunction();
+    void RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
+                                    const ScriptablePropertySpecPtr& aPropSpec);
 
     /**
-     * @brief Handles the retrieval of an array of foreign keys to other TweakDB record instances from a scriptable
-     * TweakDB record property.
+     * @brief Checks whether a given script function corresponds to a registered property handler for a scriptable
+     * record type based on the given record specification, and if so, modifies the function's bytecode to invoke the
+     * appropriate property handler at runtime.
      *
-     * While the TweakDB flat instance associated with this property contains an array TweakDB record IDs, the array
-     * returned from this function will consist of weak handles to the actual instances of the TweakDB records pointed
-     * to by those IDs.
+     * This process relies on a property of a scriptable record having previously been provided to the @c
+     * RegisterScriptableProperty function so that the hash of the function's signature can be mapped to the appropriate
+     * getter handler type.
      *
-     * This function will ensure that each target TweakDB record is of the expected type.
-     *
-     * @param aInstance The scriptable TweakDB record instance from which the property is being accessed.
-     * @param aFrame The stack frame of the script execution, containing any relevant function argument pointers and the
-     * pointer to the execution context.
-     * @param aOut The output pointer where the resulting array of weak handles to TweakDB record instances will be
-     * stored.
-     * @param a4 The hash of the expected return type. This is unused.
+     * @param aRecordSpec The specification of the scriptable record type that this function belongs to.
+     * @param aFunc The script function to check and potentially modify to invoke a property handler at runtime.
+     * @return Whether the given function corresponds to a registered property handler and was successfully modified to
+     * invoke the handler at runtime.
      */
-    static void GetRecordArrayHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
-
-    /**
-     * @brief Handles the retrieval of the number of elements in an array property of a scriptable TweakDB record.
-     *
-     * @param aInstance The scriptable TweakDB record instance from which the property is being accessed.
-     * @param aFrame The stack frame of the script execution, containing any relevant function argument pointers and the
-     * pointer to the execution context.
-     * @param aOut The output pointer where the resulting array count will be stored as an integer.
-     * @param a4 The hash of the expected return type. This is unused.
-     */
-    static void GetArrayCountHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
-
-    /**
-     * @brief Handles the retrieval of a foreign key to a TweakDB record from an array of foreign keys property of a
-     * scriptable TweakDB record by its index. The target TweakDB record, if found, will be returned as a weak handle to
-     * the TweakDB record instance.
-     *
-     * This function will ensure that the provided array index is within bounds and that the target TweakDB record is of
-     * the expected type.
-     *
-     * @param aInstance The scriptable TweakDB record instance from which the property is being accessed.
-     * @param aFrame The stack frame of the script execution, containing any relevant function argument pointers and the
-     * pointer to the execution context.
-     * @param aOut The output pointer where the resulting weak handle to the TweakDB record instance will be stored.
-     * @param a4 The hash of the expected return type. This is unused.
-     */
-    static void GetRecordItemHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
-
-    /**
-     * @brief Handles the retrieval of a foreign key to a TweakDB record from an array of foreign keys property of a
-     * scriptable TweakDB record by its index. The target TweakDB record, if found, will be returned as a strong handle
-     * to the TweakDB record instance.
-     *
-     * @param aInstance The scriptable TweakDB record instance from which the property is being accessed.
-     * @param aFrame The stack frame of the script execution, containing any relevant function argument pointers and the
-     * pointer to the execution context.
-     * @param aOut The output pointer where the resulting strong handle to the TweakDB record instance will be stored.
-     * @param a4 The hash of the expected return type. This is unused.
-     */
-    static void GetRecordItemHandleHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                           int64_t a4);
-
-    /**
-     * @brief Handles the check for whether a given TweakDB record instance, provided as a weak handle, is contained
-     * within an array of foreign keys belonging to a property of a scriptable TweakDB record.
-     *
-     * @param aInstance The scriptable TweakDB record instance from which the property is being accessed.
-     * @param aFrame The stack frame of the script execution, containing any relevant function argument pointers and the
-     * pointer to the execution context.
-     * @param aOut The output pointer where the resulting boolean value indicating whether the record is contained in
-     * the array will be stored.
-     * @param a4 The hash of the expected return type. This is unused.
-     */
-    static void RecordArrayContainsHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
-                                           int64_t a4);
-
-    /**
-     * @brief Handles the retrieval of a foreign key to a TweakDB record from a property of a scriptable TweakDB record.
-     * The target TweakDB record, if found, will be returned as a weak handle to the TweakDB record instance.
-     *
-     * @param aInstance The scriptable TweakDB record instance from which the property is being accessed.
-     * @param aFrame The stack frame of the script execution, containing any relevant function argument pointers and the
-     * pointer to the execution context.
-     * @param aOut The output pointer where the resulting weak handle to the TweakDB record instance will be stored.
-     * @param a4 The hash of the expected return type. This is unused.
-     */
-    static void GetRecordHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
-
-    /**
-     * @brief Handles the retrieval of a foreign key to a TweakDB record from a property of a scriptable TweakDB record.
-     * The target TweakDB record, if found, will be returned as a strong handle to the TweakDB record instance.
-     *
-     * @param aInstance The scriptable TweakDB record instance from which the property is being accessed.
-     * @param aFrame The stack frame of the script execution, containing any relevant function argument pointers and the
-     * pointer to the execution context.
-     * @param aOut The output pointer where the resulting strong handle to the TweakDB record instance will be stored.
-     * @param a4   The hash of the expected return type. This is unused.
-     */
-    static void GetRecordHandleHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
-
-    /**
-     * @brief Handles the retrieval of an item from an array property of a scriptable TweakDB record by its index.
-     *
-     * @param aInstance The scriptable TweakDB record instance from which the property is being accessed.
-     * @param aFrame The stack frame of the script execution, containing any relevant function argument pointers and the
-     * pointer to the execution context.
-     * @param aOut The output pointer where the resulting item from the array will be stored.
-     * @param a4 The hash of the expected return type. This is unused.
-     */
-    static void GetArrayItemHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
-
-    /**
-     * @brief Handles the check for whether a given element is contained within an array property of a scriptable
-     * TweakDB record.
-     *
-     * @param aInstance The scriptable TweakDB record instance from which the property is being accessed.
-     * @param aFrame The stack frame of the script execution, containing any relevant function argument pointers and the
-     * pointer to the execution context.
-     * @param aOut The output pointer where the resulting boolean value indicating whether the element is contained in
-     * the array will be stored.
-     * @param a4 The hash of the expected return type. This is unused.
-     */
-    static void ArrayContainsHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
-
-    /**
-     * @brief Handles the retrieval of a property value from a scriptable TweakDB record where the property's value does
-     * not require any additional handling.
-     *
-     * @param aInstance The scriptable TweakDB record instance from which the property is being accessed.
-     * @param aFrame The stack frame of the script execution, containing any relevant function argument pointers and the
-     * pointer to the execution context.
-     * @param aOut The output pointer where the resulting property value will be stored.
-     * @param a4 The hash of the expected return type. This is unused.
-     */
-    static void GetHandler(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    bool AdaptScriptFunction(const ScriptableRecordSpecPtr& aRecordSpec, Red::CClassFunction* aFunc);
 
 private:
     /**
-     * @brief The size of an opcode in the script VM, used for calculating parameter offsets in the stack frame when
-     * handling function calls.
+     * @brief Retrieves the property handler corresponding to the given getter type, if it has been registered. This is
+     * used to determine which handler to use for a given function based on the function's signature hash.
+     *
+     * @param aType The type of getter function for which to retrieve the handler.
+     * @return A pointer to the property handler corresponding to the given getter type
      */
-    static constexpr auto OpSize = sizeof(char);
+    static ScriptablePropertyHandler* GetHandler(GetterType aType);
 
     /**
-     * @brief The size of a pointer on the current platform, used for calculating parameter offsets in the stack frame
-     * when handling function calls.
+     * @brief Retrieves the script execution context corresponding to the given record and property specifications,
+     * creating and registering it if it does not already exist. The context is used to store necessary information for
+     * the execution of a property handler function, such as the property specification and pointers to necessary
+     * services.
+     *
+     * @param aRecordSpec The specification of the scriptable record type to create a context for.
+     * @param aPropSpec The specification of the property to create a context for.
+     * @return A shared pointer to the script execution context corresponding to the given record and property
+     * specifications. If the context did not already exist, it will be created and registered before being returned.
      */
-    static constexpr auto PtrSize = sizeof(void*);
+    ContextPtr GetContext(const ScriptableRecordSpecPtr& aRecordSpec, const ScriptablePropertySpecPtr& aPropSpec);
 
     /**
-     * @brief Retrieves the TweakDB ID corresponding to the property being accessed on a scriptable TweakDB record
-     * instance, using the provided execution context to determine the appropriate appendix to append to the record ID.
+     * @brief Registers a script function as a property getter for a scriptable record type based on the given record
+     * and property specifications for a specific getter type. As opposed to @c RegisterScriptableProperty, this
+     * function is responsible for registering a single function corresponding to a specific getter type based on the
+     * property.
      *
-     * @param aInstance The scriptable TweakDB record instance from which the property is being accessed.
-     * @param aContext The execution context containing information about the property being accessed, including the
-     * appendix to append to the record ID.
-     * @return The TweakDB ID corresponding to the property being accessed.
+     * @param aRecordSpec The specification of the scriptable record type that this property belongs to.
+     * @param aPropSpec The specification of the property that this function serves as a getter for.
      */
-    static Red::TweakDBID GetFlatID(Red::Instance aInstance, const ScriptableRecordManager::Context* aContext);
+    template<GetterType>
+    void RegisterPropertyFunction(const ScriptableRecordSpecPtr& aRecordSpec,
+                                  const ScriptablePropertySpecPtr& aPropSpec);
 
     /**
-     * @brief Retrieves an array of weak handles to TweakDB record instances from a property of a scriptable TweakDB
-     * record. The provided value is expected to be the flat value of the property being accessed, in the form of an
-     * array of TweakDB IDs. The provided execution context provides the type information of the expected TweakDB record
-     * and is used to ensure the expected types are returned.
+     * @brief Modifies a given script function to invoke the appropriate property handler for a scriptable record type
+     * at runtime based on the given record specification and the function's signature hash. This involves replacing the
+     * function's bytecode with bytecode generated to invoke the appropriate property handler and passing the necessary
+     * execution context to the handler at runtime.
      *
-     * @param aValue The flat value of the property being accessed, expected to be an array of TweakDB IDs.
-     * @param aContext The execution context containing information about the property being accessed, including the
-     * expected type of the TweakDB records pointed to by the TweakDB IDs in the array.
-     * @return An array of weak handles to TweakDB record instances corresponding to the TweakDB IDs in the provided
-     * value.
+     * @param aFunction The script function to modify to invoke a property handler at runtime.
+     * @param aContext The execution context to pass to the property handler at runtime.
+     * @param aNativeFunc The native function object corresponding to the property handler that this function should
+     * invoke at runtime.
      */
-    static RecordArrayPtr GetRecordArray(const Red::Value<>& aValue, const Context* aContext);
+    static void ReplaceScriptFunction(Red::CClassFunction* aFunction, const ContextPtr& aContext,
+                                      Red::CGlobalFunction* aNativeFunc);
 
     /**
-     * @brief Retrieves a strong handle to a TweakDB record instance from an array of foreign keys property of a
-     * scriptable TweakDB record by its index. The provided value is expected to be the flat value of the property being
-     * accessed, in the form of an array of TweakDB IDs. The provided execution context provides the type information of
-     * the expected TweakDB record and is used to ensure the expected type is returned.
+     * @brief Truncates the bytecode of a given script function, effectively removing all existing instructions from the
+     * function. This is useful when a hot reload of TweakXL is performed and a scriptable record type or one of its
+     * properties is removed. Affected functions need to have their bytecode removed to prevent invalid memory access
+     * from occurring if they are invoked at runtime after the record or property they were associated with has been
+     * removed.
      *
-     * @param aValue The flat value of the property being accessed, expected to be an array of TweakDB IDs.
-     * @param aContext The execution context containing information about the property being accessed, including the
-     * expected type of the TweakDB record pointed to by the TweakDB ID at the specified index in the array.
-     * @param aIndex The index of the TweakDB ID in the array for which to retrieve the corresponding TweakDB record
-     * instance.
-     * @return A strong handle to the TweakDB record instance corresponding to the TweakDB ID at the specified index in
-     * the array.
+     * @param aFunction The script function for which to truncate the bytecode.
      */
-    static RecordHandle GetRecordItemHandle(const Red::Value<>& aValue, const Context* aContext, int aIndex);
+    static void TruncateScriptFunction(Red::CClassFunction* aFunction);
 
     /**
-     * @brief Retrieves a weak handle to a TweakDB record instance from an array of foreign keys property of a
-     * scriptable TweakDB record by its index. The provided value is expected to be the flat value of the property being
-     * accessed, in the form of an array of TweakDB IDs. The provided execution context provides the type information of
-     * the expected TweakDB record and is used to ensure the expected type is returned.
+     * @brief Generates the script bytecode for a given script function to invoke a property handler for a scriptable
+     * record type at runtime based on the given execution context and native function object corresponding to the
+     * property handler. This is used to replace the bytecode of a script function with bytecode that invokes the
+     * appropriate property handler at runtime.
      *
-     * @param aValue The flat value of the property being accessed, expected to be an array of TweakDB IDs.
-     * @param aContext The execution context containing information about the property being accessed, including the
-     * expected type of the TweakDB record pointed to by the TweakDB ID at the specified index in the array.
-     * @param aIndex The index of the TweakDB ID in the array for which to retrieve the corresponding TweakDB record
-     * instance.
-     * @return A weak handle to the TweakDB record instance corresponding to the TweakDB ID at the specified index in
-     * the array.
+     * The function does not modify the given script function directly, but it does inspect it to ensure the correct
+     * bytecode layout for its function signature.
+     *
+     * @param aContext The execution context containing necessary information for the execution of the property handler
+     * function, such as the property specification and pointers to necessary services.
+     * @param aFunction The script function for which to generate the bytecode to invoke a property handler at runtime.
+     * @param aNativeFunction The native function object corresponding to the property handler that the generated
+     * bytecode should invoke at runtime.
+     * @return The generated bytecode for the given script function to invoke a property handler for a scriptable record
+     * type at runtime based on the given execution context and native function object corresponding to the property
+     * handler.
      */
-    static RecordWHandle GetRecordItem(const Red::Value<>& aValue, const Context* aContext, int aIndex);
+    static Red::RawBuffer CreateFunctionBytecode(const ContextPtr& aContext, Red::CClassFunction* aFunction,
+                                                 Red::CGlobalFunction* aNativeFunction);
 
     /**
-     * @brief Checks whether a given TweakDB record instance, provided as a weak handle, is contained within an array of
-     * foreign keys belonging to a property of a scriptable TweakDB record. The provided value is expected to be the
-     * flat value of the property being accessed, in the form of an array of TweakDB IDs. The provided execution context
-     * provides the type information of the expected TweakDB record and is used to ensure the expected types are
-     * checked.
+     * @brief Generates the hash of the function name corresponding to the given record specification and function for a
+     * property handler. This hash is used to establish a link between a function parsed from redscript to the property
+     * specification associated with it based on the function's signature, which allows the correct property handler to
+     * be determined for the function.
      *
-     * @param aValue The flat value of the property being accessed, expected to be an array of TweakDB IDs.
-     * @param aContext The execution context containing information about the property being accessed, including the
-     * expected type of the TweakDB record pointed to by the TweakDB IDs in the array.
-     * @param aRecord The weak handle to the TweakDB record instance for which to check containment within the array of
-     * foreign keys.
-     * @return A boolean value indicating whether the given TweakDB record instance is contained within the array of
-     * foreign keys.
+     * The function name is generated based on the naming convention defined by the property handler's prefix and
+     * suffix, as well as the function name specified in the property specification. For example, if the prefix is @c
+     * Get and the suffix is @c Item, a property with the function name @c MyProperty would correspond to a function
+     * named @c GetMyPropertyItem.
+     *
+     * The hash is a combination of various string segments joined by semicolons. The segment order is as follows:
+     *
+     * - Record class name.
+     * - Function return type, or "void" if it does not have a return.
+     * - Generated function name for the handler.
+     * - Types for all function arguments, sequentially, if the function has any.
+     *
+     * @param aRecordSpec The specification of the scriptable record type that this function belongs to.
+     * @param aFunction The redscript script function for which to generate the hash of the function name corresponding
+     * to the given record specification and function for a property handler.
+     * @return The hash of the function name corresponding to the given record specification and function for a property
+     * handler.
      */
-    static bool RecordArrayContains(const Red::Value<>& aValue, const Context* aContext, const RecordWHandle& aRecord);
+    static Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec, Red::CClassFunction* aFunction);
 
     /**
-     * @brief Retrieves a weak handle to a TweakDB record instance from a property of a scriptable TweakDB record. The
-     * provided value is expected to be the flat value of the property being accessed, in the form of a TweakDB ID. The
-     * provided execution context provides the type information of the expected TweakDB record and is used to ensure the
-     * expected type is returned.
-     *
-     * @param aValue The flat value of the property being accessed, expected to be a TweakDB ID.
-     * @param aContext The execution context containing information about the property being accessed, including the
-     * expected type of the TweakDB record pointed to by the TweakDB ID in the value.
-     * @return A weak handle to the TweakDB record instance corresponding to the TweakDB ID in the provided value.
+     * @brief A deferred pointer to the TweakDB manager used to retrieve scriptable record property values from TweakDB
+     * at runtime. This is used by property handlers to access TweakDB when retrieving property values for scriptable
+     * records.
      */
-    static RecordWHandle GetRecord(const Red::Value<>& aValue, const Context* aContext);
+    Core::DeferredPtr<Red::TweakDBManager> m_manager;
 
     /**
-     * @brief Retrieves a strong handle to a TweakDB record instance from a property of a scriptable TweakDB record. The
-     * provided value is expected to be the flat value of the property being accessed, in the form of a TweakDB ID. The
-     * provided execution context provides the type information of the expected TweakDB record and is used to ensure the
-     * expected type is returned.
-     *
-     * @param aValue The flat value of the property being accessed, expected to be a TweakDB ID.
-     * @param aContext The execution context containing information about the property being accessed, including the
-     * expected type of the TweakDB record pointed to by the TweakDB ID in the value.
-     * @return A strong handle to the TweakDB record instance corresponding to the TweakDB ID in the provided value.
+     * @brief A mutex for synchronizing access to the mapping of function signature hashes to getter handler types for
+     * thread safety.
      */
-    static RecordHandle GetRecordHandle(const Red::Value<>& aValue, const Context* aContext);
+    std::shared_mutex m_functionTypesMutex;
 
     /**
-     * @brief Retrieves the number of elements in an array property of a scriptable TweakDB record. The provided value
-     * is expected to be the flat value of the property being accessed, in the form of an array. The provided execution
-     * context provides the type information of the expected array.
-     *
-     * @param aValue The flat value of the property being accessed, expected to be an array.
-     * @param aContext The execution context containing information about the property being accessed, including the
-     * expected type of the array.
-     * @return The number of elements in the array property of the scriptable TweakDB record.
+     * @brief A mapping of function signature hashes to getter handler types, indexed by the CName of the record class
+     * name and the CName of the function name corresponding to the property specification for a script function. This
+     * is used to determine which property handler to invoke for a given script function based on the function's
+     * signature when adapting script functions to invoke property handlers at runtime.
      */
-    static uint32_t GetArrayCount(const Red::Value<>& aValue, const Context* aContext);
+    Core::Map<Red::CName, Core::Map<Red::CName, GetterType>> m_functionTypes;
 
     /**
-     * @brief Checks whether a given element is contained within an array property of a scriptable TweakDB record. The
-     * provided value is expected to be the flat value of the property being accessed, in the form of an array. The
-     * provided execution context provides the type information of the expected array.
-     *
-     * @param aValue The flat value of the property being accessed, expected to be an array.
-     * @param aContext The execution context containing information about the property being accessed, including the
-     * expected type of the array.
-     * @param item The element for which to check containment within the array property of the scriptable TweakDB
-     * record.
-     * @return A boolean value indicating whether the given element is contained within the array property of the
-     * scriptable TweakDB record.
+     * @brief A mutex for synchronizing access to the scriptable record property getter function execution contexts for
+     * thread safety.
      */
-    static bool ArrayContains(const Red::Value<>& aValue, const Context* aContext, Red::Instance item);
+    mutable std::shared_mutex m_contextsMutex;
 
     /**
-     * @brief Retrieves the execution context for a scriptable property handler function from the provided stack frame
-     * of the script execution.
-     *
-     * The execution context contains necessary information for property access and manipulation, such as the TweakDB
-     * manager instance, the property specification, and any relevant appendix for constructing TweakDB IDs.
-     *
-     * The frame's code pointer will be moved past the context's memory location as part of this operation.
-     *
-     * @param aFrame The stack frame of the script execution, containing any relevant function argument pointers and the
-     * pointer to the execution context.
-     * @return A pointer to the execution context for the scriptable property handler function.
+     * @brief A collection of shared pointers to getter function execution contexts, kept alive for the lifetime of
+     * this manager so that the raw pointers baked into bytecode remain valid.
      */
-    static const Context* GetContext(Red::CStackFrame* aFrame);
+    Core::Map<Red::CName, Core::Map<Red::CName, ContextPtr>> m_contexts;
+
+    static inline GetRecordArrayHandler s_getRecordArrayHandler{};
+    static inline RecordArrayContainsHandler s_recordArrayContainsHandler{};
+    static inline GetRecordItemHandler s_getRecordItemHandler{};
+    static inline GetRecordItemHandleHandler s_getRecordItemHandleHandler{};
+    static inline GetRecordHandler s_getRecordHandler{};
+    static inline GetRecordHandleHandler s_getRecordHandleHandler{};
+    static inline GetArrayCountHandler s_getArrayCountHandler{};
+    static inline GetArrayItemHandler s_getArrayItemHandler{};
+    static inline ArrayContainsHandler s_getArrayContainsHandler{};
+    static inline GetValueHandler s_getValueHandler{};
 };
+
 } // namespace App

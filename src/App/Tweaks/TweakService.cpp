@@ -37,6 +37,9 @@ void App::TweakService::OnBootstrap()
 
     SetupTweakImporter();
 
+    HookAfter<Raw::ScriptBinder_Bind>(
+        [&](void*, Red::ScriptBundle* aBundle, void*, bool) { OnValidateScripts(aBundle); });
+
     HookAfter<Raw::TryLoadTweakDB>([&](bool& aSuccess) {
         if (aSuccess)
         {
@@ -255,7 +258,7 @@ Core::DeferredPtr<App::TweakChangelog> App::TweakService::GetChangelog()
 
 void App::TweakService::InsertScriptableRecordDefaults()
 {
-    m_recordManager->InsertScriptableRecordDefaults();
+    m_recordManager->InsertDefaults();
 }
 
 void App::TweakService::SetupScriptableRecords()
@@ -273,9 +276,14 @@ void App::TweakService::SetupTweakImporter()
         m_importer->Load(m_importPaths);
         m_importer->ImportSchemas();
 
-        m_recordManager->RegisterScriptableRecordSpecs();
-        m_recordManager->DescribeScriptableRecordSpecs();
+        m_recordManager->RegisterRTTITypes();
+        m_recordManager->DescribeRTTITypes();
 
         m_redscriptExporter->ExportRedscriptTypes(m_redscriptExportPath);
     }});
+}
+
+void App::TweakService::OnValidateScripts(Red::ScriptBundle* aBundle)
+{
+    m_recordManager->AdaptScriptClasses(aBundle->classes);
 }

@@ -1,4 +1,4 @@
-#include "TweakPropertySpec.hpp"
+#include "TweakTypeSpec.hpp"
 
 namespace
 {
@@ -116,39 +116,39 @@ constexpr auto WeakHandleArrayPrefixSize = std::char_traits<char>::length(WeakHa
 
 namespace App
 {
-TweakPropertySpecPtr GetTweakPropertySpec(const std::string& aValue)
+TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue)
 {
     // Attempt to load a spec for non-foreign-key types
-    if (auto spec = GetTweakPropertySpec(aValue, Red::CName(aValue.c_str())))
+    if (auto spec = GetTweakTypeSpec(aValue, Red::CName(aValue.c_str())))
         return spec;
 
     // Attempt to look up foreign key arrays using shorthand syntax (e.g. "array:SomeType")
     if (aValue.starts_with(ArrayPrefix) && aValue.length() > ArrayPrefixSize)
-        return GetTweakPropertySpec(aValue, Red::ERTDBFlatType::TweakDBIDArray, aValue.substr(ArrayPrefixSize));
+        return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBIDArray, aValue.substr(ArrayPrefixSize));
 
     // Attempt to look up foreign key arrays of handles using full syntax (e.g. "array:handle:gamedataSomeType_Record")
     if (aValue.starts_with(HandleArrayPrefix) && aValue.length() > HandleArrayPrefixSize)
-        return GetTweakPropertySpec(aValue, Red::ERTDBFlatType::TweakDBIDArray, aValue.substr(HandleArrayPrefixSize));
+        return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBIDArray, aValue.substr(HandleArrayPrefixSize));
 
     // Attempt to look up foreign key arrays of weak handles using full syntax (e.g.
     // "array:whandle:gamedataSomeType_Record")
     if (aValue.starts_with(WeakHandleArrayPrefix) && aValue.length() > WeakHandleArrayPrefixSize)
-        return GetTweakPropertySpec(aValue, Red::ERTDBFlatType::TweakDBIDArray,
+        return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBIDArray,
                                     aValue.substr(WeakHandleArrayPrefixSize));
 
     // Attempt to look up foreign key handle types using full syntax (e.g. "handle:SomeType")
     if (aValue.starts_with(HandlePrefix) && aValue.length() > HandlePrefixSize)
-        return GetTweakPropertySpec(aValue, Red::ERTDBFlatType::TweakDBID, aValue.substr(HandlePrefixSize));
+        return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBID, aValue.substr(HandlePrefixSize));
 
     // Attempt to look up foreign key weak handle types using full syntax (e.g. "whandle:SomeType")
     if (aValue.starts_with(WeakHandlePrefix) && aValue.length() > WeakHandlePrefixSize)
-        return GetTweakPropertySpec(aValue, Red::ERTDBFlatType::TweakDBID, aValue.substr(WeakHandlePrefixSize));
+        return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBID, aValue.substr(WeakHandlePrefixSize));
 
     // Assume the name is a foreign key weak handle type using shorthand (e.g. "SomeType")
-    return GetTweakPropertySpec(aValue, Red::ERTDBFlatType::TweakDBID, aValue);
+    return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBID, aValue);
 }
 
-TweakPropertySpecPtr GetTweakPropertySpec(const std::string& aValue, const uint64_t aHash,
+TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue, const uint64_t aHash,
                                           const std::optional<std::string>& aForeignType)
 {
     static Red::CRTTISystem* rtti = Red::CRTTISystem::Get();
@@ -166,7 +166,7 @@ TweakPropertySpecPtr GetTweakPropertySpec(const std::string& aValue, const uint6
     if (!isForeignKey && aForeignType.has_value())
         return nullptr;
 
-    auto spec = Core::MakeShared<TweakPropertySpec>();
+    auto spec = Core::MakeShared<TweakTypeSpec>();
     spec->foreignName = aValue;
     spec->flatType = Red::TweakDBUtil::GetFlatType(aHash);
     spec->flatTypeName = aHash;
@@ -195,6 +195,11 @@ TweakPropertySpecPtr GetTweakPropertySpec(const std::string& aValue, const uint6
     {
         spec->propertyType = spec->flatType;
         spec->propertyTypeName = spec->flatTypeName;
+
+        if (spec->isArray)
+        {
+            spec->elementType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(spec->propertyType)->GetInnerType();
+        }
     }
 
     return spec;
