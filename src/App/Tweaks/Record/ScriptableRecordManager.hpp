@@ -287,7 +287,7 @@ private:
      * @brief A shared pointer to the registry for scriptable property handlers, which is used to register property
      * handlers and retrieve them for use in adapting script functions to invoke property handlers at runtime.
      */
-    Core::SharedPtr<ScriptablePropertyHandlerRegistry> m_handlerRegistry;
+    Core::SharedPtr<ScriptablePropertyHandlers> m_handlers;
 };
 
 } // namespace App

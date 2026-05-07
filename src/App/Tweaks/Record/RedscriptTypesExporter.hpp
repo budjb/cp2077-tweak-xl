@@ -33,7 +33,7 @@ public native class {{ TypeName }} extends {{ Parent }} {
     {% else if prop.IsForeignKey %}
     public func {{ prop.Name }}() -> wref<{{ prop.ForeignType }}> {}
     public func {{ prop.Name }}Handle() -> ref<{{ prop.ForeignType }}> {}
-    {% else if prop.IsArray and prop.IsResRefTokenArray %}
+    {% else if prop.IsArray and prop.IsResRef %}
     public func {{ prop.Name }}() -> array<ResRef> {}
     public func Get{{ prop.Name }}Count() -> Int32 {}
     public func Get{{ prop.Name }}Item(index: Int32) -> ResRef {}
@@ -42,6 +42,8 @@ public native class {{ TypeName }} extends {{ Parent }} {
     public func Get{{ prop.Name }}Count() -> Int32 {}
     public func Get{{ prop.Name }}Item(index: Int32) -> {{ prop.ElementType }} {}
     public func {{ prop.Name }}Contains(item: {{ prop.ElementType }}) -> Bool {}
+    {% else if prop.IsResRef %}
+    public func {{ prop.Name }}() -> ResRef {}
     {% else %}
     public func {{ prop.Name }}() -> {{ prop.Type }} {}
     {% endif %}

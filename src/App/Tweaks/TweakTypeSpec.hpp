@@ -47,6 +47,13 @@ struct TweakTypeSpec
     bool isForeignKey{};
 
     /**
+     * @brief Whether this property represents a ResRef or an array of ResRefs. If true, the flat type will be either a
+     * ResRef or an array of ResRefs, and the getter closure will return a Red::ResRef or an array of Red::ResRefs,
+     * respectively.
+     */
+    bool isResRef{};
+
+    /**
      * @brief The name of the foreign type as specified by a YAML or Red Tweak file before conversion to a
      * fully-qualified TweakDB record name.
      */
@@ -66,7 +73,6 @@ struct TweakTypeSpec
      * is guaranteed to be added to the CName pool.
      */
     Red::CName foreignTypeName;
-
 
     const Red::CBaseRTTIType* elementType{};
 };
@@ -116,5 +122,5 @@ TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue);
  * a valid TweakDB property type.
  */
 TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue, uint64_t aHash,
-                                          const std::optional<std::string>& aForeignType = std::nullopt);
+                                  const std::optional<std::string>& aForeignType = std::nullopt);
 } // namespace App

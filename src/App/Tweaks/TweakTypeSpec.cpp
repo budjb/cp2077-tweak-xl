@@ -133,8 +133,7 @@ TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue)
     // Attempt to look up foreign key arrays of weak handles using full syntax (e.g.
     // "array:whandle:gamedataSomeType_Record")
     if (aValue.starts_with(WeakHandleArrayPrefix) && aValue.length() > WeakHandleArrayPrefixSize)
-        return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBIDArray,
-                                    aValue.substr(WeakHandleArrayPrefixSize));
+        return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBIDArray, aValue.substr(WeakHandleArrayPrefixSize));
 
     // Attempt to look up foreign key handle types using full syntax (e.g. "handle:SomeType")
     if (aValue.starts_with(HandlePrefix) && aValue.length() > HandlePrefixSize)
@@ -149,7 +148,7 @@ TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue)
 }
 
 TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue, const uint64_t aHash,
-                                          const std::optional<std::string>& aForeignType)
+                                  const std::optional<std::string>& aForeignType)
 {
     static Red::CRTTISystem* rtti = Red::CRTTISystem::Get();
 
@@ -159,6 +158,8 @@ TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue, const uint64_t aHas
     const auto isArray = Red::TweakDBUtil::IsArrayType(aHash);
     const auto isForeignKey =
         isArray ? Red::TweakDBUtil::IsForeignKeyArray(aHash) : Red::TweakDBUtil::IsForeignKey(aHash);
+    const auto isResRef =
+        isArray ? Red::TweakDBUtil::IsResRefTokenArray(aHash) : Red::TweakDBUtil::IsResRefToken(aHash);
 
     if (isForeignKey && !aForeignType.has_value())
         return nullptr;
@@ -171,6 +172,7 @@ TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue, const uint64_t aHas
     spec->flatType = Red::TweakDBUtil::GetFlatType(aHash);
     spec->flatTypeName = aHash;
     spec->isArray = isArray;
+    spec->isResRef = isResRef;
 
     if (isForeignKey)
     {

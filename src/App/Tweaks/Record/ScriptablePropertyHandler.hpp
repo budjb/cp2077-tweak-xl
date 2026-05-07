@@ -24,29 +24,36 @@ enum class GetterType : uint8_t
     GetArrayCount,
     GetArrayItem,
     ArrayContains,
+    GetResRefArray,
+    GetResRefItem,
+    GetResRef,
     Get
 };
+
+struct Context
+{
+    std::string appendix;
+    GetterType getterType;
+    TweakTypeSpecPtr typeSpec;
+    Core::DeferredPtr<Red::TweakDBManager> tweakManager;
+};
+
+using ContextPtr = Core::SharedPtr<Context>;
 
 /**
  * @brief A base class for handling the registration and invocation of script functions that serve as property getters
  * for scriptable TweakDB records. Each derived class corresponds to a specific type of getter function, identified by
  * the GetterType enumeration, and implements the necessary logic for:
  *
- * - Registering the function with the scripting system.
- * - Generating the appropriate script bytecode for invoking the function.
  * - Handling the function's invocation at runtime.
+ * - Constructing a function hash based on the expected signature of the getter function.
+ * - Defining the expected signature of the getter function.
  *
  * This class (and its derived classes) can only be created at compile time.
  */
 class ScriptablePropertyHandler
 {
 public:
-    /**
-     * @brief A prefix added to the names of generated script functions for scriptable record properties to identify
-     * them as property handlers and avoid naming conflicts with user-defined functions.
-     */
-    static constexpr auto ScriptablePropertyHandlerPrefix = "_ScriptablePropertyHandler";
-
     /**
      * @brief Constructs a ScriptablePropertyHandler with the given type, prefix, and suffix.
      *
@@ -69,6 +76,19 @@ public:
      * @brief Virtual destructor for ScriptablePropertyHandler.
      */
     virtual ~ScriptablePropertyHandler() = default;
+
+    /**
+     * @brief Handles the invocation of a script function corresponding to this property handler's specialization at
+     * runtime, performing the necessary logic to retrieve the relevant property value from TweakDB based on the given
+     * execution context.
+     *
+     * @param aInstance The scriptable record instance on which the function is being invoked.
+     * @param aFrame The stack frame for the function invocation, which can be used to access the function's arguments.
+     * @param aOut A pointer to the memory location where the function's return value should be stored, if applicable.
+     * @param aContext The execution context containing the property specification and pointers to required services.
+     */
+    virtual void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                  const Context* aContext) const = 0;
 
     /**
      * @brief Generates the hash of the function name corresponding to the given record and property specifications for
@@ -106,32 +126,7 @@ public:
      */
     [[nodiscard]] std::string GetFunctionBaseName(const std::string& aName) const;
 
-    /**
-     * @brief Registers the reusable native function corresponding to this property handler with the RTTI system. After
-     * registration, the handler's GetHandler() function should return a valid function pointer that can be used to
-     * invoke the handler for this getter type.
-     */
-    virtual void Register() = 0;
-
-    /**
-     * @brief Retrieves the RTTI global function object corresponding to this property handler, which is created and
-     * registered in the Register() function. This can be used to directly invoke the handler function at runtime, such
-     * as in the HandleInvocation() functions of the various property handlers.
-     *
-     * @return The RTTI function object for this property handler, or nullptr if it has not been registered yet.
-     */
-    [[nodiscard]] Red::CGlobalFunction* GetRTTIFunction() const;
-
 protected:
-    /**
-     * @brief Retrieves the script execution context from the given stack frame. After execution of this function
-     * completes, the stack frame will be advanced past the pointer to the execution context.
-     *
-     * @param aFrame The stack frame provided to the handler's invocation from which to retrieve the execution context.
-     * @return A pointer to the execution context.
-     */
-    static Context* GetContext(Red::CStackFrame* aFrame);
-
     /**
      * @brief Retrieves the TweakDB ID of a property's flat value by appending the property's flat appendix to the given
      * scriptable record instance's TweakDB ID.
@@ -192,13 +187,6 @@ protected:
      * names.
      */
     const size_t m_suffixLength;
-
-    /**
-     * @brief The global function object registered with RTTI for this property handler, which can be used to directly
-     * invoke the handler at runtime. This is initialized in the Register() function and should be valid after
-     * registration.
-     */
-    Red::CGlobalFunction* m_rttiFunction = nullptr;
 };
 
 /**
@@ -257,10 +245,8 @@ public:
     consteval GetRecordArrayHandler() = default;
     [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
-    void Register() override;
-
-private:
-    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
 };
 
 /**
@@ -286,10 +272,8 @@ public:
 
     [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
-    void Register() override;
-
-private:
-    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
 };
 
 /**
@@ -314,10 +298,8 @@ public:
 
     [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
-    void Register() override;
-
-private:
-    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
 };
 
 /**
@@ -342,10 +324,8 @@ public:
 
     [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
-    void Register() override;
-
-private:
-    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
 };
 
 /**
@@ -366,10 +346,8 @@ public:
 
     [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
-    void Register() override;
-
-private:
-    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
 };
 
 /**
@@ -394,10 +372,8 @@ public:
 
     [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
-    void Register() override;
-
-private:
-    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
 };
 
 /**
@@ -422,10 +398,8 @@ public:
 
     [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
-    void Register() override;
-
-private:
-    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
 };
 
 /**
@@ -450,10 +424,8 @@ public:
 
     [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
-    void Register() override;
-
-private:
-    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
 };
 
 /**
@@ -479,10 +451,73 @@ public:
 
     [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
-    void Register() override;
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
+};
 
-private:
-    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+/**
+ * @brief A property handler for getter functions that retrieve an array of resource references from a scriptable record
+ * property.
+ *
+ * The generated function name for this handler has no additional prefix or suffix beyond the base property name. For
+ * example, a property named @c MyProperty would correspond to a function named @c MyProperty.
+ *
+ * The TweakDB flat associated with the property is expected to contain an array of @c RaRef<CResource>. During
+ * processing, the result is validated to ensure that it is an array and that its elements are of the expected type. On
+ * success, the handler will return the array of @c ResRef .
+ */
+class GetResRefArrayHandler : public TTypedPropertyHandler<GetterType::GetResRefArray>
+{
+public:
+    consteval GetResRefArrayHandler() = default;
+    [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
+};
+
+/**
+ * @brief A property handler for getter functions that retrieve an item at a specific index from an array of resource
+ * references associated with a scriptable record property.
+ *
+ * The generated function name for this handler has the prefix @c Get and the suffix @c Item. For example, a property
+ * named @c MyProperty would correspond to a function named @c GetMyPropertyItem.
+ *
+ * The TweakDB flat associated with the property is expected to contain an array of @c RaRef<CResource>. During
+ * processing, the result is validated to ensure that it is of the expected type. On success, the handler will return
+ * the @c ResRef at the specified index in the array.
+ */
+class GetResRefItemHandler : public TTypedPropertyHandler<GetterType::GetResRefItem>
+{
+public:
+    consteval GetResRefItemHandler()
+        : TTypedPropertyHandler("Get", "Item")
+    {
+    }
+
+    [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
+};
+
+/**
+ * @brief A property handler for getter functions that retrieve a resource reference from a scriptable record property.
+ *
+ * The generated function name for this handler has no additional prefix or suffix beyond the base property name. For
+ * example, a property named @c MyProperty would correspond to a function named @c MyProperty.
+ *
+ * The TweakDB flat associated with the property is expected to contain a @c RaRef<CResource>. During processing, the
+ * result is validated to ensure that it is of the expected type. On success, the handler will return the @c ResRef .
+ */
+class GetResRefHandler : public TTypedPropertyHandler<GetterType::GetResRef>
+{
+public:
+    consteval GetResRefHandler() = default;
+    [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
 };
 
 /**
@@ -504,35 +539,33 @@ public:
 
     [[nodiscard]] Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
-    void Register() override;
-
-private:
-    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
 };
 
 /**
  * @brief A registry for managing the registration and invocation of script functions that serve as property getters for
  * scriptable TweakDB records.
  */
-class ScriptablePropertyHandlerRegistry
+class ScriptablePropertyHandlers
     : Core::LoggingAgent
-    , Core::ShareFromThis<ScriptablePropertyHandlerRegistry>
+    , Core::ShareFromThis<ScriptablePropertyHandlers>
 {
 public:
     /**
-     * @brief Constructs a ScriptablePropertyHandlerRegistry instance with the given TweakDB manager.
+     * @brief Constructs a ScriptablePropertyHandlerRegistryScriptablePropertyHandlers instance with the given TweakDB
+     * manager.
      *
      * @param aManager A deferred pointer to the TweakDB manager used to retrieve scriptable record property values from
      * TweakDB at runtime.
      */
-    explicit ScriptablePropertyHandlerRegistry(const Core::DeferredPtr<Red::TweakDBManager>& aManager);
+    explicit ScriptablePropertyHandlers(const Core::DeferredPtr<Red::TweakDBManager>& aManager);
 
     /**
-     * @brief Registers the reusable native functions corresponding to all property handlers with the RTTI system. After
-     * registration, the GetRTTIFunction() function of each handler should return a valid function pointer that can be
-     * used to invoke the handler for its corresponding getter type.
+     * @brief Registers the global invocation handler function that serves as the single entry point for all property
+     * getter functions with RTTI.
      */
-    static void RegisterRTTIFunctions();
+    void RegisterInvocationHandler();
 
     /**
      * @brief Registers a script function as a property getter for a scriptable record type based on the given record
@@ -569,6 +602,46 @@ public:
 
 private:
     /**
+     * @brief The name of the global function registered with RTTI that serves as the invocation handler for all
+     * property handler functions.
+     *
+     * This function is responsible for dispatching calls to the appropriate property
+     * handler based on the execution context passed to it at runtime.
+     */
+    static constexpr auto InvocationHandlerName = "_ScriptablePropertyInvocationHandler";
+
+    /**
+     * @brief Handles the invocation of a script function that serves as a property getter for a scriptable record type
+     * by dispatching the call to the appropriate property handler based on the execution context passed to it at
+     * runtime.
+     *
+     * This function is registered with RTTI as a global function and serves as the single entry point for all property
+     * handler function calls from redscript.
+     *
+     * When invoked, this function expects a pointer to the invocation's execution context as the first element in the
+     * call stack frame. From this context, the handler can determine which specialized handler type may service the
+     * request.
+     *
+     * @param aInstance The scriptable instance on which the function was invoked, which should be an instance of a
+     * scriptable record type.
+     * @param aFrame The call stack frame for this function invocation, which should contain a pointer to the execution
+     * context as its first element.
+     * @param aOut A pointer to the memory location where the function's return value should be written, if it has a
+     * return value.
+     * @param a4 The expected type of the return value. This is unused.
+     */
+    static void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut, int64_t a4);
+
+    /**
+     * @brief Retrieves the script execution context from the given stack frame. After execution of this function
+     * completes, the stack frame will be advanced past the pointer to the execution context.
+     *
+     * @param aFrame The stack frame provided to the handler's invocation from which to retrieve the execution context.
+     * @return A pointer to the execution context.
+     */
+    static Context* GetContext(Red::CStackFrame* aFrame);
+
+    /**
      * @brief Retrieves the property handler corresponding to the given getter type, if it has been registered. This is
      * used to determine which handler to use for a given function based on the function's signature hash.
      *
@@ -583,12 +656,15 @@ private:
      * the execution of a property handler function, such as the property specification and pointers to necessary
      * services.
      *
+     * @param aGetterType The type of getter function for which to retrieve the context, used to determine which
+     * property handler to use at runtime.
      * @param aRecordSpec The specification of the scriptable record type to create a context for.
      * @param aPropSpec The specification of the property to create a context for.
      * @return A shared pointer to the script execution context corresponding to the given record and property
      * specifications. If the context did not already exist, it will be created and registered before being returned.
      */
-    ContextPtr GetContext(const ScriptableRecordSpecPtr& aRecordSpec, const ScriptablePropertySpecPtr& aPropSpec);
+    ContextPtr CreateContext(GetterType aGetterType, const ScriptableRecordSpecPtr& aRecordSpec,
+                             const ScriptablePropertySpecPtr& aPropSpec);
 
     /**
      * @brief Registers a script function as a property getter for a scriptable record type based on the given record
@@ -611,11 +687,8 @@ private:
      *
      * @param aFunction The script function to modify to invoke a property handler at runtime.
      * @param aContext The execution context to pass to the property handler at runtime.
-     * @param aNativeFunc The native function object corresponding to the property handler that this function should
-     * invoke at runtime.
      */
-    static void ReplaceScriptFunction(Red::CClassFunction* aFunction, const ContextPtr& aContext,
-                                      Red::CGlobalFunction* aNativeFunc);
+    void ReplaceScriptFunction(Red::CClassFunction* aFunction, const ContextPtr& aContext) const;
 
     /**
      * @brief Truncates the bytecode of a given script function, effectively removing all existing instructions from the
@@ -640,14 +713,11 @@ private:
      * @param aContext The execution context containing necessary information for the execution of the property handler
      * function, such as the property specification and pointers to necessary services.
      * @param aFunction The script function for which to generate the bytecode to invoke a property handler at runtime.
-     * @param aNativeFunction The native function object corresponding to the property handler that the generated
-     * bytecode should invoke at runtime.
      * @return The generated bytecode for the given script function to invoke a property handler for a scriptable record
      * type at runtime based on the given execution context and native function object corresponding to the property
      * handler.
      */
-    static Red::RawBuffer CreateFunctionBytecode(const ContextPtr& aContext, Red::CClassFunction* aFunction,
-                                                 Red::CGlobalFunction* aNativeFunction);
+    Red::RawBuffer CreateFunctionBytecode(const ContextPtr& aContext, Red::CClassFunction* aFunction) const;
 
     /**
      * @brief Generates the hash of the function name corresponding to the given record specification and function for a
@@ -683,10 +753,23 @@ private:
     Core::DeferredPtr<Red::TweakDBManager> m_manager;
 
     /**
+     * @brief A pointer to the RTTI system used to register the global invocation handler function and generate bytecode
+     * that invokes it at runtime. This is used to interact with the scripting system for handling the invocation of
+     * property handler functions from redscript.
+     */
+    Red::CRTTISystem* m_rtti;
+
+    /**
      * @brief A mutex for synchronizing access to the mapping of function signature hashes to getter handler types for
      * thread safety.
      */
     std::shared_mutex m_functionTypesMutex;
+
+    /**
+     * @brief A pointer to the global function registered with RTTI that serves as the invocation handler for all
+     * property handler functions.
+     */
+    Red::CGlobalFunction* m_invocationHandler = nullptr;
 
     /**
      * @brief A mapping of function signature hashes to getter handler types, indexed by the CName of the record class
@@ -717,6 +800,9 @@ private:
     static inline GetArrayCountHandler s_getArrayCountHandler{};
     static inline GetArrayItemHandler s_getArrayItemHandler{};
     static inline ArrayContainsHandler s_getArrayContainsHandler{};
+    static inline GetResRefArrayHandler s_getResRefArrayHandler{};
+    static inline GetResRefItemHandler s_getResRefItemHandler{};
+    static inline GetResRefHandler s_getResRefHandler{};
     static inline GetValueHandler s_getValueHandler{};
 };
 

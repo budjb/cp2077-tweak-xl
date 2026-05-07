@@ -83,7 +83,7 @@ RedscriptTypesExporter::Json RedscriptTypesExporter::ToJson(const ScriptableProp
     json["Type"] = aSpec->typeSpec->propertyTypeName.ToString();
     json["IsForeignKey"] = aSpec->typeSpec->isForeignKey;
     json["IsArray"] = aSpec->typeSpec->isArray;
-    json["IsResRefTokenArray"] = Red::TweakDBUtil::IsResRefTokenArray(aSpec->typeSpec->propertyType);
+    json["IsResRef"] = aSpec->typeSpec->isResRef;
     json["ForeignType"] = GetClassScriptName(aSpec->typeSpec->foreignType);
     json["ElementType"] = Red::TweakDBUtil::GetElementTypeName(aSpec->typeSpec->propertyType).ToString();
 

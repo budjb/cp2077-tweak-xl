@@ -22,7 +22,7 @@ ScriptablePropertySpecPtr ScriptableRecordSpec::FindPropertyByFunctionName(const
 ScriptableRecordManager::ScriptableRecordManager(const Core::DeferredPtr<Red::TweakDBManager>& aManager)
     : m_rtti(Red::CRTTISystem::Get())
     , m_tweakManager(aManager)
-    , m_handlerRegistry(Core::MakeShared<ScriptablePropertyHandlerRegistry>(aManager))
+    , m_handlers(Core::MakeShared<ScriptablePropertyHandlers>(aManager))
 {
 }
 
@@ -149,7 +149,7 @@ Red::CName ScriptableRecordManager::RegisterScriptableProperty(Red::CName aRecor
 void ScriptableRecordManager::RegisterRTTITypes()
 {
     // TODO: move this elsewhere, really.
-    m_handlerRegistry->RegisterRTTIFunctions();
+    m_handlers->RegisterInvocationHandler();
 
 #ifndef NDEBUG
     RegisterTestScriptableRecord();
@@ -291,7 +291,7 @@ bool ScriptableRecordManager::RegisterRTTIProperty(const ScriptableRecordSpecPtr
         }
     }
 
-    m_handlerRegistry->RegisterScriptableProperty(aRecordSpec, aPropSpec);
+    m_handlers->RegisterScriptableProperty(aRecordSpec, aPropSpec);
 
     aPropSpec->isDescribed = true;
 
@@ -419,7 +419,7 @@ void ScriptableRecordManager::AdaptScriptClass(const Red::ScriptClass* aClassDef
         return;
 
     for (const auto& func : cls->funcs)
-        m_handlerRegistry->AdaptScriptFunction(recordSpec, func);
+        m_handlers->AdaptScriptFunction(recordSpec, func);
 }
 
 #ifndef NDEBUG

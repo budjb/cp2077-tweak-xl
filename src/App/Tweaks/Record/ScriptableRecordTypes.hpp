@@ -11,15 +11,6 @@ using RecordArrayPtr = Red::InstancePtr<RecordArray>;
 using RecordWHandle = Red::WeakHandle<Red::TweakDBRecord>;
 using RecordHandle = Red::Handle<Red::TweakDBRecord>;
 
-struct Context
-{
-    std::string appendix;
-    TweakTypeSpecPtr typeSpec;
-    Core::DeferredPtr<Red::TweakDBManager> tweakManager;
-};
-
-using ContextPtr = Core::SharedPtr<Context>;
-
 struct ScriptablePropertySpec
 {
     std::string name;
