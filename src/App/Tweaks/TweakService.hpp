@@ -25,8 +25,9 @@ public:
     using CreateRecordFunction = std::remove_cvref_t<decltype(Raw::CreateRecord)>::Callable;
 
     TweakService(const Core::SemvVer& aProductVer, std::filesystem::path aGameDir, std::filesystem::path aTweaksDir,
-                 std::filesystem::path aInheritanceMapPath, std::filesystem::path aExtraFlatsPath,
-                 std::filesystem::path aSourcesDir, std::filesystem::path aRedscriptExportPath);
+                 std::filesystem::path aPluginDir, std::filesystem::path aInheritanceMapPath,
+                 std::filesystem::path aExtraFlatsPath, std::filesystem::path aSourcesDir,
+                 std::filesystem::path aPluginScriptsDir);
 
     bool RegisterTweak(std::filesystem::path aPath);
     bool RegisterDirectory(std::filesystem::path aPath);
@@ -43,6 +44,8 @@ public:
     Core::DeferredPtr<Red::TweakDBManager> GetManager();
     Core::DeferredPtr<Red::TweakDBReflection> GetReflection();
     Core::DeferredPtr<TweakChangelog> GetChangelog();
+    Core::SharedPtr<ScriptableRecordManager> GetRecordManager();
+    Core::SharedPtr<ScriptablePropertyHandler> GetPropertyHandler();
 
 protected:
     void OnBootstrap() override;
@@ -53,18 +56,20 @@ protected:
     void InsertScriptableRecordDefaults();
     void SetupScriptableRecords();
     void SetupTweakImporter();
-    void OnValidateScripts(Red::ScriptBundle* aBundle);
+    void OnValidateScripts(const Red::ScriptBundle* aBundle) const;
 
     std::filesystem::path m_gameDir;
     std::filesystem::path m_tweaksDir;
+    std::filesystem::path m_pluginDir;
     std::filesystem::path m_sourcesDir;
     std::filesystem::path m_inheritanceMapPath;
     std::filesystem::path m_extraFlatsPath;
-    std::filesystem::path m_redscriptExportPath;
+    std::filesystem::path m_pluginScriptsDir;
     const Core::SemvVer& m_productVer;
     Core::Vector<std::filesystem::path> m_importPaths;
     Core::DeferredPtr<Red::TweakDBReflection> m_reflection;
     Core::DeferredPtr<Red::TweakDBManager> m_manager;
+    Core::SharedPtr<ScriptablePropertyHandler> m_propertyHandler;
     Core::SharedPtr<ScriptableRecordManager> m_recordManager;
     Core::SharedPtr<TweakChangelog> m_changelog;
     Core::SharedPtr<TweakContext> m_context;

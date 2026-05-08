@@ -2,164 +2,52 @@
 
 namespace
 {
-template<template<typename> class T>
-constexpr auto TypePrefixChars = Red::GetTypePrefixStr<T>();
+constexpr auto ArrayPrefix = Red::GetTypePrefixStr<Red::DynArray>();
+constexpr auto ArrayPrefixSize = ArrayPrefix.size() - 1;
 
-template<template<typename> class T>
-constexpr auto ArrayTypePrefixChars = []() constexpr {
-    constexpr auto arrayPrefix = Red::GetTypePrefixStr<Red::DynArray>();
-    constexpr auto innerPrefix = Red::GetTypePrefixStr<T>();
-    return Red::Detail::ConcatConstStr<arrayPrefix.size() - 1, innerPrefix.size() - 1>(arrayPrefix.data(),
-                                                                                       innerPrefix.data());
-}();
+using ResRefArrayType = Red::TypeLocator<Red::GetTypeName<Red::DynArray<Red::ResRef>>()>;
+using ResRefType = Red::TypeLocator<Red::GetTypeName<Red::ResRef>()>;
 
-template<template<typename> class T>
-constexpr const char* GetTypePrefixCString()
-{
-    return TypePrefixChars<T>.data();
-}
-
-template<template<typename> class T>
-constexpr const char* GetArrayTypePrefixCString()
-{
-    return ArrayTypePrefixChars<T>.data();
-}
-
-template<template<typename> class T>
-struct IsRefContainer : std::false_type
-{
-};
-
-template<>
-struct IsRefContainer<Red::Handle> : std::true_type
-{
-};
-
-template<>
-struct IsRefContainer<Red::WeakHandle> : std::true_type
-{
-};
-
-template<typename T>
-struct PropertyPrefix;
-
-template<typename T>
-struct TypePrefixResolver;
-
-template<template<typename> class TContainer, typename TValue>
-    requires(IsRefContainer<TContainer>::value)
-struct TypePrefixResolver<TContainer<TValue>>
-{
-    static constexpr const char* value = TypePrefixChars<TContainer>.data();
-};
-
-template<template<typename> class TContainer, typename TValue>
-    requires(IsRefContainer<TContainer>::value)
-struct TypePrefixResolver<Red::DynArray<TContainer<TValue>>>
-{
-    static constexpr const char* value = ArrayTypePrefixChars<TContainer>.data();
-};
-
-template<typename T>
-constexpr const char* GetTypePrefixCString()
-{
-    return TypePrefixResolver<T>::value;
-}
-
-template<template<typename> class TContainer, typename TValue>
-    requires(IsRefContainer<TContainer>::value)
-struct PropertyPrefix<TContainer<TValue>>
-{
-    static constexpr const char* value = GetTypePrefixCString<TContainer<TValue>>();
-};
-
-template<template<typename> class TContainer, typename TValue>
-    requires(IsRefContainer<TContainer>::value)
-struct PropertyPrefix<Red::DynArray<TContainer<TValue>>>
-{
-    static constexpr const char* value = GetTypePrefixCString<Red::DynArray<TContainer<TValue>>>();
-};
-
-template<template<typename> class TRefContainer>
-    requires(IsRefContainer<TRefContainer>::value)
-std::string GetPropertyTypeName(const std::string& aName)
-{
-    std::string name = PropertyPrefix<TRefContainer<Red::ISerializable>>::value;
-    name.append(Red::TweakDBUtil::GetRecordFullName<std::string>(aName));
-    return name;
-}
-
-template<template<typename> class TRefContainer>
-    requires(IsRefContainer<TRefContainer>::value)
-std::string GetArrayPropertyTypeName(const std::string& aName)
-{
-    std::string name = PropertyPrefix<Red::DynArray<TRefContainer<Red::ISerializable>>>::value;
-    name.append(Red::TweakDBUtil::GetRecordFullName<std::string>(aName));
-    return name;
-}
-
-constexpr auto ArrayPrefix = GetTypePrefixCString<Red::DynArray>();
-constexpr auto ArrayPrefixSize = std::char_traits<char>::length(ArrayPrefix);
-
-constexpr auto HandlePrefix = GetTypePrefixCString<Red::Handle>();
-constexpr auto HandlePrefixSize = std::char_traits<char>::length(HandlePrefix);
-
-constexpr auto WeakHandlePrefix = GetTypePrefixCString<Red::WeakHandle>();
-constexpr auto WeakHandlePrefixSize = std::char_traits<char>::length(WeakHandlePrefix);
-
-constexpr auto HandleArrayPrefix = GetArrayTypePrefixCString<Red::Handle>();
-constexpr auto HandleArrayPrefixSize = std::char_traits<char>::length(HandleArrayPrefix);
-
-constexpr auto WeakHandleArrayPrefix = GetArrayTypePrefixCString<Red::WeakHandle>();
-constexpr auto WeakHandleArrayPrefixSize = std::char_traits<char>::length(WeakHandleArrayPrefix);
+using LocKeyArrayType = Red::TypeLocator<Red::ERTDBFlatType::LocKeyArray>;
+using LocKeyType = Red::TypeLocator<Red::ERTDBFlatType::LocKey>;
 } // namespace
 
 namespace App
 {
 TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue)
 {
+    using namespace Red::ERTDBFlatType;
+
     // Attempt to load a spec for non-foreign-key types
-    if (auto spec = GetTweakTypeSpec(aValue, Red::CName(aValue.c_str())))
+    if (auto spec = GetTweakTypeSpec(Red::CName(aValue.c_str())))
         return spec;
 
     // Attempt to look up foreign key arrays using shorthand syntax (e.g. "array:SomeType")
-    if (aValue.starts_with(ArrayPrefix) && aValue.length() > ArrayPrefixSize)
-        return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBIDArray, aValue.substr(ArrayPrefixSize));
-
-    // Attempt to look up foreign key arrays of handles using full syntax (e.g. "array:handle:gamedataSomeType_Record")
-    if (aValue.starts_with(HandleArrayPrefix) && aValue.length() > HandleArrayPrefixSize)
-        return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBIDArray, aValue.substr(HandleArrayPrefixSize));
-
-    // Attempt to look up foreign key arrays of weak handles using full syntax (e.g.
-    // "array:whandle:gamedataSomeType_Record")
-    if (aValue.starts_with(WeakHandleArrayPrefix) && aValue.length() > WeakHandleArrayPrefixSize)
-        return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBIDArray, aValue.substr(WeakHandleArrayPrefixSize));
-
-    // Attempt to look up foreign key handle types using full syntax (e.g. "handle:SomeType")
-    if (aValue.starts_with(HandlePrefix) && aValue.length() > HandlePrefixSize)
-        return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBID, aValue.substr(HandlePrefixSize));
-
-    // Attempt to look up foreign key weak handle types using full syntax (e.g. "whandle:SomeType")
-    if (aValue.starts_with(WeakHandlePrefix) && aValue.length() > WeakHandlePrefixSize)
-        return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBID, aValue.substr(WeakHandlePrefixSize));
+    if (aValue.starts_with(ArrayPrefix.data()) && aValue.length() > ArrayPrefixSize)
+        return GetTweakTypeSpec(TweakDBIDArray, aValue.substr(ArrayPrefixSize));
 
     // Assume the name is a foreign key weak handle type using shorthand (e.g. "SomeType")
-    return GetTweakTypeSpec(aValue, Red::ERTDBFlatType::TweakDBID, aValue);
+    return GetTweakTypeSpec(TweakDBID, aValue);
 }
 
-TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue, const uint64_t aHash,
-                                  const std::optional<std::string>& aForeignType)
+TweakTypeSpecPtr GetTweakTypeSpec(const char* aValue)
 {
+    return GetTweakTypeSpec(std::string(aValue));
+}
+
+TweakTypeSpecPtr GetTweakTypeSpec(Red::CName aName, const std::optional<std::string>& aForeignType)
+{
+    using namespace Red::TweakDBUtil;
+
     static Red::CRTTISystem* rtti = Red::CRTTISystem::Get();
 
-    if (!Red::TweakDBUtil::IsFlatType(aHash))
+    if (!IsFlatType(aName))
         return nullptr;
 
-    const auto isArray = Red::TweakDBUtil::IsArrayType(aHash);
-    const auto isForeignKey =
-        isArray ? Red::TweakDBUtil::IsForeignKeyArray(aHash) : Red::TweakDBUtil::IsForeignKey(aHash);
-    const auto isResRef =
-        isArray ? Red::TweakDBUtil::IsResRefTokenArray(aHash) : Red::TweakDBUtil::IsResRefToken(aHash);
+    const auto isArray = IsArrayType(aName);
+    const auto isForeignKey = isArray ? IsForeignKeyArray(aName) : IsForeignKey(aName);
+    const auto isResRef = isArray ? IsResRefTokenArray(aName) : IsResRefToken(aName);
+    const auto isLocKey = isArray ? IsLocKeyArray(aName) : IsLocKey(aName);
 
     if (isForeignKey && !aForeignType.has_value())
         return nullptr;
@@ -168,40 +56,26 @@ TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue, const uint64_t aHas
         return nullptr;
 
     auto spec = Core::MakeShared<TweakTypeSpec>();
-    spec->foreignName = aValue;
-    spec->flatType = Red::TweakDBUtil::GetFlatType(aHash);
-    spec->flatTypeName = aHash;
+
+    spec->flatType = GetFlatType(aName);
+    spec->flatTypeName = aName;
+    spec->propertyType = spec->flatType;
+    spec->propertyTypeName = spec->flatTypeName;
+
     spec->isArray = isArray;
+    spec->isForeignKey = isForeignKey;
     spec->isResRef = isResRef;
+    spec->isLocKey = isLocKey;
 
     if (isForeignKey)
     {
-        const auto foreignName = Red::TweakDBUtil::NormalizeRecordName(*aForeignType);
-
-        const bool isExplicitHandleArray = aValue.starts_with(HandleArrayPrefix);
-        const bool isExplicitHandle = aValue.starts_with(HandlePrefix);
-
-        const auto propertyTypeName =
-            isArray ? (isExplicitHandleArray ? GetArrayPropertyTypeName<Red::Handle>(foreignName)
-                                             : GetArrayPropertyTypeName<Red::WeakHandle>(foreignName))
-                    : (isExplicitHandle ? GetPropertyTypeName<Red::Handle>(foreignName)
-                                        : GetPropertyTypeName<Red::WeakHandle>(foreignName));
-
-        spec->isForeignKey = true;
-        spec->propertyTypeName = Red::CNamePool::Add(propertyTypeName.c_str());
-        spec->propertyType = rtti->GetType(spec->propertyTypeName);
-        spec->foreignTypeName = Red::CNamePool::Add(foreignName.c_str());
+        spec->foreignTypeName = Red::CNamePool::Add(NormalizeRecordName(*aForeignType).c_str());
         spec->foreignType = rtti->GetClass(spec->foreignTypeName);
     }
-    else
+    else if (isResRef)
     {
-        spec->propertyType = spec->flatType;
-        spec->propertyTypeName = spec->flatTypeName;
-
-        if (spec->isArray)
-        {
-            spec->elementType = reinterpret_cast<const Red::CRTTIBaseArrayType*>(spec->propertyType)->GetInnerType();
-        }
+        spec->propertyType = isArray ? ResRefArrayType::Get() : ResRefType::Get();
+        spec->propertyTypeName = spec->propertyType->GetName();
     }
 
     return spec;

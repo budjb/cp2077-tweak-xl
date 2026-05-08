@@ -11,6 +11,7 @@ if is_mode("debug") then
     set_symbols("debug")
     set_optimize("none")
     add_cxxflags("/Od /Ob0 /Zi /RTC1")
+    add_requires("catch2")
 elseif is_mode("release") then
     set_symbols("hidden")
     set_strip("all")
@@ -48,6 +49,10 @@ target("TweakXL")
     add_configfiles("config/Version.rc.in", {prefixdir = "App"})
     set_configvar("AUTHOR", "psiberx")
     set_configvar("NAME", "TweakXL")
+
+    if is_mode("debug") then
+        add_packages("catch2")
+    end
 
 target("RED4ext.SDK")
     set_default(false)

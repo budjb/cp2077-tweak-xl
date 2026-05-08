@@ -196,6 +196,26 @@ bool IsResRefTokenArray(const CBaseRTTIType* aType)
     return aType && IsResRefTokenArray(aType->GetName());
 }
 
+bool IsLocKey(CName aTypeName)
+{
+    return aTypeName == ERTDBFlatType::LocKey;
+}
+
+bool IsLocKey(const CBaseRTTIType* aType)
+{
+    return aType && IsLocKey(aType->GetName());
+}
+
+bool IsLocKeyArray(CName aTypeName)
+{
+    return aTypeName == ERTDBFlatType::LocKeyArray;
+}
+
+bool IsLocKeyArray(const CBaseRTTIType* aType)
+{
+    return aType && IsLocKeyArray(aType->GetName());
+}
+
 CName GetArrayTypeName(CName aTypeName)
 {
     // clang-format off

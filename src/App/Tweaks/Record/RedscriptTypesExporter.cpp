@@ -19,7 +19,7 @@ RedscriptTypesExporter::RedscriptTypesExporter(const Core::SharedPtr<ScriptableR
     }
 }
 
-void RedscriptTypesExporter::ExportRedscriptTypes(const std::filesystem::path& filePath)
+void RedscriptTypesExporter::ExportRedscriptTypes(const std::filesystem::path& aDir)
 {
     try
     {
@@ -32,6 +32,8 @@ void RedscriptTypesExporter::ExportRedscriptTypes(const std::filesystem::path& f
                 content += m_env.render(m_recordTemplate, json);
             }
         }
+
+        const auto filePath = aDir / "TweakXL.Records.reds";
 
         std::ofstream file(filePath, std::ios::binary);
         if (!file.is_open())
@@ -84,8 +86,15 @@ RedscriptTypesExporter::Json RedscriptTypesExporter::ToJson(const ScriptableProp
     json["IsForeignKey"] = aSpec->typeSpec->isForeignKey;
     json["IsArray"] = aSpec->typeSpec->isArray;
     json["IsResRef"] = aSpec->typeSpec->isResRef;
+    json["IsLocKey"] = aSpec->typeSpec->isResRef;
     json["ForeignType"] = GetClassScriptName(aSpec->typeSpec->foreignType);
     json["ElementType"] = Red::TweakDBUtil::GetElementTypeName(aSpec->typeSpec->propertyType).ToString();
+
+    if (aSpec->typeSpec->isLocKey)
+    {
+        json["Type"] = "LocKey";
+        json["ElementType"] = "LocKey";
+    }
 
     return json;
 }

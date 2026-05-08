@@ -2,6 +2,7 @@
 
 namespace App::Migration
 {
+// TODO: revert this back
 inline void CleanUp(const std::filesystem::path& aPath, const std::filesystem::path& aRedscriptExportPath)
 {
     std::error_code error;
@@ -16,4 +17,4 @@ inline void CleanUp(const std::filesystem::path& aPath, const std::filesystem::p
         }
     }
 }
-}
+} // namespace App::Migration

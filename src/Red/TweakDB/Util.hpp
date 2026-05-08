@@ -161,6 +161,38 @@ bool IsResRefTokenArray(CName aTypeName);
 bool IsResRefTokenArray(const CBaseRTTIType* aType);
 
 /**
+ * @brief Checks whether the given type name corresponds to a TweakDB localization key type.
+ *
+ * @param aTypeName The name of the type to check.
+ * @return true if the given type name corresponds to a TweakDB localization key type, false otherwise.
+ */
+bool IsLocKey(CName aTypeName);
+
+/**
+ * @brief Checks whether the given RTTI type corresponds to a TweakDB localization key type.
+ *
+ * @param aType The RTTI type to check.
+ * @return true if the given RTTI type corresponds to a TweakDB localization key type, false otherwise.
+ */
+bool IsLocKey(const CBaseRTTIType* aType);
+
+/**
+ * @brief Checks whether the given type name corresponds to a TweakDB localization key array type.
+ *
+ * @param aTypeName The name of the type to check.
+ * @return true if the given type name corresponds to a TweakDB localization key array type, false otherwise.
+ */
+bool IsLocKeyArray(CName aTypeName);
+
+/**
+ * @brief Checks whether the given RTTI type corresponds to a TweakDB localization key array type.
+ *
+ * @param aType The RTTI type to check.
+ * @return true if the given RTTI type corresponds to a TweakDB localization key array type, false otherwise.
+ */
+bool IsLocKeyArray(const CBaseRTTIType* aType);
+
+/**
  * @brief Gets the name of the TweakDB array type corresponding to the given element type name.
  *
  * @param aTypeName The name of the element type to get the corresponding array type name for.

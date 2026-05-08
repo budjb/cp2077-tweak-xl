@@ -49,6 +49,7 @@ inline auto InheritanceMapPath()
     return PluginDataDir() / L"InheritanceMap.dat";
 }
 
+// TODO: rename this back
 inline auto RedscriptExportPath()
 {
     return ScriptsDir() / L"ScriptableTypeDefs.reds";

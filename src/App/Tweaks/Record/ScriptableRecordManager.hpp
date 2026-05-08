@@ -18,14 +18,13 @@ class ScriptableRecordManager : public Core::LoggingAgent
 public:
     /**
      * @brief Constructs a ScriptableRecordManager instance with the given TweakDB manager.
+     *
+     * @param aManager A deferred pointer to the TweakDB manager used to interact with TweakDB.
+     * @param aPropertyHandler A shared pointer to the ScriptablePropertyHandler used to register script functions for
+     * scriptable record properties and handle their invocation at runtime.
      */
-    explicit ScriptableRecordManager(const Core::DeferredPtr<Red::TweakDBManager>& aManager);
-
-    /**
-     * @brief Destructs this ScriptableRecordManager instance and releases all resources owned by it, including
-     * registered scriptable record specifications and their associated RTTI registrations.
-     */
-    ~ScriptableRecordManager();
+    explicit ScriptableRecordManager(const Core::DeferredPtr<Red::TweakDBManager>& aManager,
+                                     const Core::SharedPtr<ScriptablePropertyHandler>& aPropertyHandler);
 
     /**
      * @brief Returns a vector containing shared pointers to all registered scriptable record specifications.
@@ -84,15 +83,18 @@ public:
      * @return The CName of the registered scriptable record type, or @c Red::CName::Empty if registration failed for
      * any reason.
      */
-    Red::CName RegisterScriptableRecordType(const std::string& aName,
-                                            const std::optional<std::string>& aParentName = std::nullopt);
+    ScriptableRecordSpecPtr RegisterScriptableRecordType(const std::string& aName,
+                                                         const std::optional<std::string>& aParentName = std::nullopt);
 
+    ScriptablePropertySpecPtr RegisterScriptableProperty(const std::string& aRecordName,
+                                                         const std::string& aPropertyName,
+                                                         const TweakTypeSpecPtr& aTypeSpec,
+                                                         const Red::InstancePtr<>& aDefaultValue = nullptr);
     /**
      * @brief Registers a scriptable property specification with a scriptable record type. This involves creating and
      * registering RTTI functions for the property based on the provided specification.
      *
-     * @param aRecordName The name of the scriptable record type to register the property with. This should correspond
-     * to the name of a registered scriptable record type.
+     * @param aRecordSpec The specification of the scriptable record type that this property belongs to.
      * @param aPropertyName The name of the property to register.
      * @param aTypeSpec The type specification of the property, containing both its TweakDB flat type details and the
      * property type of the getter function.
@@ -100,9 +102,10 @@ public:
      * when no explicit value is provided for the instance.
      * @return The CName of the registered property, or @c Red::CName::Empty if registration failed for any reason.
      */
-    Red::CName RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName,
-                                          const TweakTypeSpecPtr& aTypeSpec,
-                                          const Red::InstancePtr<>& aDefaultValue = nullptr);
+    ScriptablePropertySpecPtr RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                         const std::string& aPropertyName,
+                                                         const TweakTypeSpecPtr& aTypeSpec,
+                                                         const Red::InstancePtr<>& aDefaultValue = nullptr);
 
     /**
      * @brief Creates and registers RTTI classes for all pending scriptable record specifications registered with this
@@ -142,11 +145,7 @@ public:
     void AdaptScriptClasses(const Red::DynArray<Red::ScriptClass*>& aClasses);
 
 #ifndef NDEBUG
-    /**
-     * @brief A functional test for validating that scriptable records are properly registered, described, and inserted
-     * into TweakDB. Only enabled in debug builds.
-     */
-    void TestScriptableRecord();
+    bool SetupTestRecordSpec(const ScriptableRecordSpecPtr& aSpec);
 #endif
 
 private:
@@ -167,7 +166,7 @@ private:
      * @param aSpec The specification of the scriptable record type to create.
      * @return Whether the record class was successfully created and registered with RTTI.
      */
-    bool RegisterScriptableRecordSpec(const ScriptableRecordSpecPtr& aSpec);
+    bool RegisterRTTIType(const ScriptableRecordSpecPtr& aSpec);
 
     /**
      * @brief Completes setup of a scriptable record type by describing its corresponding RTTI class based on the
@@ -214,9 +213,6 @@ private:
      */
     void InsertDefaults(const Red::CClass* aClass);
 
-    // TODO: doc this when working on hot reloading
-    bool DeregisterScriptableRecord(const ScriptableRecordSpecPtr& aSpec);
-
     /**
      * @brief Retrieves the scriptable record class corresponding to the given hash from the registry.
      *
@@ -242,14 +238,6 @@ private:
      * scriptable record type with a name matching the class's name and modify to invoke property handlers at runtime.
      */
     void AdaptScriptClass(const Red::ScriptClass* aClassDef);
-
-#ifndef NDEBUG
-    /**
-     * @brief Registers a test scriptable record type for use in testing and validating scriptable record functionality
-     * during development. Only enabled in debug builds.
-     */
-    void RegisterTestScriptableRecord();
-#endif
 
     /**
      * @brief A pointer to the RTTI system, which is used for registering scriptable record types as RTTI classes. This
@@ -284,10 +272,9 @@ private:
     Core::DeferredPtr<Red::TweakDBManager> m_tweakManager;
 
     /**
-     * @brief A shared pointer to the registry for scriptable property handlers, which is used to register property
-     * handlers and retrieve them for use in adapting script functions to invoke property handlers at runtime.
+     * @brief A shared pointer to the registry for scriptable property getters.
      */
-    Core::SharedPtr<ScriptablePropertyHandlers> m_handlers;
+    Core::SharedPtr<ScriptablePropertyHandler> m_propertyHandler;
 };
 
 } // namespace App

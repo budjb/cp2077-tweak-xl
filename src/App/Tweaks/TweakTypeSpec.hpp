@@ -14,7 +14,7 @@ struct TweakTypeSpec
      * Another attempt to load the type will be made when registering the property's getter closure with RTTI. If the
      * type can not be found at that time, the property will not be created.
      */
-    const Red::CBaseRTTIType* propertyType{};
+    const Red::rtti::IType* propertyType{};
 
     /**
      * @brief The name of the RTTI type that should be returned from the property's getter closure, used for type
@@ -27,7 +27,7 @@ struct TweakTypeSpec
      * @brief The RTTI type of the TweakDB flat that corresponds to this property. As TweakDB flat types are well-known
      * and are built-in to the game, this is guaranteed to be set.
      */
-    const Red::CBaseRTTIType* flatType{};
+    const Red::rtti::IType* flatType{};
 
     /**
      * @brief The name of the RTTI type of the TweakDB flat that corresponds to this property.
@@ -54,6 +54,13 @@ struct TweakTypeSpec
     bool isResRef{};
 
     /**
+     * @brief Whether this property represents a localization key or an array of localization keys. If true, the flat
+     * type will be either a LocKey or an array of LocKeys, and the getter closure will return a Red::CName or an array
+     * of Red::CNames, respectively.
+     */
+    bool isLocKey{};
+
+    /**
      * @brief The name of the foreign type as specified by a YAML or Red Tweak file before conversion to a
      * fully-qualified TweakDB record name.
      */
@@ -73,10 +80,8 @@ struct TweakTypeSpec
      * is guaranteed to be added to the CName pool.
      */
     Red::CName foreignTypeName;
-
-    const Red::CBaseRTTIType* elementType{};
 };
-RED4EXT_ASSERT_SIZE(TweakTypeSpec, 0x68);
+RED4EXT_ASSERT_SIZE(TweakTypeSpec, 0x60);
 
 /**
  * @brief A shared pointer to a TweakTypeSpec struct.
@@ -89,22 +94,8 @@ using TweakTypeSpecPtr = Core::SharedPtr<TweakTypeSpec>;
  * foreign keys and arrays of foreign keys to other TweakDB record types.
  *
  * See Red::ERTDBFlatType for a list of all supported TweakDB flat type names. Getters of foreign key types may be
- * represented as their full name or through shorthand, implicit handles. For example, a foreign key property
- * referencing "gamedataVehicle_Record" may be represented as any of the following:
- *
- * - "gamedataVehicle_Record" -> "whandle:gamedataVehicle_Record" (full name with implicit weak handle syntax)
- * - "Vehicle" -> "whandle:Vehicle" (short name with implicit weak handle syntax)
- * - "whandle:gamedataVehicle_Record" (full name with explicit weak handle syntax)
- * - "whandle:Vehicle" (short name with explicit weak handle syntax)
- * - "handle:gamedataVehicle_Record" (full name with strong handle syntax)
- * - "handle:Vehicle" (short name with strong handle syntax)
- * - "array:gamedataVehicle_Record" -> "array:whandle:gamedataVehicle_Record" (full name with implicit weak handle array
- * syntax)
- * - "array:Vehicle" -> "array:whandle:Vehicle" (short name with implicit weak handle array syntax)
- * - "array:whandle:gamedataVehicle_Record" (full name with explicit weak handle array syntax)
- * - "array:whandle:Vehicle" (short name with explicit weak handle array syntax)
- * - "array:handle:gamedataVehicle_Record" (full name with explicit strong handle array syntax)
- * - "array:handle:Vehicle" (short name with explicit strong handle array syntax)
+ * represented as the foreign record's class name (full, script alias, or short) for properties pointing to a single
+ * foreign key or prefixed with "array:" for an array of foreign keys.
  *
  * @param aValue The string to parse TweakDB property and flat details from.
  * @return A property spec containing the parsed property and flat details, or nullptr if the given string is not
@@ -113,14 +104,43 @@ using TweakTypeSpecPtr = Core::SharedPtr<TweakTypeSpec>;
 TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue);
 
 /**
+ * @brief Parses the given string and infers the TweakDB property and flat details for a scriptable record. This is
+ * useful for parsing types discovered from YAML record schemas and supports all valid TweakDB RTTI types, including
+ * foreign keys and arrays of foreign keys to other TweakDB record types.
+ *
+ * See Red::ERTDBFlatType for a list of all supported TweakDB flat type names. Getters of foreign key types may be
+ * represented as the foreign record's class name (full, script alias, or short) for properties pointing to a single
+ * foreign key or prefixed with "array:" for an array of foreign keys.
+ *
+ * @param aValue The string to parse TweakDB property and flat details from.
+ * @return A property spec containing the parsed property and flat details, or nullptr if the given string is not
+ * a valid TweakDB property type.
+ */
+TweakTypeSpecPtr GetTweakTypeSpec(const char* aValue);
+
+/**
  * @brief Creates a set of details for a TweakDB property based on the given type hash and optional foreign type name.
  *
- * @param aValue The original foreign type name before it has been converted to a fully-qualified TweakDB name.
- * @param aHash The hash of the property type, used for RTTI type resolution.
+ * @param aName The name of the property type, used for RTTI type resolution.
  * @param aForeignType An optional foreign type name for foreign key properties.
  * @return A property spec containing the parsed property and flat details, or nullptr if the given string is not
  * a valid TweakDB property type.
  */
-TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue, uint64_t aHash,
-                                  const std::optional<std::string>& aForeignType = std::nullopt);
+TweakTypeSpecPtr GetTweakTypeSpec(Red::CName aName, const std::optional<std::string>& aForeignType = std::nullopt);
+
+/**
+ * @brief Creates a set of details for a TweakDB property based on the given type hash and optional foreign type name.
+ *
+ * @tparam Type The hash of the property type, used for RTTI type resolution.
+ * @param aValue An optional foreign type name for foreign key properties.
+ * @return A property spec containing the parsed property and flat details, or nullptr if not valid.
+ * @see Red::ERTDBFlatType
+ */
+template<uint64_t Type>
+TweakTypeSpecPtr GetTweakTypeSpec(const std::optional<std::string> aValue = std::nullopt)
+{
+    static const Core::SharedPtr<TweakTypeSpec> spec = GetTweakTypeSpec(Type, aValue);
+    return spec;
+}
+
 } // namespace App

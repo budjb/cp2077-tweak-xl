@@ -80,11 +80,11 @@ public:
      * @brief Exports redscript class and property definitions for the given vector of scriptable record specs to a file
      * at the specified path. Only specs that have been successfully described will be exported.
      *
-     * @param filePath The path to the file where the redscript definitions should be exported. If the file already
+     * @param aDir The path to the file where the redscript definitions should be exported. If the file already
      * exists, it will be overwritten.
      * @return true if the export was successful, false otherwise.
      */
-    void ExportRedscriptTypes(const std::filesystem::path& filePath);
+    void ExportRedscriptTypes(const std::filesystem::path& aDir);
 
 private:
     /**

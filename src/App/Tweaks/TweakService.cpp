@@ -6,20 +6,26 @@
 #include "Record/ScriptableRecordManager.hpp"
 #include "Red/TweakDB/Raws.hpp"
 
+#ifndef NDEBUG
+#include "App/Tweaks/Record/ScriptableRecordTests.hpp"
+#endif
+
 App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesystem::path aGameDir,
-                                std::filesystem::path aTweaksDir, std::filesystem::path aInheritanceMapPath,
-                                std::filesystem::path aExtraFlatsPath, std::filesystem::path aSourcesDir,
-                                std::filesystem::path aRedscriptExportPath)
+                                std::filesystem::path aTweaksDir, std::filesystem::path aPluginDir,
+                                std::filesystem::path aInheritanceMapPath, std::filesystem::path aExtraFlatsPath,
+                                std::filesystem::path aSourcesDir, std::filesystem::path aPluginScriptsDir)
     : m_gameDir(std::move(aGameDir))
     , m_tweaksDir(std::move(aTweaksDir))
+    , m_pluginDir(std::move(aPluginDir))
     , m_sourcesDir(std::move(aSourcesDir))
     , m_inheritanceMapPath(std::move(aInheritanceMapPath))
     , m_extraFlatsPath(std::move(aExtraFlatsPath))
-    , m_redscriptExportPath(std::move(aRedscriptExportPath))
+    , m_pluginScriptsDir(std::move(aPluginScriptsDir))
     , m_productVer(aProductVer)
     , m_reflection(nullptr)
     , m_manager(nullptr)
-    , m_recordManager(Core::MakeShared<ScriptableRecordManager>(m_manager))
+    , m_propertyHandler(Core::MakeShared<ScriptablePropertyHandler>(m_manager))
+    , m_recordManager(Core::MakeShared<ScriptableRecordManager>(m_manager, m_propertyHandler))
     , m_changelog(Core::MakeShared<TweakChangelog>())
     , m_context(Core::MakeShared<TweakContext>(aProductVer))
     , m_importer(Core::MakeShared<TweakImporter>(m_manager, m_reflection, m_recordManager, m_context))
@@ -57,7 +63,8 @@ void App::TweakService::OnBootstrap()
             }
 
 #ifndef NDEBUG
-            m_recordManager->TestScriptableRecord();
+            const int testExitCode = Tests::ScriptableRecordTestRunner::Run(m_pluginDir);
+            assert(testExitCode == 0 && "Scriptable record tests failed! Check the test results for more information.");
 #endif
         }
     });
@@ -157,7 +164,7 @@ void App::TweakService::CreateScriptsDir()
 {
     std::error_code error;
 
-    const auto dir = m_redscriptExportPath.parent_path();
+    const auto dir = m_pluginScriptsDir.parent_path();
 
     if (!std::filesystem::exists(dir, error))
     {
@@ -256,6 +263,16 @@ Core::DeferredPtr<App::TweakChangelog> App::TweakService::GetChangelog()
     return m_changelog;
 }
 
+Core::SharedPtr<App::ScriptableRecordManager> App::TweakService::GetRecordManager()
+{
+    return m_recordManager;
+}
+
+Core::SharedPtr<App::ScriptablePropertyHandler> App::TweakService::GetPropertyHandler()
+{
+    return m_propertyHandler;
+}
+
 void App::TweakService::InsertScriptableRecordDefaults()
 {
     m_recordManager->InsertDefaults();
@@ -276,14 +293,16 @@ void App::TweakService::SetupTweakImporter()
         m_importer->Load(m_importPaths);
         m_importer->ImportSchemas();
 
+        m_propertyHandler->RegisterInvocationHandler();
+
         m_recordManager->RegisterRTTITypes();
         m_recordManager->DescribeRTTITypes();
 
-        m_redscriptExporter->ExportRedscriptTypes(m_redscriptExportPath);
+        m_redscriptExporter->ExportRedscriptTypes(m_pluginScriptsDir);
     }});
 }
 
-void App::TweakService::OnValidateScripts(Red::ScriptBundle* aBundle)
+void App::TweakService::OnValidateScripts(const Red::ScriptBundle* aBundle) const
 {
     m_recordManager->AdaptScriptClasses(aBundle->classes);
 }

@@ -19,17 +19,12 @@ ScriptablePropertySpecPtr ScriptableRecordSpec::FindPropertyByFunctionName(const
     return nullptr;
 }
 
-ScriptableRecordManager::ScriptableRecordManager(const Core::DeferredPtr<Red::TweakDBManager>& aManager)
+ScriptableRecordManager::ScriptableRecordManager(const Core::DeferredPtr<Red::TweakDBManager>& aManager,
+                                                 const Core::SharedPtr<ScriptablePropertyHandler>& aPropertyHandler)
     : m_rtti(Red::CRTTISystem::Get())
     , m_tweakManager(aManager)
-    , m_handlers(Core::MakeShared<ScriptablePropertyHandlers>(aManager))
+    , m_propertyHandler(aPropertyHandler)
 {
-}
-
-ScriptableRecordManager::~ScriptableRecordManager()
-{
-    for (auto& spec : m_specs | std::views::values)
-        DeregisterScriptableRecord(spec);
 }
 
 Core::Vector<ScriptableRecordSpecPtr> ScriptableRecordManager::GetRecordSpecs() const
@@ -76,8 +71,8 @@ bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, Scr
     return false;
 }
 
-Red::CName ScriptableRecordManager::RegisterScriptableRecordType(const std::string& aName,
-                                                                 const std::optional<std::string>& aParentName)
+ScriptableRecordSpecPtr ScriptableRecordManager::RegisterScriptableRecordType(
+    const std::string& aName, const std::optional<std::string>& aParentName)
 {
     const auto cname = aName.c_str();
 
@@ -85,13 +80,13 @@ Red::CName ScriptableRecordManager::RegisterScriptableRecordType(const std::stri
     {
         LogError("Registration of record type {} failed because another with the same name is already registered.",
                  aName);
-        return {};
+        return nullptr;
     }
 
     if (m_rtti->GetClass(cname))
     {
         LogError("Registration of record type {} failed because a class with the same name already exists.", aName);
-        return {};
+        return nullptr;
     }
 
     const auto spec = Core::MakeShared<ScriptableRecordSpec>();
@@ -110,27 +105,36 @@ Red::CName ScriptableRecordManager::RegisterScriptableRecordType(const std::stri
     {
         std::unique_lock lockRW(m_specsMutex);
         m_specs[spec->cname] = spec;
-        return spec->cname;
     }
+
+    return spec;
 }
 
-Red::CName ScriptableRecordManager::RegisterScriptableProperty(Red::CName aRecordName, const std::string& aPropertyName,
-                                                               const TweakTypeSpecPtr& aTypeSpec,
-                                                               const Red::InstancePtr<>& aDefaultValue)
+ScriptablePropertySpecPtr ScriptableRecordManager::RegisterScriptableProperty(const std::string& aRecordName,
+                                                                              const std::string& aPropertyName,
+                                                                              const TweakTypeSpecPtr& aTypeSpec,
+                                                                              const Red::InstancePtr<>& aDefaultValue)
 {
-    const auto cname = Red::CName{aPropertyName.c_str()};
+    const auto spec = GetRecordSpec(aRecordName.c_str());
 
-    const auto recordInfo = GetRecordSpec(aRecordName);
-
-    if (!recordInfo)
+    if (!spec)
     {
         LogError("Failed to register property {} for record type {} because the registration for record type does not "
                  "exist.",
-                 aPropertyName, aRecordName.ToString());
-        return {};
+                 aPropertyName, aRecordName);
+        return nullptr;
     }
 
-    if (recordInfo->props.contains(cname))
+    return RegisterScriptableProperty(spec, aPropertyName, aTypeSpec, aDefaultValue);
+}
+
+ScriptablePropertySpecPtr ScriptableRecordManager::RegisterScriptableProperty(
+    const ScriptableRecordSpecPtr& aRecordSpec, const std::string& aPropertyName, const TweakTypeSpecPtr& aTypeSpec,
+    const Red::InstancePtr<>& aDefaultValue)
+{
+    const auto cname = Red::CName{aPropertyName.c_str()};
+
+    if (aRecordSpec->props.contains(cname))
         return {};
 
     const auto propertyInfo = Core::MakeShared<ScriptablePropertySpec>();
@@ -141,23 +145,16 @@ Red::CName ScriptableRecordManager::RegisterScriptableProperty(Red::CName aRecor
     propertyInfo->cname = Red::CName{aPropertyName.c_str()};
     propertyInfo->defaultValue = aDefaultValue;
 
-    recordInfo->props[propertyInfo->cname] = propertyInfo;
+    aRecordSpec->props[propertyInfo->cname] = propertyInfo;
 
-    return propertyInfo->cname;
+    return propertyInfo;
 }
 
 void ScriptableRecordManager::RegisterRTTITypes()
 {
-    // TODO: move this elsewhere, really.
-    m_handlers->RegisterInvocationHandler();
-
-#ifndef NDEBUG
-    RegisterTestScriptableRecord();
-#endif
-
     for (auto& spec : m_specs | std::views::values)
     {
-        RegisterScriptableRecordSpec(spec);
+        RegisterRTTIType(spec);
     }
 }
 
@@ -179,6 +176,26 @@ void ScriptableRecordManager::AdaptScriptClasses(const Red::DynArray<Red::Script
         AdaptScriptClass(classDef);
 }
 
+#ifndef NDEBUG
+bool ScriptableRecordManager::SetupTestRecordSpec(const ScriptableRecordSpecPtr& aSpec)
+{
+    if (aSpec->isRegistered)
+        return false;
+
+    if (!RegisterRTTIType(aSpec))
+        return false;
+
+    if (!DescribeRTTIType(aSpec))
+        return false;
+
+    InsertDefaults(aSpec);
+
+    m_propertyHandler->CreateScriptFunctions(aSpec);
+
+    return true;
+}
+#endif
+
 ScriptableRecordSpecPtr ScriptableRecordManager::GetRecordSpec(Red::CName aName) const
 {
     std::shared_lock lockR(m_specsMutex);
@@ -188,7 +205,7 @@ ScriptableRecordSpecPtr ScriptableRecordManager::GetRecordSpec(Red::CName aName)
     return nullptr;
 }
 
-bool ScriptableRecordManager::RegisterScriptableRecordSpec(const ScriptableRecordSpecPtr& aSpec)
+bool ScriptableRecordManager::RegisterRTTIType(const ScriptableRecordSpecPtr& aSpec)
 {
     if (aSpec->isRegistered)
     {
@@ -291,7 +308,7 @@ bool ScriptableRecordManager::RegisterRTTIProperty(const ScriptableRecordSpecPtr
         }
     }
 
-    m_handlers->RegisterScriptableProperty(aRecordSpec, aPropSpec);
+    m_propertyHandler->RegisterScriptableProperty(aRecordSpec, aPropSpec);
 
     aPropSpec->isDescribed = true;
 
@@ -334,32 +351,6 @@ void ScriptableRecordManager::InsertDefaults(const Red::CClass* aClass)
 
     if (const auto spec = GetRecordSpec(aClass->GetName()))
         InsertDefaults(spec);
-}
-
-bool ScriptableRecordManager::DeregisterScriptableRecord(const ScriptableRecordSpecPtr& aSpec)
-{
-    if (!aSpec->type)
-        return false;
-
-    for (const auto& prop : aSpec->props | std::views::values)
-        prop->isDescribed = false;
-
-    aSpec->isRegistered = false;
-    aSpec->isDescribed = false;
-
-    {
-        std::unique_lock lockRW(m_classesMutex);
-        m_rtti->UnregisterType(aSpec->type);
-        m_classes.erase(aSpec->hash);
-        aSpec->type = nullptr;
-    }
-
-    {
-        std::unique_lock lockRW(m_specsMutex);
-        m_specs.erase(aSpec->cname);
-    }
-
-    return true;
 }
 
 ScriptableRecordClass* ScriptableRecordManager::GetRecordClass(const uint32_t aHash) const
@@ -419,54 +410,7 @@ void ScriptableRecordManager::AdaptScriptClass(const Red::ScriptClass* aClassDef
         return;
 
     for (const auto& func : cls->funcs)
-        m_handlers->AdaptScriptFunction(recordSpec, func);
+        m_propertyHandler->AdaptScriptFunction(recordSpec, func);
 }
 
-#ifndef NDEBUG
-
-void ScriptableRecordManager::RegisterTestScriptableRecord()
-{
-    const auto name = RegisterScriptableRecordType(Red::TweakDBUtil::NormalizeRecordName("TweakXLTest"));
-    const auto info = GetTweakTypeSpec("CName");
-
-    RegisterScriptableProperty(name, "foo", info);
-    RegisterScriptableProperty(name, "bar", info);
-}
-
-void ScriptableRecordManager::TestScriptableRecord()
-{
-    using recordType = Red::TypeLocator<"gamedataTweakXLTest_Record">;
-    using cnameType = Red::TypeLocator<"CName">;
-
-    static auto recordID = Red::TweakDBID{"test.tweakxl.scriptable"};
-    static auto fooValue = Red::CNamePool::Add("test foo value");
-    static auto barValue = Red::CNamePool::Add("test bar value");
-    static auto fooAppendix = std::string_view(".foo");
-    static auto barAppendix = std::string_view(".bar");
-
-    assert(m_tweakManager->CreateRecord(recordID, recordType::GetClass()));
-    assert(m_tweakManager->SetFlat(recordID + fooAppendix, cnameType::GetClass(), &fooValue));
-    assert(m_tweakManager->SetFlat(recordID + barAppendix, cnameType::GetClass(), &barValue));
-
-    const auto record =
-        reinterpret_cast<ScriptableTweakDBRecord*>(m_tweakManager->GetTweakDB()->GetRecord(recordID).instance);
-
-    assert(record);
-
-    {
-        auto* func = recordType::GetClass()->GetFunction("Foo");
-        Red::CName result;
-        assert(Red::ExecuteFunction(record, func, &result));
-        assert(result && strcmp(result.ToString(), "test foo value") == 0);
-    }
-
-    {
-        auto* func = recordType::GetClass()->GetFunction("Bar");
-        Red::CName result;
-        assert(Red::ExecuteFunction(record, func, &result));
-        assert(result && strcmp(result.ToString(), "test bar value") == 0);
-    }
-}
-
-#endif
 } // namespace App
