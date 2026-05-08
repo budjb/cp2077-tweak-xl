@@ -1,7 +1,9 @@
 #include "ScriptableRecordTests.hpp"
 
 #include "Core/Facades/Container.hpp"
+#include "RED4ext/Scripting/Natives/Generated/game/data/Vehicle_Record.hpp"
 #include "ScriptableTweakDBRecord.hpp"
+
 #include <catch2/catch_all.hpp>
 
 namespace
@@ -153,7 +155,7 @@ void Tests::ScriptableRecordTestRunner::Setup()
     auto eulerVal = Red::EulerAngles(1.0, 2.0, 3.0);
     auto vec3Val = Red::Vector3(1.0, 2.0, 3.0);
     auto vec2Val = Red::Vector2(1.0, 2.0);
-    auto colorVal = Red::Color(1.0, 2.0, 3.0, 4.0);
+    auto colorVal = Red::Color(1, 2, 3, 4);
     auto intArrayVal = Red::DynArray({1, 2, 3});
     auto floatArrayVal = Red::DynArray({1.0f, 2.0f, 3.0f});
     auto boolArrayVal = Red::DynArray({true, false, true});
@@ -167,7 +169,7 @@ void Tests::ScriptableRecordTestRunner::Setup()
     auto eulerArrayVal = Red::DynArray({Red::EulerAngles(1.0, 2.0, 3.0), Red::EulerAngles(4.0, 5.0, 6.0)});
     auto vec3ArrayVal = Red::DynArray({Red::Vector3(1.0, 2.0, 3.0), Red::Vector3(4.0, 5.0, 6.0)});
     auto vec2ArrayVal = Red::DynArray({Red::Vector2(1.0, 2.0), Red::Vector2(3.0, 4.0)});
-    auto colorArrayVal = Red::DynArray({Red::Color(1.0, 2.0, 3.0), Red::Color(4.0, 5.0, 6.0)});
+    auto colorArrayVal = Red::DynArray({Red::Color(1, 2, 3, 4), Red::Color(4, 5, 6, 7)});
     auto tweakDBIDVal = Red::TweakDBID("Vehicle.v_sport1_herrera_outlaw");
     auto tweakDBIDArrayVal = Red::DynArray({Red::TweakDBID("Vehicle.v_sport1_herrera_outlaw"),
                                             Red::TweakDBID("Vehicle.v_sport1_quadra_sport_r7"),
@@ -401,10 +403,10 @@ TEST_CASE("When a property is defined as Color, its getter function exists and r
 
     Red::Color result;
     REQUIRE(Red::CallFunction(record, func, result) == true);
-    REQUIRE(result.Red == 1.0);
-    REQUIRE(result.Green == 2.0);
-    REQUIRE(result.Blue == 3.0);
-    REQUIRE(result.Alpha == 4.0);
+    REQUIRE(result.Red == 1);
+    REQUIRE(result.Green == 2);
+    REQUIRE(result.Blue == 3);
+    REQUIRE(result.Alpha == 4);
 }
 
 TEST_CASE("When a property is defined as Int32Array, its getter function exists and returns a valid value")
@@ -450,11 +452,1181 @@ TEST_CASE("When a property is defined as Int32Array, its item getter function ex
     auto* func = RecordType::GetClass()->GetFunction("GetInt32ArrayPropItem");
     REQUIRE(func != nullptr);
 
-    for (int i = 0; i < 3; ++i)
+    {
+        int result = -1234;
+        REQUIRE(Red::CallFunction(record, func, result, -1) == true);
+        REQUIRE(result == -1234);
+    }
     {
         int result;
-        REQUIRE(Red::CallFunction(record, func, result, i) == true);
-        REQUIRE(result == i + 1);
+        REQUIRE(Red::CallFunction(record, func, result, 0) == true);
+        REQUIRE(result == 1);
+    }
+    {
+        int result;
+        REQUIRE(Red::CallFunction(record, func, result, 1) == true);
+        REQUIRE(result == 2);
+    }
+    {
+        int result;
+        REQUIRE(Red::CallFunction(record, func, result, 2) == true);
+        REQUIRE(result == 3);
+    }
+    {
+        int result = -6789;
+        REQUIRE(Red::CallFunction(record, func, result, 3) == true);
+        REQUIRE(result == -6789);
+    }
+}
+
+TEST_CASE("When a property is defined as Int32Array, its contains function returns valid results")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("Int32ArrayPropContains");
+    REQUIRE(func != nullptr);
+
+    bool result;
+    REQUIRE(Red::CallFunction(record, func, result, 2) == true);
+    REQUIRE(result == true);
+
+    REQUIRE(Red::CallFunction(record, func, result, 5) == true);
+    REQUIRE(result == false);
+}
+
+TEST_CASE("When a property is defined as FloatArray, its getter function exists and returns a valid value")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("FloatArrayProp");
+    REQUIRE(func != nullptr);
+
+    Red::DynArray<float> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.size() == 3);
+    REQUIRE(result.At(0) == 1.0f);
+    REQUIRE(result.At(1) == 2.0f);
+    REQUIRE(result.At(2) == 3.0f);
+}
+
+TEST_CASE("When a property is defined as FloatArray, its count function exists and returns the correct size")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetFloatArrayPropCount");
+    REQUIRE(func != nullptr);
+
+    int result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result == 3);
+}
+
+TEST_CASE("When a property is defined as FloatArray, its item getter function exists and returns valid values")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetFloatArrayPropItem");
+    REQUIRE(func != nullptr);
+
+    {
+        float result = -1234.0f;
+        REQUIRE(Red::CallFunction(record, func, result, -1) == true);
+        REQUIRE(result == -1234.0f);
+    }
+    {
+        float result;
+        REQUIRE(Red::CallFunction(record, func, result, 0) == true);
+        REQUIRE(result == 1.0f);
+    }
+    {
+        float result;
+        REQUIRE(Red::CallFunction(record, func, result, 1) == true);
+        REQUIRE(result == 2.0f);
+    }
+    {
+        float result;
+        REQUIRE(Red::CallFunction(record, func, result, 2) == true);
+        REQUIRE(result == 3.0f);
+    }
+    {
+        float result = -6789.0f;
+        REQUIRE(Red::CallFunction(record, func, result, 3) == true);
+        REQUIRE(result == -6789.0f);
+    }
+}
+
+TEST_CASE("When a property is defined as FloatArray, its contains function returns valid results")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("FloatArrayPropContains");
+    REQUIRE(func != nullptr);
+
+    bool result;
+    REQUIRE(Red::CallFunction(record, func, result, 2.0f) == true);
+    REQUIRE(result == true);
+
+    REQUIRE(Red::CallFunction(record, func, result, 5.0f) == true);
+    REQUIRE(result == false);
+}
+
+TEST_CASE("When a property is defined as BoolArray, its getter function exists and returns a valid value")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("BoolArrayProp");
+    REQUIRE(func != nullptr);
+
+    Red::DynArray<bool> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.size() == 3);
+    REQUIRE(result.At(0) == true);
+    REQUIRE(result.At(1) == false);
+    REQUIRE(result.At(2) == true);
+}
+
+TEST_CASE("When a property is defined as BoolArray, its count function exists and returns the correct size")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetBoolArrayPropCount");
+    REQUIRE(func != nullptr);
+
+    int result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result == 3);
+}
+
+TEST_CASE("When a property is defined as BoolArray, its item getter function exists and returns valid values")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetBoolArrayPropItem");
+    REQUIRE(func != nullptr);
+
+    {
+        bool result = false;
+        REQUIRE(Red::CallFunction(record, func, result, -1) == true);
+        REQUIRE(result == false);
+    }
+    {
+        bool result;
+        REQUIRE(Red::CallFunction(record, func, result, 0) == true);
+        REQUIRE(result == true);
+    }
+    {
+        bool result;
+        REQUIRE(Red::CallFunction(record, func, result, 1) == true);
+        REQUIRE(result == false);
+    }
+    {
+        bool result;
+        REQUIRE(Red::CallFunction(record, func, result, 2) == true);
+        REQUIRE(result == true);
+    }
+    {
+        bool result = true;
+        REQUIRE(Red::CallFunction(record, func, result, 3) == true);
+        REQUIRE(result == true);
+    }
+}
+
+TEST_CASE("When a property is defined as BoolArray, its contains function returns valid results")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("BoolArrayPropContains");
+    REQUIRE(func != nullptr);
+
+    bool result;
+    REQUIRE(Red::CallFunction(record, func, result, true) == true);
+    REQUIRE(result == true);
+
+    REQUIRE(Red::CallFunction(record, func, result, false) == true);
+    REQUIRE(result == true);
+}
+
+TEST_CASE("When a property is defined as StringArray, its getter function exists and returns a valid value")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("StringArrayProp");
+    REQUIRE(func != nullptr);
+
+    Red::DynArray<Red::CString> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.size() == 3);
+    REQUIRE(result.At(0) == "one");
+    REQUIRE(result.At(1) == "two");
+    REQUIRE(result.At(2) == "three");
+}
+
+TEST_CASE("When a property is defined as StringArray, its count function exists and returns the correct size")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetStringArrayPropCount");
+    REQUIRE(func != nullptr);
+
+    int result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result == 3);
+}
+
+TEST_CASE("When a property is defined as StringArray, its item getter function exists and returns valid values")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetStringArrayPropItem");
+    REQUIRE(func != nullptr);
+
+    {
+        Red::CString result = "asdf";
+        REQUIRE(Red::CallFunction(record, func, result, -1) == true);
+        REQUIRE(result == "asdf");
+    }
+    {
+        Red::CString result;
+        REQUIRE(Red::CallFunction(record, func, result, 0) == true);
+        REQUIRE(result == "one");
+    }
+    {
+        Red::CString result;
+        REQUIRE(Red::CallFunction(record, func, result, 1) == true);
+        REQUIRE(result == "two");
+    }
+    {
+        Red::CString result;
+        REQUIRE(Red::CallFunction(record, func, result, 2) == true);
+        REQUIRE(result == "three");
+    }
+    {
+        Red::CString result;
+        REQUIRE(Red::CallFunction(record, func, result, 3) == true);
+        REQUIRE(result == "");
+    }
+}
+
+TEST_CASE("When a property is defined as StringArray, its contains function returns valid results")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("StringArrayPropContains");
+    REQUIRE(func != nullptr);
+
+    bool result;
+    REQUIRE(Red::CallFunction(record, func, result, Red::CString("two")) == true);
+    REQUIRE(result == true);
+
+    REQUIRE(Red::CallFunction(record, func, result, Red::CString("four")) == true);
+    REQUIRE(result == false);
+}
+
+TEST_CASE("When a property is defined as CNameArray, its getter function exists and returns a valid value")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("CNameArrayProp");
+    REQUIRE(func != nullptr);
+
+    Red::DynArray<Red::CName> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.size() == 3);
+    REQUIRE(result.At(0) == "one");
+    REQUIRE(result.At(1) == "two");
+    REQUIRE(result.At(2) == "three");
+}
+
+TEST_CASE("When a property is defined as CNameArray, its count function exists and returns the correct size")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetCNameArrayPropCount");
+    REQUIRE(func != nullptr);
+
+    int result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result == 3);
+}
+
+TEST_CASE("When a property is defined as CNameArray, its item getter function exists and returns valid values")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetCNameArrayPropItem");
+    REQUIRE(func != nullptr);
+
+    {
+        Red::CName result = "asdf";
+        REQUIRE(Red::CallFunction(record, func, result, -1) == true);
+        REQUIRE(result == "asdf");
+    }
+    {
+        Red::CName result;
+        REQUIRE(Red::CallFunction(record, func, result, 0) == true);
+        REQUIRE(result == "one");
+    }
+    {
+        Red::CName result;
+        REQUIRE(Red::CallFunction(record, func, result, 1) == true);
+        REQUIRE(result == "two");
+    }
+    {
+        Red::CName result;
+        REQUIRE(Red::CallFunction(record, func, result, 2) == true);
+        REQUIRE(result == "three");
+    }
+    {
+        Red::CName result;
+        REQUIRE(Red::CallFunction(record, func, result, 3) == true);
+        REQUIRE(result == "");
+    }
+}
+
+TEST_CASE("When a property is defined as CNameArray, its contains function returns valid results")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("CNameArrayPropContains");
+    REQUIRE(func != nullptr);
+
+    bool result;
+    REQUIRE(Red::CallFunction(record, func, result, Red::CName("two")) == true);
+    REQUIRE(result == true);
+
+    REQUIRE(Red::CallFunction(record, func, result, Red::CName("four")) == true);
+    REQUIRE(result == false);
+}
+
+TEST_CASE("When a property is defined as LocKeyArray, its getter function exists and returns a valid value")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("LocKeyArrayProp");
+    REQUIRE(func != nullptr);
+
+    Red::DynArray<Red::LocKeyWrapper> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.size() == 3);
+    REQUIRE(result.At(0).primaryKey == Red::CName("one"));
+    REQUIRE(result.At(1).primaryKey == Red::CName("two"));
+    REQUIRE(result.At(2).primaryKey == Red::CName("three"));
+}
+
+TEST_CASE("When a property is defined as LocKeyArray, its count function exists and returns the correct size")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetLocKeyArrayPropCount");
+    REQUIRE(func != nullptr);
+
+    int result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result == 3);
+}
+
+TEST_CASE("When a property is defined as LocKeyArray, its item getter function exists and returns valid values")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetLocKeyArrayPropItem");
+    REQUIRE(func != nullptr);
+
+    {
+        Red::LocKeyWrapper result("asdf");
+        REQUIRE(Red::CallFunction(record, func, result, -1) == true);
+        REQUIRE(result.primaryKey == Red::CName("asdf"));
+    }
+    {
+        Red::LocKeyWrapper result;
+        REQUIRE(Red::CallFunction(record, func, result, 0) == true);
+        REQUIRE(result.primaryKey == Red::CName("one"));
+    }
+    {
+        Red::LocKeyWrapper result;
+        REQUIRE(Red::CallFunction(record, func, result, 1) == true);
+        REQUIRE(result.primaryKey == Red::CName("two"));
+    }
+    {
+        Red::LocKeyWrapper result;
+        REQUIRE(Red::CallFunction(record, func, result, 2) == true);
+        REQUIRE(result.primaryKey == Red::CName("three"));
+    }
+    {
+        Red::LocKeyWrapper result;
+        REQUIRE(Red::CallFunction(record, func, result, 3) == true);
+        REQUIRE(result.primaryKey == Red::CName(""));
+    }
+}
+
+TEST_CASE("When a property is defined as LocKeyArray, its contains function returns valid results")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("LocKeyArrayPropContains");
+    REQUIRE(func != nullptr);
+
+    bool result;
+    REQUIRE(Red::CallFunction(record, func, result, Red::LocKeyWrapper("two")) == true);
+    REQUIRE(result == true);
+
+    REQUIRE(Red::CallFunction(record, func, result, Red::LocKeyWrapper("four")) == true);
+    REQUIRE(result == false);
+}
+
+TEST_CASE("When a property is defined as ResRefArray, its getter function exists and returns a valid value")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("ResRefArrayProp");
+    REQUIRE(func != nullptr);
+
+    Red::DynArray<Red::ResRef> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.size() == 1);
+    REQUIRE(result.At(0).resource.path ==
+            "base\\gameplay\\vehicles\\visual_customization\\decals\\rayfield_caliburn\\vcc_rayfield_caliburn_"
+            "bumper_f_numbers_01_yellow.ent");
+}
+
+TEST_CASE("When a property is defined as ResRefArray, its count function exists and returns the correct size")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetResRefArrayPropCount");
+    REQUIRE(func != nullptr);
+
+    int result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result == 1);
+}
+
+TEST_CASE("When a property is defined as ResRefArray, its item getter function exists and returns valid values")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetResRefArrayPropItem");
+    REQUIRE(func != nullptr);
+
+    {
+        Red::ResRef result;
+        result.resource.path = "asdf";
+        REQUIRE(Red::CallFunction(record, func, result, -1) == true);
+        REQUIRE(result.resource.path == "asdf");
+    }
+    {
+        Red::ResRef result;
+        REQUIRE(Red::CallFunction(record, func, result, 0) == true);
+        REQUIRE(result.resource.path ==
+                "base\\gameplay\\vehicles\\visual_customization\\decals\\rayfield_caliburn\\vcc_rayfield_caliburn_"
+                "bumper_f_numbers_01_yellow.ent");
+    }
+    {
+        Red::ResRef result;
+        REQUIRE(Red::CallFunction(record, func, result, 1) == true);
+        REQUIRE(result.resource.path == "");
+    }
+}
+
+TEST_CASE("When a property is defined as QuaternionArray, its getter function exists and returns a valid value")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("QuaternionArrayProp");
+    REQUIRE(func != nullptr);
+
+    Red::DynArray<Red::Quaternion> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.size() == 2);
+    REQUIRE(result.At(0).i == 1.0);
+    REQUIRE(result.At(0).j == 2.0);
+    REQUIRE(result.At(0).k == 3.0);
+    REQUIRE(result.At(0).r == 4.0);
+    REQUIRE(result.At(1).i == 5.0);
+    REQUIRE(result.At(1).j == 6.0);
+    REQUIRE(result.At(1).k == 7.0);
+    REQUIRE(result.At(1).r == 8.0);
+}
+
+TEST_CASE("When a property is defined as QuaternionArray, its count function exists and returns the correct size")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetQuaternionArrayPropCount");
+    REQUIRE(func != nullptr);
+
+    int result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result == 2);
+}
+
+TEST_CASE("When a property is defined as QuaternionArray, its item getter function exists and returns valid values")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetQuaternionArrayPropItem");
+    REQUIRE(func != nullptr);
+
+    {
+        Red::Quaternion result;
+        result.i = -1.0;
+        result.j = -2.0;
+        result.k = -3.0;
+        result.r = -4.0;
+        REQUIRE(Red::CallFunction(record, func, result, -1) == true);
+        REQUIRE(result.i == -1.0);
+        REQUIRE(result.j == -2.0);
+        REQUIRE(result.k == -3.0);
+        REQUIRE(result.r == -4.0);
+    }
+    {
+        Red::Quaternion result;
+        REQUIRE(Red::CallFunction(record, func, result, 0) == true);
+        REQUIRE(result.i == 1.0);
+        REQUIRE(result.j == 2.0);
+        REQUIRE(result.k == 3.0);
+        REQUIRE(result.r == 4.0);
+    }
+    {
+        Red::Quaternion result;
+        REQUIRE(Red::CallFunction(record, func, result, 1) == true);
+        REQUIRE(result.i == 5.0);
+        REQUIRE(result.j == 6.0);
+        REQUIRE(result.k == 7.0);
+        REQUIRE(result.r == 8.0);
+    }
+    {
+        Red::Quaternion result;
+        REQUIRE(Red::CallFunction(record, func, result, 2) == true);
+        REQUIRE(result.i == 0.0);
+        REQUIRE(result.j == 0.0);
+        REQUIRE(result.k == 0.0);
+        REQUIRE(result.r == 1.0);
+    }
+}
+
+TEST_CASE("When a property is defined as QuaternionArray, its contains function returns valid results")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("QuaternionArrayPropContains");
+    REQUIRE(func != nullptr);
+
+    bool result;
+    REQUIRE(Red::CallFunction(record, func, result, Red::Quaternion{1.0, 2.0, 3.0, 4.0}) == true);
+    REQUIRE(result == true);
+
+    REQUIRE(Red::CallFunction(record, func, result, Red::Quaternion{9.0, 8.0, 7.0, 6.0}) == true);
+    REQUIRE(result == false);
+}
+
+TEST_CASE("When a property is defined as EulerAnglesArray, its getter function exists and returns a valid value")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("EulerAnglesArrayProp");
+    REQUIRE(func != nullptr);
+
+    Red::DynArray<Red::EulerAngles> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.size() == 2);
+    REQUIRE(result.At(0).Roll == 1.0);
+    REQUIRE(result.At(0).Pitch == 2.0);
+    REQUIRE(result.At(0).Yaw == 3.0);
+    REQUIRE(result.At(1).Roll == 4.0);
+    REQUIRE(result.At(1).Pitch == 5.0);
+    REQUIRE(result.At(1).Yaw == 6.0);
+}
+
+TEST_CASE("When a property is defined as EulerAnglesArray, its count function exists and returns the correct size")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetEulerAnglesArrayPropCount");
+    REQUIRE(func != nullptr);
+
+    int result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result == 2);
+}
+
+TEST_CASE("When a property is defined as EulerAnglesArray, its item getter function exists and returns valid values")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetEulerAnglesArrayPropItem");
+    REQUIRE(func != nullptr);
+
+    {
+        Red::EulerAngles result;
+        result.Roll = -1.0;
+        result.Pitch = -2.0;
+        result.Yaw = -3.0;
+        REQUIRE(Red::CallFunction(record, func, result, -1) == true);
+        REQUIRE(result.Roll == -1.0);
+        REQUIRE(result.Pitch == -2.0);
+        REQUIRE(result.Yaw == -3.0);
+    }
+    {
+        Red::EulerAngles result;
+        REQUIRE(Red::CallFunction(record, func, result, 0) == true);
+        REQUIRE(result.Roll == 1.0);
+        REQUIRE(result.Pitch == 2.0);
+        REQUIRE(result.Yaw == 3.0);
+    }
+    {
+        Red::EulerAngles result;
+        REQUIRE(Red::CallFunction(record, func, result, 1) == true);
+        REQUIRE(result.Roll == 4.0);
+        REQUIRE(result.Pitch == 5.0);
+        REQUIRE(result.Yaw == 6.0);
+    }
+    {
+        Red::EulerAngles result;
+        result.Roll = 0.0;
+        result.Pitch = 0.0;
+        result.Yaw = 0.0;
+        REQUIRE(Red::CallFunction(record, func, result, 2) == true);
+        REQUIRE(result.Roll == 0.0);
+        REQUIRE(result.Pitch == 0.0);
+        REQUIRE(result.Yaw == 0.0);
+    }
+}
+
+TEST_CASE("When a property is defined as EulerAnglesArray, its contains function returns valid results")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("EulerAnglesArrayPropContains");
+    REQUIRE(func != nullptr);
+
+    bool result;
+    REQUIRE(Red::CallFunction(record, func, result, Red::EulerAngles{1.0, 2.0, 3.0}) == true);
+    REQUIRE(result == true);
+
+    REQUIRE(Red::CallFunction(record, func, result, Red::EulerAngles{7.0, 8.0, 9.0}) == true);
+    REQUIRE(result == false);
+}
+
+TEST_CASE("When a property is defined as Vector3Array, its getter function exists and returns a valid value")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("Vector3ArrayProp");
+    REQUIRE(func != nullptr);
+
+    Red::DynArray<Red::Vector3> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.size() == 2);
+    REQUIRE(result.At(0).X == 1.0);
+    REQUIRE(result.At(0).Y == 2.0);
+    REQUIRE(result.At(0).Z == 3.0);
+    REQUIRE(result.At(1).X == 4.0);
+    REQUIRE(result.At(1).Y == 5.0);
+    REQUIRE(result.At(1).Z == 6.0);
+}
+
+TEST_CASE("When a property is defined as Vector3Array, its count function exists and returns the correct size")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetVector3ArrayPropCount");
+    REQUIRE(func != nullptr);
+
+    int result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result == 2);
+}
+
+TEST_CASE("When a property is defined as Vector3Array, its item getter function exists and returns valid values")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetVector3ArrayPropItem");
+    REQUIRE(func != nullptr);
+
+    {
+        Red::Vector3 result;
+        result.X = -1.0;
+        result.Y = -2.0;
+        result.Z = -3.0;
+        REQUIRE(Red::CallFunction(record, func, result, -1) == true);
+        REQUIRE(result.X == -1.0);
+        REQUIRE(result.Y == -2.0);
+        REQUIRE(result.Z == -3.0);
+    }
+    {
+        Red::Vector3 result;
+        REQUIRE(Red::CallFunction(record, func, result, 0) == true);
+        REQUIRE(result.X == 1.0);
+        REQUIRE(result.Y == 2.0);
+        REQUIRE(result.Z == 3.0);
+    }
+    {
+        Red::Vector3 result;
+        REQUIRE(Red::CallFunction(record, func, result, 1) == true);
+        REQUIRE(result.X == 4.0);
+        REQUIRE(result.Y == 5.0);
+        REQUIRE(result.Z == 6.0);
+    }
+    {
+        Red::Vector3 result;
+        REQUIRE(Red::CallFunction(record, func, result, 2) == true);
+        REQUIRE(result.X == 0.0);
+        REQUIRE(result.Y == 0.0);
+        REQUIRE(result.Z == 0.0);
+    }
+}
+
+TEST_CASE("When a property is defined as Vector3Array, its contains function returns valid results")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("Vector3ArrayPropContains");
+    REQUIRE(func != nullptr);
+
+    bool result;
+    REQUIRE(Red::CallFunction(record, func, result, Red::Vector3{1.0, 2.0, 3.0}) == true);
+    REQUIRE(result == true);
+
+    REQUIRE(Red::CallFunction(record, func, result, Red::Vector3{7.0, 8.0, 9.0}) == true);
+    REQUIRE(result == false);
+}
+
+TEST_CASE("When a property is defined as Vector2Array, its getter function exists and returns a valid value")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("Vector2ArrayProp");
+    REQUIRE(func != nullptr);
+
+    Red::DynArray<Red::Vector2> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.size() == 2);
+    REQUIRE(result.At(0).X == 1.0);
+    REQUIRE(result.At(0).Y == 2.0);
+    REQUIRE(result.At(1).X == 3.0);
+    REQUIRE(result.At(1).Y == 4.0);
+}
+
+TEST_CASE("When a property is defined as Vector2Array, its count function exists and returns the correct size")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetVector2ArrayPropCount");
+    REQUIRE(func != nullptr);
+
+    int result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result == 2);
+}
+
+TEST_CASE("When a property is defined as Vector2Array, its item getter function exists and returns valid values")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetVector2ArrayPropItem");
+    REQUIRE(func != nullptr);
+
+    {
+        Red::Vector2 result;
+        result.X = -1.0;
+        result.Y = -2.0;
+        REQUIRE(Red::CallFunction(record, func, result, -1) == true);
+        REQUIRE(result.X == -1.0);
+        REQUIRE(result.Y == -2.0);
+    }
+    {
+        Red::Vector2 result;
+        REQUIRE(Red::CallFunction(record, func, result, 0) == true);
+        REQUIRE(result.X == 1.0);
+        REQUIRE(result.Y == 2.0);
+    }
+    {
+        Red::Vector2 result;
+        REQUIRE(Red::CallFunction(record, func, result, 1) == true);
+        REQUIRE(result.X == 3.0);
+        REQUIRE(result.Y == 4.0);
+    }
+    {
+        Red::Vector2 result;
+        REQUIRE(Red::CallFunction(record, func, result, 2) == true);
+        REQUIRE(result.X == 0.0);
+        REQUIRE(result.Y == 0.0);
+    }
+}
+
+TEST_CASE("When a property is defined as Vector2Array, its contains function returns valid results")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("Vector2ArrayPropContains");
+    REQUIRE(func != nullptr);
+
+    bool result;
+    REQUIRE(Red::CallFunction(record, func, result, Red::Vector2{1.0, 2.0}) == true);
+    REQUIRE(result == true);
+
+    REQUIRE(Red::CallFunction(record, func, result, Red::Vector2{5.0, 6.0}) == true);
+    REQUIRE(result == false);
+}
+
+TEST_CASE("When a property is defined as ColorArray, its getter function exists and returns a valid value")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("ColorArrayProp");
+    REQUIRE(func != nullptr);
+
+    Red::DynArray<Red::Color> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.size() == 2);
+    REQUIRE(result.At(0).Red == 1);
+    REQUIRE(result.At(0).Green == 2);
+    REQUIRE(result.At(0).Blue == 3);
+    REQUIRE(result.At(0).Alpha == 4);
+    REQUIRE(result.At(1).Red == 4);
+    REQUIRE(result.At(1).Green == 5);
+    REQUIRE(result.At(1).Blue == 6);
+    REQUIRE(result.At(1).Alpha == 7);
+}
+
+TEST_CASE("When a property is defined as ColorArray, its count function exists and returns the correct size")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetColorArrayPropCount");
+    REQUIRE(func != nullptr);
+
+    int result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result == 2);
+}
+
+TEST_CASE("When a property is defined as ColorArray, its item getter function exists and returns valid values")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetColorArrayPropItem");
+    REQUIRE(func != nullptr);
+
+    {
+        Red::Color result;
+        result.Red = 10;
+        result.Green = 20;
+        result.Blue = 30;
+        result.Alpha = 40;
+        REQUIRE(Red::CallFunction(record, func, result, -1) == true);
+        REQUIRE(result.Red == 10);
+        REQUIRE(result.Green == 20);
+        REQUIRE(result.Blue == 30);
+        REQUIRE(result.Alpha == 40);
+    }
+    {
+        Red::Color result;
+        REQUIRE(Red::CallFunction(record, func, result, 0) == true);
+        REQUIRE(result.Red == 1);
+        REQUIRE(result.Green == 2);
+        REQUIRE(result.Blue == 3);
+        REQUIRE(result.Alpha == 4);
+    }
+    {
+        Red::Color result;
+        REQUIRE(Red::CallFunction(record, func, result, 1) == true);
+        REQUIRE(result.Red == 4);
+        REQUIRE(result.Green == 5);
+        REQUIRE(result.Blue == 6);
+        REQUIRE(result.Alpha == 7);
+    }
+    {
+        Red::Color result;
+        result.Red = 0;
+        result.Green = 0;
+        result.Blue = 0;
+        result.Alpha = 0;
+        REQUIRE(Red::CallFunction(record, func, result, 2) == true);
+        REQUIRE(result.Red == 0);
+        REQUIRE(result.Green == 0);
+        REQUIRE(result.Blue == 0);
+        REQUIRE(result.Alpha == 0);
+    }
+}
+
+TEST_CASE("When a property is defined as ColorArray, its contains function returns valid results")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("ColorArrayPropContains");
+    REQUIRE(func != nullptr);
+
+    bool result;
+    REQUIRE(Red::CallFunction(record, func, result, Red::Color{1, 2, 3, 4}) == true);
+    REQUIRE(result == true);
+
+    REQUIRE(Red::CallFunction(record, func, result, Red::Color{0, 0, 0, 1}) == true);
+    REQUIRE(result == false);
+}
+
+TEST_CASE("When a property is defined as a TweakDBID, its getter function exists and returns a weak handle to a "
+          "TweakDB record with that ID")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("TweakDBIDProp");
+    REQUIRE(func != nullptr);
+
+    Red::WeakHandle<Red::TweakDBRecord> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.instance->recordID == Red::TweakDBID("Vehicle.v_sport1_herrera_outlaw"));
+}
+
+TEST_CASE("When a property is defined as a TweakDBID, its handle getter function returns a strong handle to a TweakDB "
+          "record with that ID")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("TweakDBIDPropHandle");
+    REQUIRE(func != nullptr);
+
+    Red::Handle<Red::TweakDBRecord> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.instance->recordID == Red::TweakDBID("Vehicle.v_sport1_herrera_outlaw"));
+}
+
+TEST_CASE("When a property is defined as a TweakDBIDArray, its getter function exists and returns an array of weak "
+          "handles to TweakDB records with the correct IDs")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("TweakDBIDArrayProp");
+    REQUIRE(func != nullptr);
+
+    Red::DynArray<Red::WeakHandle<Red::Vehicle_Record>> result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result.size() == 3);
+    REQUIRE(result.At(0).instance->recordID == Red::TweakDBID("Vehicle.v_sport1_herrera_outlaw"));
+    REQUIRE(result.At(1).instance->recordID == Red::TweakDBID("Vehicle.v_sport1_quadra_sport_r7"));
+    REQUIRE(result.At(2).instance->recordID == Red::TweakDBID("Vehicle.v_sport1_rayfield_caliburn"));
+}
+
+TEST_CASE("When a property is defined as a TweakDBIDArray, its count function exists and returns the correct size")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetTweakDBIDArrayPropCount");
+    REQUIRE(func != nullptr);
+
+    int result;
+    REQUIRE(Red::CallFunction(record, func, result) == true);
+    REQUIRE(result == 3);
+}
+
+TEST_CASE("When a property is defined as a TweakDBIDArray, its item getter function exists and returns valid weak "
+          "handles to TweakDB records with the correct IDs")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("GetTweakDBIDArrayPropItem");
+    REQUIRE(func != nullptr);
+
+    {
+        Red::WeakHandle<Red::TweakDBRecord> result;
+        REQUIRE(Red::CallFunction(record, func, result, -1) == true);
+        REQUIRE(result.instance == nullptr);
+    }
+    {
+        Red::WeakHandle<Red::TweakDBRecord> result;
+        REQUIRE(Red::CallFunction(record, func, result, 0) == true);
+        REQUIRE(result.instance->recordID == Red::TweakDBID("Vehicle.v_sport1_herrera_outlaw"));
+    }
+    {
+        Red::WeakHandle<Red::TweakDBRecord> result;
+        REQUIRE(Red::CallFunction(record, func, result, 1) == true);
+        REQUIRE(result.instance->recordID == Red::TweakDBID("Vehicle.v_sport1_quadra_sport_r7"));
+    }
+    {
+        Red::WeakHandle<Red::TweakDBRecord> result;
+        REQUIRE(Red::CallFunction(record, func, result, 2) == true);
+        REQUIRE(result.instance->recordID == Red::TweakDBID("Vehicle.v_sport1_rayfield_caliburn"));
+    }
+    {
+        Red::WeakHandle<Red::TweakDBRecord> result;
+        REQUIRE(Red::CallFunction(record, func, result, 3) == true);
+        REQUIRE(result.instance == nullptr);
+    }
+}
+
+TEST_CASE("When a property is defined as a TweakDBIDArray, its contains function returns valid results")
+{
+    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
+
+    const auto record =
+        reinterpret_cast<ScriptableTweakDBRecord*>(tweakManager->GetTweakDB()->GetRecord(RecordID).instance);
+
+    auto* func = RecordType::GetClass()->GetFunction("TweakDBIDArrayPropContains");
+    REQUIRE(func != nullptr);
+
+    {
+        bool result;
+        const Red::WeakHandle item = tweakManager->GetRecord(Red::TweakDBID("Vehicle.v_sport1_herrera_outlaw"));
+        REQUIRE(item.instance != nullptr);
+        REQUIRE(Red::CallFunction(record, func, result, item) == true);
+        REQUIRE(result == true);
+    }
+
+    {
+        bool result;
+        const Red::WeakHandle item = tweakManager->GetRecord(Red::TweakDBID("Vehicle.v_standard25_villefort_columbus"));
+        REQUIRE(item.instance != nullptr);
+        REQUIRE(Red::CallFunction(record, func, result, item) == true);
+        REQUIRE(result == false);
     }
 }
 } // namespace App

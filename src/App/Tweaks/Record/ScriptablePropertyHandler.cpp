@@ -121,7 +121,8 @@ void RecordArrayGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStac
 void RecordArrayGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                                 const ScriptablePropertySpecPtr& aPropSpec) const
 {
-    aFunction->AddParam(aPropSpec->typeSpec->propertyTypeName, "outList", true);
+    aFunction->AddParam(Red::TweakDBUtil::GetWHandleArrayTypeName<Red::CName>(aPropSpec->typeSpec->foreignType),
+                        "outList", true);
 }
 #endif
 
@@ -973,8 +974,8 @@ Red::RawBuffer ScriptablePropertyHandler::CreateFunctionBytecode(const GetterTyp
     constexpr uint32_t BaseCodeSize = OpSize + OffsetSize * 2 + PointerSize + FlagsSize + OpSize;
     constexpr uint16_t BaseExitOffset = BaseCodeSize - OpSize - OffsetSize;
 
-    const uint32_t extraCodeSize =
-        aFunction->params.Size() * (OpSize + PointerSize) + PointerSize + GetterTypeSize + (aFunction->returnType ? 1 : 0);
+    const uint32_t extraCodeSize = aFunction->params.Size() * (OpSize + PointerSize) + PointerSize + GetterTypeSize +
+                                   (aFunction->returnType ? 1 : 0);
     const uint32_t finalCodeSize = BaseCodeSize + extraCodeSize;
     const uint16_t finalExitOffset = BaseExitOffset + extraCodeSize;
 
