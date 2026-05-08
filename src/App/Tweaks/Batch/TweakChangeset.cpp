@@ -482,12 +482,12 @@ void App::TweakChangeset::Commit(const Core::DeferredPtr<Red::TweakDBManager>& a
                         aChangelog->RegisterForeignKey(foreignKey, flatId);
                     }
                 }
-                else if (Red::IsScriptResRefToken(flatType))
+                else if (Red::IsResRefToken(flatType))
                 {
                     const auto resRef = reinterpret_cast<Red::ResourceAsyncReference<>*>(flatValue);
                     aChangelog->RegisterResourcePath(resRef->path, flatId);
                 }
-                else if (Red::IsScriptResRefTokenArray(flatType))
+                else if (Red::IsResRefTokenArray(flatType))
                 {
                     const auto resRefList = reinterpret_cast<Red::DynArray<Red::ResourceAsyncReference<>>*>(flatValue);
                     for (const auto& resRef : *resRefList)
