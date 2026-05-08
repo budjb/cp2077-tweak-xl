@@ -331,7 +331,7 @@ void ScriptableRecordManager::InsertDefaults(const ScriptableRecordSpecPtr& aSpe
         auto instance = prop->defaultValue;
 
         if (!instance)
-            instance = Red::Construct(prop->typeSpec->flatType);
+            instance = Red::ConstructFlatInstance(prop->typeSpec->flatType);
 
         if (!m_tweakManager->SetFlat(flatID, prop->typeSpec->flatType, instance.get()))
             LogError("Failed to insert default value for property {} of record type {} into TweakDB.", prop->name,

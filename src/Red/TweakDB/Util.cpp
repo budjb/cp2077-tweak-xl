@@ -278,7 +278,7 @@ CName GetElementTypeName(const CBaseRTTIType* aType)
     return GetElementTypeName(aType->GetName());
 }
 
-InstancePtr<> Construct(CName aTypeName)
+InstancePtr<> ConstructFlatInstance(CName aTypeName)
 {
     // clang-format off
     switch (aTypeName)
@@ -314,15 +314,15 @@ InstancePtr<> Construct(CName aTypeName)
     // clang-format on
 }
 
-InstancePtr<> Construct(const CBaseRTTIType* aType)
+InstancePtr<> ConstructFlatInstance(const CBaseRTTIType* aType)
 {
     if (!aType)
         return {};
 
-    return Construct(aType->GetName());
+    return ConstructFlatInstance(aType->GetName());
 }
 
-ValuePtr<> ConstructValue(const CBaseRTTIType* aType)
+ValuePtr<> ConstructFlatValue(const CBaseRTTIType* aType)
 {
     if (!aType || !IsFlatType(aType))
         return {};
@@ -330,9 +330,9 @@ ValuePtr<> ConstructValue(const CBaseRTTIType* aType)
     return MakeValue(aType);
 }
 
-ValuePtr<> ConstructValue(CName aTypeName)
+ValuePtr<> ConstructFlatValue(CName aTypeName)
 {
-    return ConstructValue(CRTTISystem::Get()->GetType(aTypeName));
+    return ConstructFlatValue(CRTTISystem::Get()->GetType(aTypeName));
 }
 
 CClass* GetRecordType(CName aTypeName)

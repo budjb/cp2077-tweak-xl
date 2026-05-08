@@ -235,7 +235,7 @@ CName GetElementTypeName(const CBaseRTTIType* aType);
  * @return An instance of the given TweakDB flat type, or nullptr if the given type name is not a valid TweakDB flat
  * type.
  */
-InstancePtr<> Construct(CName aTypeName);
+InstancePtr<> ConstructFlatInstance(CName aTypeName);
 
 /**
  * @brief Constructs an instance of the given TweakDB flat type with its default (empty) value.
@@ -244,7 +244,7 @@ InstancePtr<> Construct(CName aTypeName);
  * @return An instance of the given TweakDB flat type, or nullptr if the given RTTI type is not a valid TweakDB flat
  * type.
  */
-InstancePtr<> Construct(const CBaseRTTIType* aType);
+InstancePtr<> ConstructFlatInstance(const CBaseRTTIType* aType);
 
 /**
  * @brief Constructs a value of the given TweakDB flat type by its name with its default (empty) value.
@@ -252,7 +252,7 @@ InstancePtr<> Construct(const CBaseRTTIType* aType);
  * @param aType The RTTI type of the TweakDB flat type to construct a value of.
  * @return A value of the given TweakDB flat type, or nullptr if the given RTTI type is not a valid TweakDB flat type.
  */
-ValuePtr<> ConstructValue(const CBaseRTTIType* aType);
+ValuePtr<> ConstructFlatValue(const CBaseRTTIType* aType);
 
 /**
  * @brief Constructs a value of the given TweakDB flat type by its name with its default (empty) value.
@@ -260,7 +260,7 @@ ValuePtr<> ConstructValue(const CBaseRTTIType* aType);
  * @param aTypeName The name of the TweakDB flat type to construct a value of.
  * @return A value of the given TweakDB flat type, or nullptr if the given type name is not a valid TweakDB flat type.
  */
-ValuePtr<> ConstructValue(CName aTypeName);
+ValuePtr<> ConstructFlatValue(CName aTypeName);
 
 /**
  * @brief Gets the RTTI class type corresponding to the given TweakDB record type name.
@@ -844,35 +844,113 @@ std::string Decapitalize(const std::string& aName);
  */
 std::string Decapitalize(const char* aName);
 
+/**
+ * @brief Gets the name of the handle type corresponding to the given class type.
+ *
+ * @tparam T The type to return the handle type name as, either std::string or CName.
+ * @param aClass The class type to get the handle type name for.
+ * @return The name of the handle type corresponding to the given class type.
+ */
 template<typename T>
 T GetHandleTypeName(const CClass* aClass);
 
+/**
+ * @brief Gets the name of the weak handle type corresponding to the given class type.
+ *
+ * @tparam T The type to return the weak handle type name as, either std::string or CName.
+ * @param aClass The class type to get the weak handle type name for.
+ * @return The name of the weak handle type corresponding to the given class type.
+ */
 template<typename T>
 T GetWHandleTypeName(const CClass* aClass);
 
+/**
+ * @brief Gets the name of the weak handle array type corresponding to the given class type.
+ *
+ * @tparam T The type to return the weak handle array type name as, either std::string or CName.
+ * @param aClass The class type to get the weak handle array type name for.
+ * @return The name of the weak handle array type corresponding to the given class type.
+ */
 template<typename T>
 T GetWHandleArrayTypeName(const CClass* aClass);
 
+/**
+ * @brief Gets the name of the handle type corresponding to the given class type.
+ *
+ * @param aClass The class type to get the handle type name for.
+ * @return The name of the handle type corresponding to the given class type.
+ */
 template<>
 std::string GetHandleTypeName(const CClass* aClass);
 
+/**
+ * @brief Gets the name of the weak handle type corresponding to the given class type.
+ *
+ * @param aClass The class type to get the weak handle type name for.
+ * @return The name of the weak handle type corresponding to the given class type.
+ */
 template<>
 std::string GetWHandleTypeName(const CClass* aClass);
 
+/**
+ * @brief Gets the name of the weak handle array type corresponding to the given class type.
+ *
+ * @param aClass The class type to get the weak handle array type name for.
+ * @return The name of the weak handle array type corresponding to the given class type.
+ */
 template<>
 std::string GetWHandleArrayTypeName(const CClass* aClass);
 
+/**
+ * @brief Gets the name of the handle type corresponding to the given class type.
+ *
+ * @param aClass The class type to get the handle type name for.
+ * @return The name of the handle type corresponding to the given class type.
+ */
 template<>
 CName GetHandleTypeName(const CClass* aClass);
 
+/**
+ * @brief Gets the name of the weak handle type corresponding to the given class type.
+ *
+ * @param aClass The class type to get the weak handle type name for.
+ * @return The name of the weak handle type corresponding to the given class type.
+ */
 template<>
 CName GetWHandleTypeName(const CClass* aClass);
 
+/**
+ * @brief Gets the name of the weak handle array type corresponding to the given class type.
+ *
+ * @param aClass The class type to get the weak handle array type name for.
+ * @return The name of the weak handle array type corresponding to the given class type.
+ */
 template<>
 CName GetWHandleArrayTypeName(const CClass* aClass);
 
+/**
+ * @brief Gets the handle type corresponding to the given class type.
+ *
+ * @param aClass The class type to get the handle type for.
+ * @return The handle type corresponding to the given class type, or nullptr if the handle type does not exist.
+ */
 CHandle* GetHandleType(const CClass* aClass);
-CWeakHandle* GetWHandleType(const CClass* aClass);
-CRTTIBaseArrayType* GetWHandleArrayType(const CClass* aClass);
 
+/**
+ * @brief Gets the weak handle type corresponding to the given class type.
+ *
+ * @param aClass The class type to get the weak handle type for.
+ * @return The weak handle type corresponding to the given class type, or nullptr if the weak handle type does not
+ * exist.
+ */
+CWeakHandle* GetWHandleType(const CClass* aClass);
+
+/**
+ * @brief Gets the weak handle array type corresponding to the given class type.
+ *
+ * @param aClass The class type to get the weak handle array type for.
+ * @return The weak handle array type corresponding to the given class type, or nullptr if the weak handle array type
+ * does not exist.
+ */
+CRTTIBaseArrayType* GetWHandleArrayType(const CClass* aClass);
 } // namespace Red
