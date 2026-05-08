@@ -163,7 +163,7 @@ void App::YamlReader::HandleSchemaNode(const std::string& aRecordName, const YAM
     if (typeAttr.Scalar() != SchemaTypeValue)
         return;
 
-    const auto name = Red::TweakDBUtil::NormalizeRecordName(aRecordName);
+    const auto name = Red::NormalizeRecordName(aRecordName);
 
     if (name != aRecordName)
     {
@@ -232,7 +232,7 @@ void App::YamlReader::HandleSchemaPropertyNode(const std::string& aRecordName, c
 
     if (const auto& [propType, propInstance] = TryMakeValue(aNode); propInstance)
     {
-        if (Red::TweakDBUtil::IsForeignKey(propType) || Red::TweakDBUtil::IsForeignKeyArray(propType))
+        if (Red::IsForeignKey(propType) || Red::IsForeignKeyArray(propType))
         {
             LogError("{}: Invalid type for property {}. Foreign keys must be defined as a map containing '$type' and "
                      "'$value' keys.",
@@ -381,9 +381,9 @@ void App::YamlReader::HandleFlatNode(App::TweakChangeset& aChangeset, const std:
     {
         flatType = aType;
 
-        if (Red::TweakDBUtil::IsArrayType(flatType))
+        if (Red::IsArrayType(flatType))
         {
-            const auto elementType = ResolveFlatType(Red::TweakDBUtil::GetElementTypeName(flatType));
+            const auto elementType = ResolveFlatType(Red::GetElementTypeName(flatType));
 
             if (HandleMutations(aChangeset, aName, aName, aNode, elementType))
             {
@@ -410,11 +410,11 @@ void App::YamlReader::HandleFlatNode(App::TweakChangeset& aChangeset, const std:
             return;
         }
 
-        flatType = Red::TweakDBUtil::GetFlatType(x.first);
+        flatType = Red::GetFlatType(x.first);
 
-        if (Red::TweakDBUtil::IsArrayType(flatType))
+        if (Red::IsArrayType(flatType))
         {
-            const auto elementType = ResolveFlatType(Red::TweakDBUtil::GetElementTypeName(flatType));
+            const auto elementType = ResolveFlatType(Red::GetElementTypeName(flatType));
 
             if (HandleMutations(aChangeset, aName, aName, aNode, elementType))
             {
@@ -462,9 +462,9 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
 
     if (!recordInfo)
     {
-        if (Red::TweakDBUtil::IsRecordType(aRecordType))
+        if (Red::IsRecordType(aRecordType))
             LogError("{}: Cannot create record, the record type {} is abstract.", aRecordPath,
-                     Red::TweakDBUtil::GetRecordShortName<std::string>(aRecordType->GetName()));
+                     Red::GetRecordShortName<std::string>(aRecordType->GetName()));
         else
             LogError("{}: Cannot create record, {} is not a record type.", aRecordPath,
                      aRecordType->GetName().ToString());
@@ -821,17 +821,17 @@ App::TweakTypeSpecPtr App::YamlReader::ResolvePropertyFlatInfo(const YAML::Node&
 
 const Red::CBaseRTTIType* App::YamlReader::ResolveFlatType(const YAML::Node& aNode)
 {
-    return Red::TweakDBUtil::GetFlatType(aNode.Scalar().c_str());
+    return Red::GetFlatType(aNode.Scalar().c_str());
 }
 
 const Red::CBaseRTTIType* App::YamlReader::ResolveFlatType(Red::CName aName)
 {
-    return Red::TweakDBUtil::GetFlatType(aName);
+    return Red::GetFlatType(aName);
 }
 
 const Red::CClass* App::YamlReader::ResolveRecordType(const YAML::Node& aNode)
 {
-    return Red::TweakDBUtil::GetRecordType(aNode.Scalar().c_str());
+    return Red::GetRecordType(aNode.Scalar().c_str());
 }
 
 Red::TweakDBID App::YamlReader::ResolveTweakDBID(const YAML::Node& aNode)

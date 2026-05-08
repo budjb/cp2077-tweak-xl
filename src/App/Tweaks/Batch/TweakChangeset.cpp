@@ -264,12 +264,12 @@ void App::TweakChangeset::Commit(const Core::DeferredPtr<Red::TweakDBManager>& a
                             const auto& sourceAssignment = m_pendingFlats[sourceFlatId];
 
                             clonedAssignment.type = sourceAssignment.type;
-                            clonedAssignment.value = Red::TweakDBUtil::Construct(clonedAssignment.type);
+                            clonedAssignment.value = Red::Construct(clonedAssignment.type);
                             clonedAssignment.type->Assign(clonedAssignment.value.get(), sourceAssignment.value.get());
 
                             UpdateRecord(descendantId);
                         }
-                        else if (Red::TweakDBUtil::IsArrayType(sourceFlatValue.type))
+                        else if (Red::IsArrayType(sourceFlatValue.type))
                         {
                             if (!isConvertedToMutation)
                             {
@@ -287,7 +287,7 @@ void App::TweakChangeset::Commit(const Core::DeferredPtr<Red::TweakDBManager>& a
                                 for (uint32_t sourceIndex = 0; sourceIndex < sourceLength; ++sourceIndex)
                                 {
                                     auto sourceValuePtr = sourceType->GetElement(sourceArray, sourceIndex);
-                                    auto clonedValue = Red::TweakDBUtil::Construct(elementType);
+                                    auto clonedValue = Red::Construct(elementType);
                                     elementType->Assign(clonedValue.get(), sourceValuePtr);
 
                                     sourceMutation.prependings.push_back({elementType, std::move(clonedValue)});
@@ -417,7 +417,7 @@ void App::TweakChangeset::Commit(const Core::DeferredPtr<Red::TweakDBManager>& a
         for (uint32_t sourceIndex = 0; sourceIndex < sourceLength; ++sourceIndex)
         {
             auto sourceValuePtr = targetType->GetElement(sourceArray, sourceIndex);
-            auto clonedValue = Red::TweakDBUtil::Construct(elementType);
+            auto clonedValue = Red::Construct(elementType);
             elementType->Assign(clonedValue.get(), sourceValuePtr);
 
             const_cast<MutationEntry&>(mutation).deletions.push_back({elementType, std::move(clonedValue)});
@@ -469,12 +469,12 @@ void App::TweakChangeset::Commit(const Core::DeferredPtr<Red::TweakDBManager>& a
 
             if (aChangelog)
             {
-                if (Red::TweakDBUtil::IsForeignKey(flatType))
+                if (Red::IsForeignKey(flatType))
                 {
                     const auto foreignKey = reinterpret_cast<Red::TweakDBID*>(flatValue);
                     aChangelog->RegisterForeignKey(*foreignKey, flatId);
                 }
-                else if (Red::TweakDBUtil::IsForeignKeyArray(flatType))
+                else if (Red::IsForeignKeyArray(flatType))
                 {
                     const auto foreignKeyList = reinterpret_cast<Red::DynArray<Red::TweakDBID>*>(flatValue);
                     for (const auto& foreignKey : *foreignKeyList)
@@ -482,12 +482,12 @@ void App::TweakChangeset::Commit(const Core::DeferredPtr<Red::TweakDBManager>& a
                         aChangelog->RegisterForeignKey(foreignKey, flatId);
                     }
                 }
-                else if (Red::TweakDBUtil::IsResRefToken(flatType))
+                else if (Red::IsResRefToken(flatType))
                 {
                     const auto resRef = reinterpret_cast<Red::ResourceAsyncReference<>*>(flatValue);
                     aChangelog->RegisterResourcePath(resRef->path, flatId);
                 }
-                else if (Red::TweakDBUtil::IsResRefTokenArray(flatType))
+                else if (Red::IsResRefTokenArray(flatType))
                 {
                     const auto resRefList = reinterpret_cast<Red::DynArray<Red::ResourceAsyncReference<>>*>(flatValue);
                     for (const auto& resRef : *resRefList)
@@ -567,7 +567,7 @@ void App::TweakChangeset::Commit(const Core::DeferredPtr<Red::TweakDBManager>& a
                 continue;
             }
 
-            flatData.type = Red::TweakDBUtil::GetArrayType(elementType);
+            flatData.type = Red::GetArrayType(elementType);
         }
         else if (flatData.type->GetType() != Red::ERTTIType::Array)
         {
@@ -584,7 +584,7 @@ void App::TweakChangeset::Commit(const Core::DeferredPtr<Red::TweakDBManager>& a
 
         // The data returned by manager is a pointer to the TweakDB flat buffer,
         // we must make a copy of the original array for modifications.
-        auto targetArray = Red::TweakDBUtil::Construct(targetType);
+        auto targetArray = Red::Construct(targetType);
 
         if (flatData.instance)
             targetType->Assign(targetArray.get(), flatData.instance);
@@ -694,7 +694,7 @@ void App::TweakChangeset::Commit(const Core::DeferredPtr<Red::TweakDBManager>& a
                         elementType->Assign(targetType->GetElement(targetArray.get(), insertionIndex),
                                             insertionValuePtr);
 
-                        auto clonedValue = Red::TweakDBUtil::Construct(elementType);
+                        auto clonedValue = Red::Construct(elementType);
                         elementType->Assign(clonedValue.get(), insertionValuePtr);
 
                         insertions.emplace_back(insertionIndex, clonedValue);
@@ -732,7 +732,7 @@ void App::TweakChangeset::Commit(const Core::DeferredPtr<Red::TweakDBManager>& a
 
         if (aChangelog)
         {
-            const auto isForeignKey = Red::TweakDBUtil::IsForeignKeyArray(targetType);
+            const auto isForeignKey = Red::IsForeignKeyArray(targetType);
 
             for (const auto& [deletionIndex, deletionValue] : deletions)
             {

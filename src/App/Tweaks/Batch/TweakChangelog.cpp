@@ -216,7 +216,7 @@ void App::TweakChangelog::RevertChanges(const Core::DeferredPtr<Red::TweakDBMana
             continue;
         }
 
-        auto restoredArray = Red::TweakDBUtil::Construct(arrayType);
+        auto restoredArray = Red::Construct(arrayType);
         arrayType->Assign(restoredArray.get(), flatData.instance);
 
         for (const auto& [insertionIndex, insertionValue] : mutation.insertions | std::views::reverse)

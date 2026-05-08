@@ -1,9 +1,9 @@
 #pragma once
 
-namespace Red::TweakDBUtil
+namespace Red
 {
 /**
- * @brief Gets the RTTI type of a TweakDB flat type by its type hash if the hash represents a valid TweakDB flat type.
+ * @brief Gets the RTTI-type of a TweakDB flat type by its type hash if the hash represents a valid TweakDB flat type.
  *
  * @param aType The hash of the flat type to get.
  * @return The RTTI type corresponding to the given flat type hash, or nullptr if the type is not a valid TweakDB flat
@@ -12,7 +12,7 @@ namespace Red::TweakDBUtil
 CBaseRTTIType* GetFlatType(uint64_t aType);
 
 /**
- * @brief Gets the RTTI type of a TweakDB flat type by its name if the name represents a valid TweakDB flat type.
+ * @brief Gets the RTTI-type of a TweakDB flat type by its name if the name represents a valid TweakDB flat type.
  *
  * @param aTypeName The name of the flat type to get.
  * @return The RTTI type corresponding to the given flat type name, or nullptr if the type is not a valid TweakDB flat
@@ -21,7 +21,7 @@ CBaseRTTIType* GetFlatType(uint64_t aType);
 CBaseRTTIType* GetFlatType(CName aTypeName);
 
 /**
- * @brief Gets the RTTI type of a TweakDB array type corresponding to the given element type if the name represents a
+ * @brief Gets the RTTI-type of a TweakDB array type corresponding to the given element type if the name represents a
  * valid TweakDB flat element type.
  *
  * @param aTypeName The name of the element type to get the corresponding array type for.
@@ -31,7 +31,7 @@ CBaseRTTIType* GetFlatType(CName aTypeName);
 CBaseRTTIType* GetArrayType(CName aTypeName);
 
 /**
- * @brief Gets the RTTI type of a TweakDB array type corresponding to the given element type if the name represents a
+ * @brief Gets the RTTI-type of a TweakDB array type corresponding to the given element type if the name represents a
  * valid TweakDB flat element type.
  *
  * @param aType The RTTI type of the element type to get the corresponding array type for.
@@ -41,7 +41,7 @@ CBaseRTTIType* GetArrayType(CName aTypeName);
 CBaseRTTIType* GetArrayType(const CBaseRTTIType* aType);
 
 /**
- * @brief Gets the RTTI type of a TweakDB element type corresponding to the given array type if the name represents a
+ * @brief Gets the RTTI-type of a TweakDB element type corresponding to the given array type if the name represents a
  * valid TweakDB flat array type.
  *
  * @param aTypeName The name of the array type to get the corresponding element type for.
@@ -51,7 +51,7 @@ CBaseRTTIType* GetArrayType(const CBaseRTTIType* aType);
 CBaseRTTIType* GetElementType(CName aTypeName);
 
 /**
- * @brief Gets the RTTI type of a TweakDB element type corresponding to the given array type if the name represents a
+ * @brief Gets the RTTI-type of a TweakDB element type corresponding to the given array type if the name represents a
  * valid TweakDB flat array type.
  *
  * @param aType The RTTI type of the array type to get the corresponding element type for.
@@ -875,4 +875,4 @@ CHandle* GetHandleType(const CClass* aClass);
 CWeakHandle* GetWHandleType(const CClass* aClass);
 CRTTIBaseArrayType* GetWHandleArrayType(const CClass* aClass);
 
-} // namespace Red::TweakDBUtil
+} // namespace Red

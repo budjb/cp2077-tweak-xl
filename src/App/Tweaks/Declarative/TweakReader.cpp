@@ -169,7 +169,7 @@ const Red::CClass* App::BaseTweakReader::ResolveRecordInstanceType(App::TweakCha
 
 std::string App::BaseTweakReader::ToName(const Red::CClass* aType)
 {
-    return Red::TweakDBUtil::GetRecordShortName<std::string>(aType->GetName());
+    return Red::GetRecordShortName<std::string>(aType->GetName());
 }
 
 std::string App::BaseTweakReader::ToName(const Red::CBaseRTTIType* aType, const Red::CClass* aKey)
@@ -182,7 +182,7 @@ std::string App::BaseTweakReader::ToName(const Red::CBaseRTTIType* aType, const 
     if (aKey)
     {
         name.append(ForeignKeyOpen);
-        name.append(Red::TweakDBUtil::GetRecordShortName<std::string>(aKey->name));
+        name.append(Red::GetRecordShortName<std::string>(aKey->name));
         name.append(ForeignKeyClose);
     }
 

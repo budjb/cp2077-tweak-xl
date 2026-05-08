@@ -21,7 +21,7 @@ constexpr auto NameSeparator = Red::TweakGrammar::Name::Separator;
 constexpr auto PropSeparator = std::string_view(NameSeparator);
 } // namespace
 
-namespace Red::TweakDBUtil
+namespace Red
 {
 CBaseRTTIType* GetFlatType(const uint64_t aType)
 {
@@ -756,4 +756,4 @@ CRTTIBaseArrayType* GetWHandleArrayType(const CClass* aClass)
     return reinterpret_cast<CRTTIBaseArrayType*>(type);
 }
 
-} // namespace Red::TweakDBUtil
+} // namespace Red

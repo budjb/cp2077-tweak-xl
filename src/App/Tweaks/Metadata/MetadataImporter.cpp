@@ -142,9 +142,9 @@ bool App::MetadataImporter::ImportExtraFlats(const std::filesystem::path& aPath)
 
         for (const auto& topNodeIt : data)
         {
-            const auto recordType = Red::TweakDBUtil::GetRecordFullName<Red::CName>(topNodeIt.first.Scalar().data());
+            const auto recordType = Red::GetRecordFullName<Red::CName>(topNodeIt.first.Scalar().data());
 
-            if (!Red::TweakDBUtil::IsRecordType(recordType))
+            if (!Red::IsRecordType(recordType))
                 return false;
 
             const auto& extraFlats = topNodeIt.second;
@@ -167,7 +167,7 @@ bool App::MetadataImporter::ImportExtraFlats(const std::filesystem::path& aPath)
 
                 const auto propType = Red::CName(propTypeNode.Scalar().data());
 
-                if (!Red::TweakDBUtil::IsFlatType(propType))
+                if (!Red::IsFlatType(propType))
                     return false;
 
                 const auto& foreignTypeNode = propDataNode["foreignType"];
@@ -179,9 +179,9 @@ bool App::MetadataImporter::ImportExtraFlats(const std::filesystem::path& aPath)
                     if (!foreignTypeNode.IsScalar())
                         return false;
 
-                    foreignType = Red::TweakDBUtil::GetRecordFullName<Red::CName>(foreignTypeNode.Scalar().data());
+                    foreignType = Red::GetRecordFullName<Red::CName>(foreignTypeNode.Scalar().data());
 
-                    if (!Red::TweakDBUtil::IsRecordType(foreignType))
+                    if (!Red::IsRecordType(foreignType))
                         return false;
                 }
 

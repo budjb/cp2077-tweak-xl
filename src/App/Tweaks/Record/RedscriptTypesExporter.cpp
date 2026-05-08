@@ -15,7 +15,7 @@ RedscriptTypesExporter::RedscriptTypesExporter(const Core::SharedPtr<ScriptableR
     }
     catch (const std::exception& e)
     {
-        LogError("Failed to parse redscript template: {}", e.what());
+        LogError("Failed to parse RedScript template: {}", e.what());
     }
 }
 
@@ -46,11 +46,11 @@ void RedscriptTypesExporter::ExportRedscriptTypes(const std::filesystem::path& a
         file.flush();
         file.close();
 
-        LogInfo("Exported redscript scriptable record class definitions to {}", filePath.string());
+        LogInfo("Exported RedScript scriptable record class definitions to {}", filePath.string());
     }
     catch (const std::exception& e)
     {
-        LogError("Failed to export redscript types: {}", e.what());
+        LogError("Failed to export RedScript types: {}", e.what());
     }
 }
 
@@ -88,7 +88,7 @@ RedscriptTypesExporter::Json RedscriptTypesExporter::ToJson(const ScriptableProp
     json["IsResRef"] = aSpec->typeSpec->isResRef;
     json["IsLocKey"] = aSpec->typeSpec->isResRef;
     json["ForeignType"] = GetClassScriptName(aSpec->typeSpec->foreignType);
-    json["ElementType"] = Red::TweakDBUtil::GetElementTypeName(aSpec->typeSpec->propertyType).ToString();
+    json["ElementType"] = Red::GetElementTypeName(aSpec->typeSpec->propertyType).ToString();
 
     if (aSpec->typeSpec->isLocKey)
     {

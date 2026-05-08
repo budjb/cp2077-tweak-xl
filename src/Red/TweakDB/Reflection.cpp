@@ -21,7 +21,7 @@ Red::TweakDBReflection::TweakDBReflection(Red::TweakDB* aTweakDb)
 
 const Red::TweakDBRecordInfo* Red::TweakDBReflection::GetRecordInfo(const Red::CClass* aType)
 {
-    if (!TweakDBUtil::IsRecordType(aType))
+    if (!IsRecordType(aType))
         return nullptr;
 
     {
@@ -48,14 +48,14 @@ const Red::TweakDBRecordInfo* Red::TweakDBReflection::GetRecordInfo(Red::CName a
 
 Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInfo(const Red::CClass* aType)
 {
-    if (!TweakDBUtil::IsRecordType(aType))
+    if (!IsRecordType(aType))
         return nullptr;
 
     auto recordInfo = Red::MakeInstance<Red::TweakDBRecordInfo>();
     recordInfo->name = aType->name;
     recordInfo->type = aType;
-    recordInfo->typeHash = TweakDBUtil::GetRecordTypeHash(aType);
-    recordInfo->shortName = TweakDBUtil::GetRecordShortName<std::string>(aType->name);
+    recordInfo->typeHash = GetRecordTypeHash(aType);
+    recordInfo->shortName = GetRecordShortName<std::string>(aType->name);
 
     if (const auto parentInfo = GetRecordInfo(aType->parent))
     {
@@ -115,7 +115,7 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
             }
             case Red::ERTTIType::Array:
             {
-                if (TweakDBUtil::IsResRefTokenArray(returnType))
+                if (IsResRefTokenArray(returnType))
                 {
                     propInfo->type = m_rtti->GetType(Red::ERTDBFlatType::ResRefArray);
                     propInfo->isArray = true;
@@ -151,7 +151,7 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
             }
             default:
             {
-                if (TweakDBUtil::IsResRefToken(returnType))
+                if (IsResRefToken(returnType))
                 {
                     propInfo->type = m_rtti->GetType(Red::ERTDBFlatType::ResRef);
                 }
@@ -161,7 +161,7 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
                     // the actual property type from the flat value.
                     if (returnType->GetType() == Red::ERTTIType::Name)
                     {
-                        const auto flat = m_tweakDb->GetFlatValue(TweakDBUtil::GetRTDBFlatID(aType->name, propName));
+                        const auto flat = m_tweakDb->GetFlatValue(GetRTDBFlatID(aType->name, propName));
                         returnType = flat->GetValue().type;
                     }
 
@@ -228,9 +228,9 @@ Core::SharedPtr<Red::TweakDBRecordInfo> Red::TweakDBReflection::CollectRecordInf
 std::string Red::TweakDBReflection::ResolvePropertyName(const Red::CClass* aClass, Red::CName aGetterName) const
 {
     std::string funcName = aGetterName.ToString();
-    std::string propName = TweakDBUtil::Decapitalize(funcName);
+    std::string propName = Decapitalize(funcName);
 
-    const auto propId = TweakDBUtil::GetRTDBFlatID(aClass->GetName(), propName);
+    const auto propId = GetRTDBFlatID(aClass->GetName(), propName);
 
     std::shared_lock flatLockR(m_tweakDb->mutex00);
 
@@ -245,7 +245,7 @@ int32_t Red::TweakDBReflection::ResolveDefaultValue(const Red::CClass* aType, co
 {
     std::string defaultFlatName = TweakSource::SchemaPackage;
     defaultFlatName.append(NameSeparator);
-    defaultFlatName.append(TweakDBUtil::GetRecordShortName<std::string>(aType->GetName()));
+    defaultFlatName.append(GetRecordShortName<std::string>(aType->GetName()));
 
     if (!aPropName.starts_with(NameSeparator))
     {

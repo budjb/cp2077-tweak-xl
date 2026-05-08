@@ -359,7 +359,7 @@ Red::InstancePtr<> App::RedReader::MakeValue(const Red::CBaseRTTIType* aType, co
 Red::InstancePtr<> App::RedReader::MakeValue(const Red::CBaseRTTIType* aType,
                                              const Core::Vector<Red::TweakValuePtr>& aValues)
 {
-    if (!Red::TweakDBUtil::IsArrayType(aType))
+    if (!Red::IsArrayType(aType))
     {
         if (aValues.size() != 1)
             return {};

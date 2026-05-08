@@ -96,7 +96,7 @@ void App::RedReader::HandleSchemaGroup(const Red::TweakGroupPtr& aGroup)
         return;
     }
 
-    const auto name = Red::TweakDBUtil::NormalizeRecordName(aGroup->name);
+    const auto name = Red::NormalizeRecordName(aGroup->name);
 
     if (name != aGroup->name)
     {
@@ -449,7 +449,7 @@ App::RedReader::GroupStatePtr App::RedReader::ResolveGroupState(App::TweakChange
     }
     else
     {
-        state->resolvedType = Red::TweakDBUtil::GetRecordType(aGroup->base.c_str());
+        state->resolvedType = Red::GetRecordType(aGroup->base.c_str());
 
         if (state->resolvedType)
         {
@@ -558,21 +558,21 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(
         {
             state->isResolved = true;
             state->isCompatible = !state->requiredType || state->resolvedType == state->requiredType;
-            state->isArray = Red::TweakDBUtil::IsArrayType(state->resolvedType);
-            state->isForeignKey = state->isArray ? Red::TweakDBUtil::IsForeignKeyArray(state->resolvedType)
-                                                 : Red::TweakDBUtil::IsForeignKey(state->resolvedType);
+            state->isArray = Red::IsArrayType(state->resolvedType);
+            state->isForeignKey = state->isArray ? Red::IsForeignKeyArray(state->resolvedType)
+                                                 : Red::IsForeignKey(state->resolvedType);
         }
     }
     else
     {
-        state->resolvedType = Red::TweakDBUtil::GetFlatType(GetFlatTypeName(aFlat));
+        state->resolvedType = Red::GetFlatType(GetFlatTypeName(aFlat));
 
         if (state->resolvedType)
         {
             state->isResolved = true;
-            state->isArray = Red::TweakDBUtil::IsArrayType(state->resolvedType);
-            state->isForeignKey = state->isArray ? Red::TweakDBUtil::IsForeignKeyArray(state->resolvedType)
-                                                 : Red::TweakDBUtil::IsForeignKey(state->resolvedType);
+            state->isArray = Red::IsArrayType(state->resolvedType);
+            state->isForeignKey = state->isArray ? Red::IsForeignKeyArray(state->resolvedType)
+                                                 : Red::IsForeignKey(state->resolvedType);
 
             if (instanceType)
             {
@@ -593,7 +593,7 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(
             if (state->isForeignKey)
             {
                 state->requiredKey = aForeignType;
-                state->resolvedKey = Red::TweakDBUtil::GetRecordType(aFlat->foreignType.c_str());
+                state->resolvedKey = Red::GetRecordType(aFlat->foreignType.c_str());
 
                 if (state->isCompatible && state->requiredKey)
                 {
@@ -605,7 +605,7 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(
 
     if (state->isArray)
     {
-        state->elementType = Red::TweakDBUtil::GetElementType(state->resolvedType);
+        state->elementType = Red::GetElementType(state->resolvedType);
     }
 
     return state;

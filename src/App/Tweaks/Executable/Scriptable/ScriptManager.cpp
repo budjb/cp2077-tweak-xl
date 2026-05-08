@@ -45,7 +45,7 @@ void App::ScriptManager::CreateRecord(Red::IScriptable*, Red::CStackFrame* aFram
     if (!s_manager)
         return;
 
-    auto recordType = Red::TweakDBUtil::GetRecordType(typeName);
+    auto recordType = Red::GetRecordType(typeName);
 
     if (!recordType)
         return;

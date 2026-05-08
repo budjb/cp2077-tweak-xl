@@ -7,9 +7,6 @@ constexpr auto ArrayPrefixSize = ArrayPrefix.size() - 1;
 
 using ResRefArrayType = Red::TypeLocator<Red::GetTypeName<Red::DynArray<Red::ResRef>>()>;
 using ResRefType = Red::TypeLocator<Red::GetTypeName<Red::ResRef>()>;
-
-using LocKeyArrayType = Red::TypeLocator<Red::ERTDBFlatType::LocKeyArray>;
-using LocKeyType = Red::TypeLocator<Red::ERTDBFlatType::LocKey>;
 } // namespace
 
 namespace App
@@ -37,17 +34,15 @@ TweakTypeSpecPtr GetTweakTypeSpec(const char* aValue)
 
 TweakTypeSpecPtr GetTweakTypeSpec(Red::CName aName, const std::optional<std::string>& aForeignType)
 {
-    using namespace Red::TweakDBUtil;
-
     static Red::CRTTISystem* rtti = Red::CRTTISystem::Get();
 
-    if (!IsFlatType(aName))
+    if (!Red::IsFlatType(aName))
         return nullptr;
 
-    const auto isArray = IsArrayType(aName);
-    const auto isForeignKey = isArray ? IsForeignKeyArray(aName) : IsForeignKey(aName);
-    const auto isResRef = isArray ? IsResRefTokenArray(aName) : IsResRefToken(aName);
-    const auto isLocKey = isArray ? IsLocKeyArray(aName) : IsLocKey(aName);
+    const auto isArray = Red::IsArrayType(aName);
+    const auto isForeignKey = isArray ? Red::IsForeignKeyArray(aName) : Red::IsForeignKey(aName);
+    const auto isResRef = isArray ? Red::IsResRefTokenArray(aName) : Red::IsResRefToken(aName);
+    const auto isLocKey = isArray ? Red::IsLocKeyArray(aName) : Red::IsLocKey(aName);
 
     if (isForeignKey && !aForeignType.has_value())
         return nullptr;
@@ -57,7 +52,7 @@ TweakTypeSpecPtr GetTweakTypeSpec(Red::CName aName, const std::optional<std::str
 
     auto spec = Core::MakeShared<TweakTypeSpec>();
 
-    spec->flatType = GetFlatType(aName);
+    spec->flatType = Red::GetFlatType(aName);
     spec->flatTypeName = aName;
     spec->propertyType = spec->flatType;
     spec->propertyTypeName = spec->flatTypeName;
@@ -69,7 +64,7 @@ TweakTypeSpecPtr GetTweakTypeSpec(Red::CName aName, const std::optional<std::str
 
     if (isForeignKey)
     {
-        spec->foreignTypeName = Red::CNamePool::Add(NormalizeRecordName(*aForeignType).c_str());
+        spec->foreignTypeName = Red::CNamePool::Add(Red::NormalizeRecordName(*aForeignType).c_str());
         spec->foreignType = rtti->GetClass(spec->foreignTypeName);
     }
     else if (isResRef)

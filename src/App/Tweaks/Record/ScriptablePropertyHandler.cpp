@@ -61,7 +61,7 @@ template<template<typename> typename THandle>
 std::optional<Red::DynArray<THandle<Red::TweakDBRecord>>> ScriptablePropertyGetter::GetRecordArray(
     const Red::Value<>& aValue, const Context* aContext)
 {
-    if (!aContext->typeSpec->foreignType || !Red::TweakDBUtil::IsArrayType(aValue.type))
+    if (!aContext->typeSpec->foreignType || !Red::IsArrayType(aValue.type))
         return nullptr;
 
     const auto* flatArrayType = ToArrayType(aValue.type);
@@ -96,7 +96,7 @@ Red::CName RecordArrayGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aRe
     segments.emplace_back(VoidName.data());
     segments.emplace_back(aPropSpec->functionName);
     segments.emplace_back(
-        Red::TweakDBUtil::GetWHandleArrayType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
+        Red::GetWHandleArrayType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
 
     return fmt::format("{}", fmt::join(segments, ";")).c_str();
 }
@@ -121,7 +121,7 @@ void RecordArrayGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStac
 void RecordArrayGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                                 const ScriptablePropertySpecPtr& aPropSpec) const
 {
-    aFunction->AddParam(Red::TweakDBUtil::GetWHandleArrayTypeName<Red::CName>(aPropSpec->typeSpec->foreignType),
+    aFunction->AddParam(Red::GetWHandleArrayTypeName<Red::CName>(aPropSpec->typeSpec->foreignType),
                         "outList", true);
 }
 #endif
@@ -137,7 +137,7 @@ Red::CName RecordArrayContainsGetter::GetFunctionHash(const ScriptableRecordSpec
     segments.emplace_back(aRecordSpec->name);
     segments.emplace_back(BoolName.data());
     segments.emplace_back(funcName);
-    segments.emplace_back(Red::TweakDBUtil::GetWHandleType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
+    segments.emplace_back(Red::GetWHandleType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
 
     return fmt::format("{}", fmt::join(segments, ";")).c_str();
 }
@@ -175,7 +175,7 @@ void RecordArrayContainsGetter::HandleInvocation(Red::IScriptable* aInstance, Re
 void RecordArrayContainsGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                                         const ScriptablePropertySpecPtr& aPropSpec) const
 {
-    aFunction->AddParam(Red::TweakDBUtil::GetWHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType), "item");
+    aFunction->AddParam(Red::GetWHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType), "item");
     aFunction->SetReturnType(Red::GetTypeName<bool>());
 }
 #endif
@@ -190,7 +190,7 @@ Red::CName RecordItemGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aRec
     std::vector<std::string> segments;
     segments.emplace_back(aRecordSpec->name);
     segments.emplace_back(
-        Red::TweakDBUtil::GetWHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType).ToString());
+        Red::GetWHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType).ToString());
     segments.emplace_back(funcName);
     segments.emplace_back(IntName.data());
 
@@ -232,7 +232,7 @@ void RecordItemGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                                const ScriptablePropertySpecPtr& aPropSpec) const
 {
     aFunction->AddParam(Red::GetTypeName<int>(), "index");
-    aFunction->SetReturnType(Red::TweakDBUtil::GetWHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType));
+    aFunction->SetReturnType(Red::GetWHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType));
 }
 #endif
 
@@ -245,7 +245,7 @@ Red::CName RecordItemHandleGetter::GetFunctionHash(const ScriptableRecordSpecPtr
 
     std::vector<std::string> segments;
     segments.emplace_back(aRecordSpec->name);
-    segments.emplace_back(Red::TweakDBUtil::GetHandleType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
+    segments.emplace_back(Red::GetHandleType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
     segments.emplace_back(funcName);
     segments.emplace_back(IntName.data());
 
@@ -287,7 +287,7 @@ void RecordItemHandleGetter::ConfigureScriptFunction(Red::CClassFunction* aFunct
                                                      const ScriptablePropertySpecPtr& aPropSpec) const
 {
     aFunction->AddParam(Red::GetTypeName<int>(), "index");
-    aFunction->SetReturnType(Red::TweakDBUtil::GetHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType));
+    aFunction->SetReturnType(Red::GetHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType));
 }
 #endif
 
@@ -296,7 +296,7 @@ Red::CName RecordGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordS
 {
     std::vector<std::string> segments;
     segments.emplace_back(aRecordSpec->name);
-    segments.emplace_back(Red::TweakDBUtil::GetWHandleType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
+    segments.emplace_back(Red::GetWHandleType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
     segments.emplace_back(aPropSpec->functionName);
 
     return fmt::format("{}", fmt::join(segments, ";")).c_str();
@@ -326,7 +326,7 @@ void RecordGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFram
 void RecordGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                            const ScriptablePropertySpecPtr& aPropSpec) const
 {
-    aFunction->SetReturnType(Red::TweakDBUtil::GetWHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType));
+    aFunction->SetReturnType(Red::GetWHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType));
 }
 #endif
 
@@ -337,7 +337,7 @@ Red::CName RecordHandleGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aR
 
     std::vector<std::string> segments;
     segments.emplace_back(aRecordSpec->name);
-    segments.emplace_back(Red::TweakDBUtil::GetHandleType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
+    segments.emplace_back(Red::GetHandleType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
     segments.emplace_back(funcName);
 
     return fmt::format("{}", fmt::join(segments, ";")).c_str();
@@ -367,7 +367,7 @@ void RecordHandleGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CSta
 void RecordHandleGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                                  const ScriptablePropertySpecPtr& aPropSpec) const
 {
-    aFunction->SetReturnType(Red::TweakDBUtil::GetHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType));
+    aFunction->SetReturnType(Red::GetHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType));
 }
 #endif
 

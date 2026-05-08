@@ -92,14 +92,14 @@ ScriptableRecordSpecPtr ScriptableRecordManager::RegisterScriptableRecordType(
     const auto spec = Core::MakeShared<ScriptableRecordSpec>();
 
     spec->name = aName;
-    spec->aliasName = Red::TweakDBUtil::GetRecordAliasName<std::string>(aName);
-    spec->shortName = Red::TweakDBUtil::GetRecordShortName<std::string>(aName);
+    spec->aliasName = Red::GetRecordAliasName<std::string>(aName);
+    spec->shortName = Red::GetRecordShortName<std::string>(aName);
 
     spec->cname = Red::CNamePool::Add(spec->name.c_str());
     spec->aliasCName = Red::CNamePool::Add(spec->aliasName.c_str());
     spec->shortCName = Red::CName(spec->shortName.c_str());
 
-    spec->hash = Red::TweakDBUtil::GetRecordTypeHash(spec->shortName);
+    spec->hash = Red::GetRecordTypeHash(spec->shortName);
     spec->parent = aParentName;
 
     {
@@ -139,7 +139,7 @@ ScriptablePropertySpecPtr ScriptableRecordManager::RegisterScriptableProperty(
 
     const auto propertyInfo = Core::MakeShared<ScriptablePropertySpec>();
     propertyInfo->name = aPropertyName;
-    propertyInfo->functionName = Red::TweakDBUtil::Capitalize(aPropertyName);
+    propertyInfo->functionName = Red::Capitalize(aPropertyName);
     propertyInfo->appendix = "." + aPropertyName;
     propertyInfo->typeSpec = aTypeSpec;
     propertyInfo->cname = Red::CName{aPropertyName.c_str()};
@@ -233,9 +233,9 @@ bool ScriptableRecordManager::DescribeRTTIType(const ScriptableRecordSpecPtr& aS
 
     if (aSpec->parent.has_value())
     {
-        auto* parentCls = m_rtti->GetClass(Red::TweakDBUtil::GetRecordFullName<Red::CName>(aSpec->parent.value()));
+        auto* parentCls = m_rtti->GetClass(Red::GetRecordFullName<Red::CName>(aSpec->parent.value()));
 
-        if (!parentCls || !Red::TweakDBUtil::IsRecordType(parentCls))
+        if (!parentCls || !Red::IsRecordType(parentCls))
         {
             LogError("Failed to describe record type {} because the specified parent type {} does not exist or is not "
                      "a valid record type.",
@@ -250,9 +250,9 @@ bool ScriptableRecordManager::DescribeRTTIType(const ScriptableRecordSpecPtr& aS
         aSpec->type->parent = ScriptableTweakDBRecord::TYPE::GetClass();
     }
 
-    Red::CNamePool::Add(Red::TweakDBUtil::GetHandleTypeName<std::string>(aSpec->type).c_str());
-    Red::CNamePool::Add(Red::TweakDBUtil::GetWHandleTypeName<std::string>(aSpec->type).c_str());
-    Red::CNamePool::Add(Red::TweakDBUtil::GetWHandleArrayTypeName<std::string>(aSpec->type).c_str());
+    Red::CNamePool::Add(Red::GetHandleTypeName<std::string>(aSpec->type).c_str());
+    Red::CNamePool::Add(Red::GetWHandleTypeName<std::string>(aSpec->type).c_str());
+    Red::CNamePool::Add(Red::GetWHandleArrayTypeName<std::string>(aSpec->type).c_str());
 
     for (const auto& prop : aSpec->props | std::views::values)
         RegisterRTTIProperty(aSpec, prop);
@@ -289,9 +289,9 @@ bool ScriptableRecordManager::RegisterRTTIProperty(const ScriptableRecordSpecPtr
             }
         }
 
-        Red::CNamePool::Add(Red::TweakDBUtil::GetHandleTypeName<std::string>(typeSpec->foreignType).c_str());
-        Red::CNamePool::Add(Red::TweakDBUtil::GetWHandleTypeName<std::string>(typeSpec->foreignType).c_str());
-        Red::CNamePool::Add(Red::TweakDBUtil::GetWHandleArrayTypeName<std::string>(typeSpec->foreignType).c_str());
+        Red::CNamePool::Add(Red::GetHandleTypeName<std::string>(typeSpec->foreignType).c_str());
+        Red::CNamePool::Add(Red::GetWHandleTypeName<std::string>(typeSpec->foreignType).c_str());
+        Red::CNamePool::Add(Red::GetWHandleArrayTypeName<std::string>(typeSpec->foreignType).c_str());
     }
 
     if (!typeSpec->propertyType)
@@ -320,7 +320,7 @@ void ScriptableRecordManager::InsertDefaults(const ScriptableRecordSpecPtr& aSpe
     if (!aSpec->isDescribed || aSpec->isInserted)
         return;
 
-    const auto recordID = Red::TweakDBUtil::GetRTDBRecordID(aSpec->shortName);
+    const auto recordID = Red::GetRTDBRecordID(aSpec->shortName);
 
     for (const auto& prop : aSpec->props | std::views::values)
     {
@@ -331,7 +331,7 @@ void ScriptableRecordManager::InsertDefaults(const ScriptableRecordSpecPtr& aSpe
         auto instance = prop->defaultValue;
 
         if (!instance)
-            instance = Red::TweakDBUtil::Construct(prop->typeSpec->flatType);
+            instance = Red::Construct(prop->typeSpec->flatType);
 
         if (!m_tweakManager->SetFlat(flatID, prop->typeSpec->flatType, instance.get()))
             LogError("Failed to insert default value for property {} of record type {} into TweakDB.", prop->name,

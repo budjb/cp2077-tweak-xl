@@ -8,7 +8,7 @@
 namespace App
 {
 /**
- * @brief The template for generating the base redscript class definition for scriptable TweakDB records, which all
+ * @brief The template for generating the base RedScript class definition for scriptable TweakDB records, which all
  * generated scriptable record classes will inherit from.
  */
 static auto BaseRecordTemplate = R"RS(
@@ -17,7 +17,7 @@ public abstract native class ScriptableTweakDBRecord extends TweakDBRecord {
 )RS";
 
 /**
- * @brief The template for generating redscript class definitions for scriptable TweakDB records and functions for
+ * @brief The template for generating RedScript class definitions for scriptable TweakDB records and functions for
  * interacting with their properties. The generated functions vary based on the property's characteristics, such as
  * whether it is an array, a foreign key, etc.
  */
@@ -52,11 +52,11 @@ public native class {{ TypeName }} extends {{ Parent }} {
 )RS";
 
 /**
- * @brief Provides functionality to export redscript class and property definitions for scriptable TweakDB records. This
+ * @brief Provides functionality to export RedScript class and property definitions for scriptable TweakDB records. This
  * ensures that definitions are consistent with TweakXL and avoids requiring mod authors to define the definitions
  * manually.
  *
- * Only scriptable TweakDB records and properties that have been successfully created will be exposed via redscript.
+ * Only scriptable TweakDB records and properties that have been successfully created will be exposed via RedScript.
  */
 class RedscriptTypesExporter : Core::LoggingAgent
 {
@@ -67,20 +67,20 @@ public:
     using Json = nlohmann::json;
 
     /**
-     * @brief Constructs a new RedscriptTypesExporter instance with the given shared pointer to a
+     * @brief Constructs a new RedScriptTypesExporter instance with the given shared pointer to a
      * ScriptableRecordManager. The ScriptableRecordManager is used to access scriptable record specs and their
-     * properties for redscript code generation.
+     * properties for RedScript code generation.
      *
      * @param aRecordManager A shared pointer to the ScriptableRecordManager instance used to access scriptable record
-     * specs and their properties for redscript code generation.
+     * specs and their properties for RedScript code generation.
      */
     explicit RedscriptTypesExporter(const Core::SharedPtr<ScriptableRecordManager>& aRecordManager);
 
     /**
-     * @brief Exports redscript class and property definitions for the given vector of scriptable record specs to a file
+     * @brief Exports RedScript class and property definitions for the given vector of scriptable record specs to a file
      * at the specified path. Only specs that have been successfully described will be exported.
      *
-     * @param aDir The path to the file where the redscript definitions should be exported. If the file already
+     * @param aDir The path to the file where the RedScript definitions should be exported. If the file already
      * exists, it will be overwritten.
      * @return true if the export was successful, false otherwise.
      */
@@ -88,7 +88,7 @@ public:
 
 private:
     /**
-     * @brief Converts the given scriptable record spec to a JSON representation that can be used for redscript code
+     * @brief Converts the given scriptable record spec to a JSON representation that can be used for RedScript code
      * generation.
      *
      * @param aSpec The scriptable record spec to convert.
@@ -97,7 +97,7 @@ private:
     [[nodiscard]] Json ToJson(const ScriptableRecordSpecPtr& aSpec) const;
 
     /**
-     * @brief Converts the given scriptable property spec to a JSON representation that can be used for redscript code
+     * @brief Converts the given scriptable property spec to a JSON representation that can be used for RedScript code
      * generation.
      *
      * @param aSpec The scriptable property spec to convert.
@@ -106,19 +106,19 @@ private:
     [[nodiscard]] Json ToJson(const ScriptablePropertySpecPtr& aSpec) const;
 
     /**
-     * @brief Retrieves the script name of a given scriptable record class, which is used for redscript code generation.
+     * @brief Retrieves the script name of a given scriptable record class, which is used for RedScript code generation.
      *
-     * The script name is derived from the class's name and is used as the name of the generated redscript class
+     * The script name is derived from the class's name and is used as the name of the generated RedScript class
      * definition for the record type.
      *
      * @param aClass The scriptable record class for which to retrieve the script name. This should be a valid class
      * corresponding to a described scriptable record spec.
-     * @return The script name of the given scriptable record class, which is used for redscript code generation.
+     * @return The script name of the given scriptable record class, which is used for RedScript code generation.
      */
     std::string GetClassScriptName(const Red::CClass* aClass) const;
 
     /**
-     * @brief The inja environment used for rendering the redscript code from the template.
+     * @brief The inja environment used for rendering the RedScript code from the template.
      */
     inja::Environment m_env;
 
@@ -134,7 +134,7 @@ private:
 
     /**
      * @brief A shared pointer to the ScriptableRecordManager instance used to access scriptable record specs and their
-     * properties for redscript code generation.
+     * properties for RedScript code generation.
      */
     Core::SharedPtr<ScriptableRecordManager> m_recordManager;
 };

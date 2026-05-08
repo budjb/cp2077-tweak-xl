@@ -27,7 +27,7 @@ bool App::ScriptBatch::CreateRecord(Red::TweakDBID aRecordID, Red::CName aTypeNa
 {
     if (m_batch && aTypeName)
     {
-        return m_manager->CreateRecord(m_batch, aRecordID, Red::TweakDBUtil::GetRecordType(aTypeName));
+        return m_manager->CreateRecord(m_batch, aRecordID, Red::GetRecordType(aTypeName));
     }
 
     return false;

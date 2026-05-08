@@ -11,7 +11,7 @@
 namespace
 {
 using RecordType = Red::TypeLocator<"gamedataTweakXLTest_Record">;
-const auto RecordName = Red::TweakDBUtil::NormalizeRecordName("TweakXLTest");
+const auto RecordName = Red::NormalizeRecordName("TweakXLTest");
 constexpr auto RecordID = Red::TweakDBID("test.tweakxl.scriptable");
 
 const auto IntID = Red::TweakDBID(RecordID, ".Int32Prop");

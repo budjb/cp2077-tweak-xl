@@ -334,7 +334,7 @@ bool App::MetadataExporter::ExportExtraFlats(const std::filesystem::path& aOutPa
             std::string_view typeName = schemaName;
             typeName.remove_prefix(std::char_traits<char>::length(SchemaPackage) + 1);
 
-            auto recordType = Red::TweakDBUtil::GetRecordFullName<Red::CName>(typeName.data());
+            auto recordType = Red::GetRecordFullName<Red::CName>(typeName.data());
             auto numberOfFlats = extraFlats.size();
 
             out.write(reinterpret_cast<char*>(&recordType), sizeof(recordType));
@@ -345,7 +345,7 @@ bool App::MetadataExporter::ExportExtraFlats(const std::filesystem::path& aOutPa
                 uint8_t flatNameLen = flat->name.size();
                 auto flatName = flat->name.data();
                 auto flatType = RedReader::GetFlatTypeName(flat);
-                auto foreignType = Red::TweakDBUtil::GetRecordFullName<Red::CName>(flat->foreignType.data());
+                auto foreignType = Red::GetRecordFullName<Red::CName>(flat->foreignType.data());
 
                 out.write(reinterpret_cast<char*>(&flatNameLen), sizeof(flatNameLen));
                 out.write(reinterpret_cast<char*>(flatName), flatNameLen);
