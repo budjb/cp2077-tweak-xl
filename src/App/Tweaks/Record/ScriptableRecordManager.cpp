@@ -255,14 +255,14 @@ bool ScriptableRecordManager::DescribeRTTIType(const ScriptableRecordSpecPtr& aS
     Red::CNamePool::Add(Red::GetWHandleArrayTypeName<std::string>(aSpec->type).c_str());
 
     for (const auto& prop : aSpec->props | std::views::values)
-        RegisterRTTIProperty(aSpec, prop);
+        StagePropertyFunctions(aSpec, prop);
 
     aSpec->isDescribed = true;
     return true;
 }
 
-bool ScriptableRecordManager::RegisterRTTIProperty(const ScriptableRecordSpecPtr& aRecordSpec,
-                                                   const ScriptablePropertySpecPtr& aPropSpec)
+bool ScriptableRecordManager::StagePropertyFunctions(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                     const ScriptablePropertySpecPtr& aPropSpec)
 {
     if (aPropSpec->isDescribed)
     {
@@ -292,20 +292,6 @@ bool ScriptableRecordManager::RegisterRTTIProperty(const ScriptableRecordSpecPtr
         Red::CNamePool::Add(Red::GetHandleTypeName<std::string>(typeSpec->foreignType).c_str());
         Red::CNamePool::Add(Red::GetWHandleTypeName<std::string>(typeSpec->foreignType).c_str());
         Red::CNamePool::Add(Red::GetWHandleArrayTypeName<std::string>(typeSpec->foreignType).c_str());
-    }
-
-    if (!typeSpec->propertyType)
-    {
-        if (const auto* type = m_rtti->GetType(typeSpec->propertyTypeName))
-        {
-            typeSpec->propertyType = type;
-        }
-        else
-        {
-            LogError("Failed to describe property {} of record type {}, the property type {} does not exist.",
-                     aPropSpec->name, aRecordSpec->type->GetName().ToString(), typeSpec->foreignName);
-            return false;
-        }
     }
 
     m_propertyHandler->RegisterScriptableProperty(aRecordSpec, aPropSpec);

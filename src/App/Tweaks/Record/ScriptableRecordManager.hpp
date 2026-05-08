@@ -80,12 +80,24 @@ public:
      * @param aName The unique name of the scriptable record type to register.
      * @param aParentName The unique name of the parent scriptable record type to inherit from. This is optional and, if
      * not provided, will default to the base scriptable record type.
-     * @return The CName of the registered scriptable record type, or @c Red::CName::Empty if registration failed for
-     * any reason.
+     * @return A shared pointer to the scriptable record's specification, or @c nullptr if registration failed for any
+     * reason.
      */
     ScriptableRecordSpecPtr RegisterScriptableRecordType(const std::string& aName,
                                                          const std::optional<std::string>& aParentName = std::nullopt);
 
+    /**
+     * @brief Registers a scriptable property specification with a scriptable record type.
+     *
+     * @param aRecordName The name of the scriptable record type that this property belongs to.
+     * @param aPropertyName The name of the property to register.
+     * @param aTypeSpec The type specification of the property, containing both its TweakDB flat type details and the
+     * property type of the getter function.
+     * @param aDefaultValue The default value of the property that will be inherited by instances of the record type
+     * when no explicit value is provided for the instance.
+     * @return A shared pointer to the registered property specification, or @c nullptr if registration failed for any
+     * reason.
+     */
     ScriptablePropertySpecPtr RegisterScriptableProperty(const std::string& aRecordName,
                                                          const std::string& aPropertyName,
                                                          const TweakTypeSpecPtr& aTypeSpec,
@@ -100,7 +112,8 @@ public:
      * property type of the getter function.
      * @param aDefaultValue The default value of the property that will be inherited by instances of the record type
      * when no explicit value is provided for the instance.
-     * @return The CName of the registered property, or @c Red::CName::Empty if registration failed for any reason.
+     * @return A shared pointer to the registered property specification, or @c nullptr if registration failed for any
+     * reason.
      */
     ScriptablePropertySpecPtr RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
                                                          const std::string& aPropertyName,
@@ -115,8 +128,9 @@ public:
 
     /**
      * @brief Describes, or completes setup of, RTTI classes for all pending scriptable record specifications registered
-     * with this object. RTTI type description completes setup of classes by adding properties, functions, and
-     * inheritance.
+     * with this object. During this process each scriptable record class will be assigned its parent class. Property
+     * getter registrations will be staged with the @c ScriptablePropertyHandler but no functions will be created on the
+     * class.
      */
     void DescribeRTTITypes();
 
@@ -124,13 +138,9 @@ public:
      * @brief Inserts default values for all scriptable records specifications registered with this object into the
      * provided TweakDB manager. This should only be called after all specs have been registered and described.
      *
-     * In particular, an initial instance of the scriptable record will be inserted into TweakDB with the record ID
-     * @c RTDB.<record_name>, where @c record_name is the short name of the record type. After this process completes,
-     * scriptable record types are fully-loaded and ready to use. Additionally, a TweakDB flat instance will be inserted
-     * into TweakDB with the default value for any direct property of the record with the TweakDB ID
+     * In particular, a TweakDB flat instance will be inserted into TweakDB with the default value for any direct
+     * property of the record with the TweakDB ID
      * @c RTDB.<record_name>.<property_name>, where @c property_name is the name of the property.
-     *
-     * Once this process is finished, scriptable record types are complete and ready for use.
      */
     void InsertDefaults();
 
@@ -145,6 +155,17 @@ public:
     void AdaptScriptClasses(const Red::DynArray<Red::ScriptClass*>& aClasses);
 
 #ifndef NDEBUG
+    /**
+     * @brief A debug-enabled helper function for orchestrating the complete registration process of a scriptable record
+     * specification for use in running test cases.
+     *
+     * @param aSpec The scriptable record specification to fully register, including RTTI registration, RTTI
+     * description, and default value insertion into TweakDB.
+     *
+     * @return Whether the complete registration process for the given scriptable record specification was successful.
+     * If this function returns false, the specification should not be used for testing as it may be in an incomplete or
+     * invalid state.
+     */
     bool SetupTestRecordSpec(const ScriptableRecordSpecPtr& aSpec);
 #endif
 
@@ -161,7 +182,7 @@ private:
     /**
      * @brief Creates a @c ScriptableRecordClass and registers it with RTTI based on the provided record specification.
      * After completion, only the skeleton type will exist with its parent or any functions. If successful, the
-     * specification may subsequently be described.
+     * specification may subsequently be described after all other scriptable records have been registered.
      *
      * @param aSpec The specification of the scriptable record type to create.
      * @return Whether the record class was successfully created and registered with RTTI.
@@ -171,9 +192,11 @@ private:
     /**
      * @brief Completes setup of a scriptable record type by describing its corresponding RTTI class based on the
      * provided record specification. This involves setting the class's parent based on the parent specification of the
-     * record type, if it exists, and registering property handler functions based on the property specifications
-     * of the record type. After completion, the record class will be fully functional and accessible, however, its
-     * functions will not be configured until parsed from its redscript definitions.
+     * record type, if it exists, and staging registration of property handler functions based on the property
+     * specifications of the record type.
+     *
+     * After completion, the record class itself will be usable but will contain no functions until scripting parsing
+     * and binding has been complete.
      *
      * @param aSpec The specification of the scriptable record type to describe.
      * @return Whether the record class was successfully described.
@@ -181,16 +204,15 @@ private:
     bool DescribeRTTIType(const ScriptableRecordSpecPtr& aSpec);
 
     /**
-     * @brief Registers a script function as a property getter for a scriptable record type based on the given record
-     * and property specifications.
+     * @brief Stages a property of a script function with one or more getter functions based on the given property
+     * specification. This is a necessary step in the initialization process and sets up mappings for getter function
+     * types based on functions parsed from RedScript.
      *
      * @param aRecordSpec The specification of the scriptable record type that this property belongs to.
-     * @param aSpec The specification of the property to register a script function as a getter for. This should be a
-     * valid property specification contained in the properties of the given record specification.
-     * @return Whether the script function was successfully registered as a property getter for a scriptable record type
-     * based on the given record and property specifications.
+     * @param aSpec The specification of the property to stage script getter functions for.
+     * @return Whether the script function was successfully staged.
      */
-    bool RegisterRTTIProperty(const ScriptableRecordSpecPtr& aRecordSpec, const ScriptablePropertySpecPtr& aSpec);
+    bool StagePropertyFunctions(const ScriptableRecordSpecPtr& aRecordSpec, const ScriptablePropertySpecPtr& aSpec);
 
     /**
      * @brief Inserts default values for a scriptable record type based on the provided record specification.
@@ -231,10 +253,10 @@ private:
 
     /**
      * @brief Inspects the provided script class for any functions corresponding to the registered scriptable record
-     * type with a name matching the class's name and, if any are found, modifies the bytecode of those functions to
-     * invoke the appropriate property handlers at runtime.
+     * type with a name matching the class's name. For any that are found, their bytecode will be modified to invoke the
+     * appropriate property handlers at runtime.
      *
-     * @param aClassDef The script class parsed from redscript to inspect for functions corresponding to the registered
+     * @param aClassDef The script class parsed from RedScript to inspect for functions corresponding to the registered
      * scriptable record type with a name matching the class's name and modify to invoke property handlers at runtime.
      */
     void AdaptScriptClass(const Red::ScriptClass* aClassDef);
@@ -276,5 +298,4 @@ private:
      */
     Core::SharedPtr<ScriptablePropertyHandler> m_propertyHandler;
 };
-
 } // namespace App
