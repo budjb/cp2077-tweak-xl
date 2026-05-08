@@ -1,4 +1,7 @@
 #pragma once
+
+#ifndef NDEBUG
+
 #include "App/Tweaks/TweakService.hpp"
 
 namespace App::Tests
@@ -19,3 +22,5 @@ private:
     static inline bool s_isSetup = false;
 };
 } // namespace App::Tests
+
+#endif

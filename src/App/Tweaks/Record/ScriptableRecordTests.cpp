@@ -1,3 +1,5 @@
+#ifndef NDEBUG
+
 #include "ScriptableRecordTests.hpp"
 
 #include "Core/Facades/Container.hpp"
@@ -1968,3 +1970,5 @@ TEST_CASE("When a property is defined as a TweakDBIDArray, its contains function
     REQUIRE(result == false);
 }
 } // namespace App
+
+#endif

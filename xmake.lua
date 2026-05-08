@@ -17,11 +17,13 @@ elseif is_mode("release") then
     set_strip("all")
     set_optimize("fastest")
     add_cxxflags("/Ob2")
+    add_defines("NDEBUG")
 elseif is_mode("releasedbg") then
     set_symbols("debug")
     set_strip("all")
     set_optimize("fastest")
     add_cxxflags("/Ob1 /Zi")
+    add_defines("NDEBUG")
 end
 
 if is_mode("debug") then

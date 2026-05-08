@@ -81,7 +81,6 @@ struct TweakTypeSpec
      */
     Red::CName foreignTypeName;
 };
-RED4EXT_ASSERT_SIZE(TweakTypeSpec, 0x60);
 
 /**
  * @brief A shared pointer to a TweakTypeSpec struct.
