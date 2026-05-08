@@ -19,7 +19,7 @@ inline auto RedModSourcesDir()
     return GameDir() / L"tools" / L"redmod" / L"tweaks";
 }
 
-inline auto ScriptsDir()
+inline auto LegacyScriptsDir()
 {
     return GameDir() / L"r6" / L"scripts" / L"TweakXL";
 }
@@ -47,12 +47,6 @@ inline auto ExtraFlatsPath()
 inline auto InheritanceMapPath()
 {
     return PluginDataDir() / L"InheritanceMap.dat";
-}
-
-// TODO: rename this back
-inline auto RedscriptExportPath()
-{
-    return ScriptsDir() / L"ScriptableTypeDefs.reds";
 }
 
 inline const auto& GameVer()

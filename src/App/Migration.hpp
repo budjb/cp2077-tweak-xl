@@ -2,19 +2,12 @@
 
 namespace App::Migration
 {
-// TODO: revert this back
-inline void CleanUp(const std::filesystem::path& aPath, const std::filesystem::path& aRedscriptExportPath)
+inline void CleanUp(const std::filesystem::path& aPath)
 {
     std::error_code error;
     if (std::filesystem::exists(aPath, error))
     {
-        for (const auto& entry : std::filesystem::directory_iterator(aPath, error))
-        {
-            if (entry == aRedscriptExportPath)
-                continue;
-
-            std::filesystem::remove_all(entry, error);
-        }
+        std::filesystem::remove_all(aPath, error);
     }
 }
-} // namespace App::Migration
+}

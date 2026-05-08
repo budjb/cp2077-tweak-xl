@@ -34,5 +34,5 @@ void App::Application::OnStarting()
 {
     LogInfo("{} {} is starting...", Project::Name, Project::Version.to_string());
 
-    Migration::CleanUp(Env::ScriptsDir(), Env::RedscriptExportPath());
+    Migration::CleanUp(Env::LegacyScriptsDir());
 }
