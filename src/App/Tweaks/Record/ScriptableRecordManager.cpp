@@ -2,7 +2,7 @@
 
 #include "App/Tweaks/TweakService.hpp"
 #include "App/Tweaks/TweakTypeSpec.hpp"
-#include "ScriptablePropertyHandler.hpp"
+#include "ScriptablePropertyManager.hpp"
 #include "ScriptableRecordClass.hpp"
 #include "ScriptableTweakDBRecord.hpp"
 
@@ -20,7 +20,7 @@ ScriptablePropertySpecPtr ScriptableRecordSpec::FindPropertyByFunctionName(const
 }
 
 ScriptableRecordManager::ScriptableRecordManager(const Core::DeferredPtr<Red::TweakDBManager>& aManager,
-                                                 const Core::SharedPtr<ScriptablePropertyHandler>& aPropertyHandler)
+                                                 const Core::SharedPtr<ScriptablePropertyManager>& aPropertyHandler)
     : m_rtti(Red::CRTTISystem::Get())
     , m_tweakManager(aManager)
     , m_propertyHandler(aPropertyHandler)

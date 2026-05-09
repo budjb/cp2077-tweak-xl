@@ -1,6 +1,6 @@
 #pragma once
 
-#include "App/Tweaks/Record/ScriptablePropertyHandler.hpp"
+#include "App/Tweaks/Record/ScriptablePropertyManager.hpp"
 #include "App/Tweaks/Record/ScriptableRecordClass.hpp"
 #include "App/Tweaks/Record/ScriptableRecordTypes.hpp"
 #include "Core/Logging/LoggingAgent.hpp"
@@ -24,7 +24,7 @@ public:
      * scriptable record properties and handle their invocation at runtime.
      */
     explicit ScriptableRecordManager(const Core::DeferredPtr<Red::TweakDBManager>& aManager,
-                                     const Core::SharedPtr<ScriptablePropertyHandler>& aPropertyHandler);
+                                     const Core::SharedPtr<ScriptablePropertyManager>& aPropertyHandler);
 
     /**
      * @brief Returns a vector containing shared pointers to all registered scriptable record specifications.
@@ -296,6 +296,6 @@ private:
     /**
      * @brief A shared pointer to the registry for scriptable property getters.
      */
-    Core::SharedPtr<ScriptablePropertyHandler> m_propertyHandler;
+    Core::SharedPtr<ScriptablePropertyManager> m_propertyHandler;
 };
 } // namespace App

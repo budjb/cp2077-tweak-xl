@@ -86,7 +86,7 @@ Core::SharedPtr<ScriptableRecordManager> Tests::ScriptableRecordTestRunner::GetR
     return GetTweakService()->GetRecordManager();
 }
 
-Core::SharedPtr<ScriptablePropertyHandler> Tests::ScriptableRecordTestRunner::GetPropertyHandler()
+Core::SharedPtr<ScriptablePropertyManager> Tests::ScriptableRecordTestRunner::GetPropertyHandler()
 {
     return GetTweakService()->GetPropertyHandler();
 }

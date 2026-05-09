@@ -24,7 +24,7 @@ App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesyste
     , m_productVer(aProductVer)
     , m_reflection(nullptr)
     , m_manager(nullptr)
-    , m_propertyHandler(Core::MakeShared<ScriptablePropertyHandler>(m_manager))
+    , m_propertyHandler(Core::MakeShared<ScriptablePropertyManager>(m_manager))
     , m_recordManager(Core::MakeShared<ScriptableRecordManager>(m_manager, m_propertyHandler))
     , m_changelog(Core::MakeShared<TweakChangelog>())
     , m_context(Core::MakeShared<TweakContext>(aProductVer))
@@ -268,7 +268,7 @@ Core::SharedPtr<App::ScriptableRecordManager> App::TweakService::GetRecordManage
     return m_recordManager;
 }
 
-Core::SharedPtr<App::ScriptablePropertyHandler> App::TweakService::GetPropertyHandler()
+Core::SharedPtr<App::ScriptablePropertyManager> App::TweakService::GetPropertyHandler()
 {
     return m_propertyHandler;
 }

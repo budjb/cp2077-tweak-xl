@@ -45,7 +45,7 @@ public:
     Core::DeferredPtr<Red::TweakDBReflection> GetReflection();
     Core::DeferredPtr<TweakChangelog> GetChangelog();
     Core::SharedPtr<ScriptableRecordManager> GetRecordManager();
-    Core::SharedPtr<ScriptablePropertyHandler> GetPropertyHandler();
+    Core::SharedPtr<ScriptablePropertyManager> GetPropertyHandler();
 
 protected:
     void OnBootstrap() override;
@@ -69,7 +69,7 @@ protected:
     Core::Vector<std::filesystem::path> m_importPaths;
     Core::DeferredPtr<Red::TweakDBReflection> m_reflection;
     Core::DeferredPtr<Red::TweakDBManager> m_manager;
-    Core::SharedPtr<ScriptablePropertyHandler> m_propertyHandler;
+    Core::SharedPtr<ScriptablePropertyManager> m_propertyHandler;
     Core::SharedPtr<ScriptableRecordManager> m_recordManager;
     Core::SharedPtr<TweakChangelog> m_changelog;
     Core::SharedPtr<TweakContext> m_context;

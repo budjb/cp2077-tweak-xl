@@ -1,4 +1,4 @@
-#include "ScriptablePropertyHandler.hpp"
+#include "ScriptablePropertyManager.hpp"
 #include "ScriptableTweakDBRecord.hpp"
 
 #include <spdlog/fmt/bundled/ranges.h>
@@ -37,18 +37,10 @@ std::string ScriptablePropertyGetter::GetFunctionBaseName(const std::string& aNa
     return aName.substr(m_prefixLength, aName.length() - m_prefixLength - m_suffixLength);
 }
 
-#ifndef NDEBUG
-
 std::string ScriptablePropertyGetter::GetFunctionName(const std::string& aName) const
 {
     return std::string(m_prefix).append(aName).append(m_suffix);
 }
-
-void ScriptablePropertyGetter::NoOpFunction(Red::IScriptable*, Red::CStackFrame*, void*, int64_t)
-{
-}
-
-#endif
 
 Red::TweakDBID ScriptablePropertyGetter::GetFlatID(const Red::Instance aInstance, const Context* aContext)
 {
@@ -95,8 +87,7 @@ Red::CName RecordArrayGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aRe
     segments.emplace_back(aRecordSpec->name);
     segments.emplace_back(VoidName.data());
     segments.emplace_back(aPropSpec->functionName);
-    segments.emplace_back(
-        Red::GetWHandleArrayType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
+    segments.emplace_back(Red::GetWHandleArrayType(aPropSpec->typeSpec->foreignType)->GetName().ToString());
 
     return fmt::format("{}", fmt::join(segments, ";")).c_str();
 }
@@ -121,8 +112,7 @@ void RecordArrayGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStac
 void RecordArrayGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                                 const ScriptablePropertySpecPtr& aPropSpec) const
 {
-    aFunction->AddParam(Red::GetWHandleArrayTypeName<Red::CName>(aPropSpec->typeSpec->foreignType),
-                        "outList", true);
+    aFunction->AddParam(Red::GetWHandleArrayTypeName<Red::CName>(aPropSpec->typeSpec->foreignType), "outList", true);
 }
 #endif
 
@@ -189,8 +179,7 @@ Red::CName RecordItemGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aRec
 
     std::vector<std::string> segments;
     segments.emplace_back(aRecordSpec->name);
-    segments.emplace_back(
-        Red::GetWHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType).ToString());
+    segments.emplace_back(Red::GetWHandleTypeName<Red::CName>(aPropSpec->typeSpec->foreignType).ToString());
     segments.emplace_back(funcName);
     segments.emplace_back(IntName.data());
 
@@ -701,20 +690,20 @@ void ValueGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
 }
 #endif
 
-ScriptablePropertyHandler::ScriptablePropertyHandler(const Core::DeferredPtr<Red::TweakDBManager>& aManager)
+ScriptablePropertyManager::ScriptablePropertyManager(const Core::DeferredPtr<Red::TweakDBManager>& aManager)
     : m_manager(aManager)
     , m_rtti(Red::CRTTISystem::Get())
 {
 }
 
-void ScriptablePropertyHandler::RegisterInvocationHandler()
+void ScriptablePropertyManager::RegisterInvocationHandler()
 {
     auto* function = Red::CGlobalFunction::Create(InvocationHandlerName, InvocationHandlerName, &HandleInvocation);
     m_rtti->RegisterFunction(function);
     m_invocationHandler = function;
 }
 
-void ScriptablePropertyHandler::RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
+void ScriptablePropertyManager::RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
                                                            const ScriptablePropertySpecPtr& aPropSpec)
 {
     if (aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isForeignKey)
@@ -753,7 +742,7 @@ void ScriptablePropertyHandler::RegisterScriptableProperty(const ScriptableRecor
     }
 }
 
-bool ScriptablePropertyHandler::AdaptScriptFunction(const ScriptableRecordSpecPtr& aRecordSpec,
+bool ScriptablePropertyManager::AdaptScriptFunction(const ScriptableRecordSpecPtr& aRecordSpec,
                                                     Red::CClassFunction* aFunc)
 {
     const auto functionHash = GetFunctionHash(aRecordSpec, aFunc);
@@ -786,7 +775,7 @@ bool ScriptablePropertyHandler::AdaptScriptFunction(const ScriptableRecordSpecPt
 
 #ifndef NDEBUG
 
-void ScriptablePropertyHandler::CreateScriptFunctions(const ScriptableRecordSpecPtr& aRecordSpec)
+void ScriptablePropertyManager::CreateScriptFunctions(const ScriptableRecordSpecPtr& aRecordSpec)
 {
     if (!aRecordSpec->type)
         return;
@@ -831,7 +820,7 @@ void ScriptablePropertyHandler::CreateScriptFunctions(const ScriptableRecordSpec
 }
 
 template<GetterType Type>
-void ScriptablePropertyHandler::CreatePropertyFunction(const ScriptableRecordSpecPtr& aRecordSpec,
+void ScriptablePropertyManager::CreatePropertyFunction(const ScriptableRecordSpecPtr& aRecordSpec,
                                                        const ScriptablePropertySpecPtr& aPropSpec)
 {
     RegisterPropertyFunction<Type>(aRecordSpec, aPropSpec);
@@ -854,19 +843,19 @@ void ScriptablePropertyHandler::CreatePropertyFunction(const ScriptableRecordSpe
 
 #endif
 
-void ScriptablePropertyHandler::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+void ScriptablePropertyManager::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                                                  int64_t)
 {
     if (!aInstance || !aFrame)
         return;
 
-    const auto context = GetContext(aFrame);
-    const auto getterType = GetGetterType(aFrame);
+    const auto context = ParseContext(aFrame);
+    const auto getterType = ParseGetterType(aFrame);
 
     GetPropertyGetter(getterType)->HandleInvocation(aInstance, aFrame, aOut, context);
 }
 
-Context* ScriptablePropertyHandler::GetContext(Red::CStackFrame* aFrame)
+Context* ScriptablePropertyManager::ParseContext(Red::CStackFrame* aFrame)
 {
     static constexpr auto PtrSize = sizeof(void*);
 
@@ -875,7 +864,7 @@ Context* ScriptablePropertyHandler::GetContext(Red::CStackFrame* aFrame)
     return context;
 }
 
-GetterType ScriptablePropertyHandler::GetGetterType(Red::CStackFrame* aFrame)
+GetterType ScriptablePropertyManager::ParseGetterType(Red::CStackFrame* aFrame)
 {
     static constexpr auto TypeSize = sizeof(GetterType);
     const auto type = *reinterpret_cast<GetterType*>(aFrame->code);
@@ -883,7 +872,7 @@ GetterType ScriptablePropertyHandler::GetGetterType(Red::CStackFrame* aFrame)
     return type;
 }
 
-ScriptablePropertyGetter* ScriptablePropertyHandler::GetPropertyGetter(const GetterType aType)
+ScriptablePropertyGetter* ScriptablePropertyManager::GetPropertyGetter(const GetterType aType)
 {
     // clang-format off
     switch (aType)
@@ -906,7 +895,7 @@ ScriptablePropertyGetter* ScriptablePropertyHandler::GetPropertyGetter(const Get
     // clang-format on
 }
 
-ContextPtr ScriptablePropertyHandler::CreateContext(const ScriptableRecordSpecPtr& aRecordSpec,
+ContextPtr ScriptablePropertyManager::CreateContext(const ScriptableRecordSpecPtr& aRecordSpec,
                                                     const ScriptablePropertySpecPtr& aPropSpec)
 {
     {
@@ -935,7 +924,7 @@ ContextPtr ScriptablePropertyHandler::CreateContext(const ScriptableRecordSpecPt
 }
 
 template<GetterType Type>
-void ScriptablePropertyHandler::RegisterPropertyFunction(const ScriptableRecordSpecPtr& aRecordSpec,
+void ScriptablePropertyManager::RegisterPropertyFunction(const ScriptableRecordSpecPtr& aRecordSpec,
                                                          const ScriptablePropertySpecPtr& aPropSpec)
 {
     const auto* handler = GetPropertyGetter(Type);
@@ -944,7 +933,7 @@ void ScriptablePropertyHandler::RegisterPropertyFunction(const ScriptableRecordS
     m_functionTypes[aRecordSpec->cname][hash] = Type;
 }
 
-void ScriptablePropertyHandler::ReplaceScriptFunction(Red::CClassFunction* aFunction, const GetterType aGetterType,
+void ScriptablePropertyManager::ReplaceScriptFunction(Red::CClassFunction* aFunction, const GetterType aGetterType,
                                                       const ContextPtr& aContext) const
 {
     const auto bytecode = CreateFunctionBytecode(aGetterType, aContext, aFunction);
@@ -952,13 +941,13 @@ void ScriptablePropertyHandler::ReplaceScriptFunction(Red::CClassFunction* aFunc
     aFunction->bytecode.bytecode.buffer.size = bytecode.size;
 }
 
-void ScriptablePropertyHandler::TruncateScriptFunction(Red::CClassFunction* aFunction)
+void ScriptablePropertyManager::TruncateScriptFunction(Red::CClassFunction* aFunction)
 {
     aFunction->bytecode.bytecode.buffer.data = nullptr;
     aFunction->bytecode.bytecode.buffer.size = 0;
 }
 
-Red::RawBuffer ScriptablePropertyHandler::CreateFunctionBytecode(const GetterType aGetterType,
+Red::RawBuffer ScriptablePropertyManager::CreateFunctionBytecode(const GetterType aGetterType,
                                                                  const ContextPtr& aContext,
                                                                  Red::CClassFunction* aFunction) const
 {
@@ -1024,7 +1013,7 @@ Red::RawBuffer ScriptablePropertyHandler::CreateFunctionBytecode(const GetterTyp
     return {memory, finalCodeSize};
 }
 
-Red::CName ScriptablePropertyHandler::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+Red::CName ScriptablePropertyManager::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
                                                       Red::CClassFunction* aFunction)
 {
     std::vector<std::string> segments;

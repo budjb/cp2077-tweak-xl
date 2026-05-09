@@ -45,7 +45,7 @@ public:
      *
      * @return A shared pointer to the ScriptablePropertyHandler instance.
      */
-    static Core::SharedPtr<ScriptablePropertyHandler> GetPropertyHandler();
+    static Core::SharedPtr<ScriptablePropertyManager> GetPropertyHandler();
 
     /**
      * @brief Runs the scriptable record test suite and outputs results to a log located in the specified directory.
