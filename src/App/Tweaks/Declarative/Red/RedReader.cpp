@@ -11,10 +11,10 @@ App::RedReader::RedReader(const Core::DeferredPtr<Red::TweakDBManager>& aManager
 {
 }
 
-bool App::RedReader::Load(const std::filesystem::path& aGroupPath)
+bool App::RedReader::Load(const std::filesystem::path& aPath)
 {
-    m_path = aGroupPath;
-    m_source = Red::TweakParser::Parse(aGroupPath);
+    m_path = aPath;
+    m_source = Red::TweakParser::Parse(aPath);
 
     return IsLoaded();
 }
@@ -45,11 +45,11 @@ void App::RedReader::ReadSchemas(SchemaChangeset& aChangeset)
 
     for (const auto& group : m_source->groups)
     {
-        HandleSchemaGroup(group);
+        HandleSchemaGroup(aChangeset, group);
     }
 }
 
-void App::RedReader::ReadValues(App::TweakChangeset& aChangeset)
+void App::RedReader::ReadValues(TweakChangeset& aChangeset)
 {
     if (!IsLoaded())
         return;
@@ -85,7 +85,7 @@ void App::RedReader::ReadValues(App::TweakChangeset& aChangeset)
     }
 }
 
-void App::RedReader::HandleSchemaGroup(const Red::TweakGroupPtr& aGroup)
+void App::RedReader::HandleSchemaGroup(SchemaChangeset& aChangeset, const Red::TweakGroupPtr& aGroup)
 {
     if (!CheckConditions(aGroup->tags))
         return;
@@ -105,16 +105,17 @@ void App::RedReader::HandleSchemaGroup(const Red::TweakGroupPtr& aGroup)
 
     const auto parent = !aGroup->base.empty() ? std::optional(aGroup->base) : std::nullopt;
 
-    if (!m_recordManager->RegisterScriptableRecordType(name, parent))
+    if (!aChangeset.MakeRecord(name, parent))
         return;
 
     for (const auto prop : aGroup->flats)
     {
-        HandleSchemaProperty(name, prop);
+        HandleSchemaProperty(aChangeset, name, prop);
     }
 }
 
-void App::RedReader::HandleSchemaProperty(const std::string& aRecordName, const Red::TweakFlatPtr& aFlat)
+void App::RedReader::HandleSchemaProperty(SchemaChangeset& aChangeset, const std::string& aRecordName,
+                                          const Red::TweakFlatPtr& aFlat)
 {
     const auto foreignType = !aFlat->foreignType.empty() ? std::optional(aFlat->foreignType) : std::nullopt;
 
@@ -126,12 +127,10 @@ void App::RedReader::HandleSchemaProperty(const std::string& aRecordName, const 
         return;
     }
 
-    m_recordManager->RegisterScriptableProperty(aRecordName.c_str(), aFlat->name, propInfo,
-                                                MakeValue(propInfo->flatType, aFlat->values));
+    aChangeset.MakeProperty(aRecordName.c_str(), aFlat->name, propInfo, MakeValue(propInfo->flatType, aFlat->values));
 }
 
-App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& aChangeset,
-                                                          const Red::TweakGroupPtr& aGroup,
+App::RedReader::GroupStatePtr App::RedReader::HandleGroup(TweakChangeset& aChangeset, const Red::TweakGroupPtr& aGroup,
                                                           const std::string& aParentName,
                                                           const std::string& aParentPath)
 {
@@ -187,12 +186,10 @@ App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& a
 
     for (const auto& flat : aGroup->flats)
     {
-        const auto propInfo = recordInfo->GetPropInfo(flat->name.c_str());
-
-        if (propInfo)
+        if (const auto propInfo = recordInfo->GetPropInfo(flat->name.c_str()))
         {
-            auto flatState = HandleFlat(aChangeset, flat, groupState->groupName, groupState->groupPath, propInfo->type,
-                                        propInfo->foreignType);
+            const auto flatState = HandleFlat(aChangeset, flat, groupState->groupName, groupState->groupPath,
+                                              propInfo->type, propInfo->foreignType);
 
             if (flatState && flatState->isProcessed && groupState->isOriginalBase)
             {
@@ -210,8 +207,7 @@ App::RedReader::GroupStatePtr App::RedReader::HandleGroup(App::TweakChangeset& a
     return groupState;
 }
 
-App::RedReader::GroupStatePtr App::RedReader::HandleInline(App::TweakChangeset& aChangeset,
-                                                           const Red::TweakGroupPtr& aGroup,
+App::RedReader::GroupStatePtr App::RedReader::HandleInline(TweakChangeset& aChangeset, const Red::TweakGroupPtr& aGroup,
                                                            const std::string& aParentName,
                                                            const std::string& aParentPath,
                                                            const Red::CClass* aRequiredType, int32_t aInlineIndex)
@@ -269,9 +265,7 @@ App::RedReader::GroupStatePtr App::RedReader::HandleInline(App::TweakChangeset& 
 
         for (const auto& flat : aGroup->flats)
         {
-            const auto propInfo = recordInfo->GetPropInfo(flat->name.c_str());
-
-            if (propInfo)
+            if (const auto propInfo = recordInfo->GetPropInfo(flat->name.c_str()))
             {
                 flatState = HandleFlat(aChangeset, flat, inlineState->groupName, inlineState->groupPath, propInfo->type,
                                        propInfo->foreignType);
@@ -294,7 +288,7 @@ App::RedReader::GroupStatePtr App::RedReader::HandleInline(App::TweakChangeset& 
     return inlineState;
 }
 
-App::RedReader::FlatStatePtr App::RedReader::HandleFlat(App::TweakChangeset& aChangeset, const Red::TweakFlatPtr& aFlat,
+App::RedReader::FlatStatePtr App::RedReader::HandleFlat(TweakChangeset& aChangeset, const Red::TweakFlatPtr& aFlat,
                                                         const std::string& aParentName, const std::string& aParentPath,
                                                         const Red::CBaseRTTIType* aRequiredType,
                                                         const Red::CClass* aForeignType)
@@ -401,7 +395,7 @@ App::RedReader::FlatStatePtr App::RedReader::HandleFlat(App::TweakChangeset& aCh
     return flatState;
 }
 
-App::RedReader::GroupStatePtr App::RedReader::ResolveGroupState(App::TweakChangeset& aChangeset,
+App::RedReader::GroupStatePtr App::RedReader::ResolveGroupState(TweakChangeset& aChangeset,
                                                                 const Red::TweakGroupPtr& aGroup,
                                                                 const std::string& aParentName,
                                                                 const std::string& aParentPath,
@@ -526,7 +520,7 @@ App::RedReader::GroupStatePtr App::RedReader::ResolveGroupState(App::TweakChange
 }
 
 App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(
-    App::TweakChangeset& aChangeset, const Red::TweakFlatPtr& aFlat, const std::string& aParentName,
+    TweakChangeset& aChangeset, const Red::TweakFlatPtr& aFlat, const std::string& aParentName,
     const std::string& aParentPath, const Red::CBaseRTTIType* aRequiredType, const Red::CClass* aForeignType)
 {
     auto state = Core::MakeShared<FlatState>();
@@ -610,7 +604,7 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(
     return state;
 }
 
-bool App::RedReader::CheckConditions(const Core::Vector<std::string>& aTags)
+bool App::RedReader::CheckConditions(const Core::Vector<std::string>& aTags) const
 {
     if (!aTags.empty())
     {

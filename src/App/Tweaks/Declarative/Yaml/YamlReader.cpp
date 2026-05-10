@@ -425,7 +425,7 @@ void App::YamlReader::HandleFlatNode(App::TweakChangeset& aChangeset, const std:
     UpdateFlatOwner(aChangeset, aName);
 }
 
-void App::YamlReader::UpdateFlatOwner(App::TweakChangeset& aChangeset, const std::string& aName)
+void App::YamlReader::UpdateFlatOwner(TweakChangeset& aChangeset, const std::string& aName)
 {
     const auto separatorPos = aName.find_last_of(PropSeparator);
 
@@ -446,7 +446,7 @@ void App::YamlReader::UpdateFlatOwner(App::TweakChangeset& aChangeset, const std
     }
 }
 
-void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, PropertyMode aPropMode,
+void App::YamlReader::HandleRecordNode(TweakChangeset& aChangeset, PropertyMode aPropMode,
                                        const std::string& aRecordPath, const std::string& aRecordName,
                                        const YAML::Node& aNode, const Red::CClass* aRecordType,
                                        Red::TweakDBID aSourceId)
@@ -519,9 +519,7 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
 
                 for (auto itemIndex = 0; itemIndex < originalData.size(); ++itemIndex)
                 {
-                    auto itemData = originalData[itemIndex];
-
-                    if (itemData.IsMap())
+                    if (auto itemData = originalData[itemIndex]; itemData.IsMap())
                     {
                         auto sourceId = Red::TweakDBID();
                         auto foreignType = propInfo->foreignType;
@@ -564,7 +562,7 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
                 if (propInfo->foreignType->GetName() == UIIconType)
                 {
                     // Item records have both .iconPath and .icon properties, but last one is never used.
-                    // So if parent record has .iconPath property then auto fill it with our inline icon name.
+                    // So if parent record has .iconPath property then autofill it with our inline icon name.
                     if (recordInfo->props.contains("iconPath") && !aNode["iconPath"])
                     {
                         aChangeset.SetFlat(Red::TweakDBID(recordId, ".iconPath"), ResolveFlatType("String"),
@@ -615,17 +613,14 @@ void App::YamlReader::HandleRecordNode(App::TweakChangeset& aChangeset, Property
     }
 }
 
-bool App::YamlReader::ResolveInlineNode(App::TweakChangeset& aChangeset, const std::string& aPath,
-                                        const YAML::Node& aNode, const Red::CClass*& aForeignType,
-                                        Red::TweakDBID& aSourceId)
+bool App::YamlReader::ResolveInlineNode(TweakChangeset& aChangeset, const std::string& aPath, const YAML::Node& aNode,
+                                        const Red::CClass*& aForeignType, Red::TweakDBID& aSourceId)
 {
     if (!CheckConditions(aNode))
         return false;
 
     {
-        const auto cloneAttr = aNode[BaseAttrKey];
-
-        if (cloneAttr.IsDefined())
+        if (const auto cloneAttr = aNode[BaseAttrKey]; cloneAttr.IsDefined())
         {
             const auto sourceId = ResolveTweakDBID(cloneAttr);
             const auto sourceType = ResolveRecordInstanceType(aChangeset, sourceId);
@@ -651,13 +646,9 @@ bool App::YamlReader::ResolveInlineNode(App::TweakChangeset& aChangeset, const s
     }
 
     {
-        const auto typeAttr = aNode[TypeAttrKey];
-
-        if (typeAttr.IsDefined())
+        if (const auto typeAttr = aNode[TypeAttrKey]; typeAttr.IsDefined())
         {
-            const auto suggestedType = ResolveRecordType(typeAttr);
-
-            if (suggestedType)
+            if (const auto suggestedType = ResolveRecordType(typeAttr))
             {
                 if (suggestedType->IsA(aForeignType))
                 {
@@ -702,9 +693,7 @@ bool App::YamlReader::HandleMutations(TweakChangeset& aChangeset, const std::str
             continue;
         }
 
-        const auto tag = Red::FNV1a64(itemData.Tag().c_str());
-
-        switch (tag)
+        switch (const auto tag = Red::FNV1a64(itemData.Tag().c_str()))
         {
         case AppendOp:
         case AppendOnceOp:

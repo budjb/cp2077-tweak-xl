@@ -5,8 +5,6 @@
 #include "App/Tweaks/Record/ScriptableRecordManager.hpp"
 #include "App/Tweaks/TweakTypeSpec.hpp"
 #include "Core/Logging/LoggingAgent.hpp"
-#include "Red/TweakDB/Source/Source.hpp"
-#include "Red/TweakDB/Util.hpp"
 
 namespace App
 {
@@ -44,7 +42,7 @@ private:
     void HandleRecordNode(TweakChangeset& aChangeset, PropertyMode aPropMode, const std::string& aRecordPath,
                           const std::string& aRecordName, const YAML::Node& aNode, const Red::CClass* aRecordType,
                           Red::TweakDBID aSourceId = {});
-    bool ResolveInlineNode(App::TweakChangeset& aChangeset, const std::string& aPath, const YAML::Node& aNode,
+    bool ResolveInlineNode(TweakChangeset& aChangeset, const std::string& aPath, const YAML::Node& aNode,
                            const Red::CClass*& aForeignType, Red::TweakDBID& aSourceId);
     bool HandleMutations(TweakChangeset& aChangeset, const std::string& aPath, const std::string& aName,
                          const YAML::Node& aNode, const Red::CBaseRTTIType* aElementType);
