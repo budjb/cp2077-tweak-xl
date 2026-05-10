@@ -30,7 +30,7 @@ void App::RedReader::Unload()
     m_source.reset();
 }
 
-void App::RedReader::ReadSchemas()
+void App::RedReader::ReadSchemas(SchemaChangeset& aChangeset)
 {
     if (!IsLoaded())
         return;
@@ -558,8 +558,8 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(
             state->isResolved = true;
             state->isCompatible = !state->requiredType || state->resolvedType == state->requiredType;
             state->isArray = Red::IsArrayType(state->resolvedType);
-            state->isForeignKey = state->isArray ? Red::IsForeignKeyArray(state->resolvedType)
-                                                 : Red::IsForeignKey(state->resolvedType);
+            state->isForeignKey =
+                state->isArray ? Red::IsForeignKeyArray(state->resolvedType) : Red::IsForeignKey(state->resolvedType);
         }
     }
     else
@@ -570,8 +570,8 @@ App::RedReader::FlatStatePtr App::RedReader::ResolveFlatState(
         {
             state->isResolved = true;
             state->isArray = Red::IsArrayType(state->resolvedType);
-            state->isForeignKey = state->isArray ? Red::IsForeignKeyArray(state->resolvedType)
-                                                 : Red::IsForeignKey(state->resolvedType);
+            state->isForeignKey =
+                state->isArray ? Red::IsForeignKeyArray(state->resolvedType) : Red::IsForeignKey(state->resolvedType);
 
             if (instanceType)
             {

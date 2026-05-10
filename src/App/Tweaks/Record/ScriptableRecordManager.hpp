@@ -127,12 +127,32 @@ public:
     void RegisterRTTITypes();
 
     /**
-     * @brief Describes, or completes setup of, RTTI classes for all pending scriptable record specifications registered
-     * with this object. During this process each scriptable record class will be assigned its parent class. Property
-     * getter registrations will be staged with the @c ScriptablePropertyHandler but no functions will be created on the
-     * class.
+     * @brief Creates a @c ScriptableRecordClass and registers it with RTTI based on the provided record specification.
+     * After completion, only the skeleton type will exist with its parent or any functions. If successful, the
+     * specification may subsequently be described after all other scriptable records have been registered.
+     *
+     * @param aSpec The specification of the scriptable record type to create.
+     * @return Whether the record class was successfully created and registered with RTTI.
      */
-    void DescribeRTTITypes();
+    bool RegisterRTTIType(const ScriptableRecordSpecPtr& aSpec);
+
+    /**
+     * @brief Completes setup of a scriptable record type by describing its corresponding RTTI class based on the
+     * provided record specification. This involves setting the class's parent based on the parent specification of the
+     * record type, if it exists, and staging registration of property handler functions based on the property
+     * specifications of the record type.
+     *
+     * After completion, the record class itself will be usable but will contain no functions until scripting parsing
+     * and binding has been complete.
+     *
+     * @param aSpec The specification of the scriptable record type to describe.
+     * @return Whether the record class was successfully described.
+     */
+    bool DescribeRTTIType(const ScriptableRecordSpecPtr& aSpec);
+
+    // TODO: re-doc this
+    bool CreatePropertyFunctions(const ScriptableRecordSpecPtr& aRecordSpec,
+                                 const ScriptablePropertySpecPtr& aPropSpec) const;
 
     /**
      * @brief Inserts default values for all scriptable records specifications registered with this object into the
@@ -142,7 +162,7 @@ public:
      * property of the record with the TweakDB ID
      * @c RTDB.<record_name>.<property_name>, where @c property_name is the name of the property.
      */
-    void InsertDefaults();
+    void InsertDefaultValues();
 
     /**
      * @brief Inspects the provided script bundle for any script classes corresponding to registered scriptable record
@@ -153,6 +173,44 @@ public:
      * registered scriptable record types and modify to invoke property handlers at runtime.
      */
     void AdaptScriptClasses(const Red::DynArray<Red::ScriptClass*>& aClasses);
+
+    /**
+     * @brief Returns whether the record manager has been notified that RTTI is ready for registration of scriptable
+     * record types. This is used to gate the registration of scriptable record types until RTTI is ready to ensure that
+     * the registration process completes successfully.
+     *
+     * @return Whether the record manager has been notified that RTTI is ready for registration of scriptable record
+     * types.
+     */
+    bool IsRTTIReady() const;
+
+    /**
+     * @brief Notifies the record manager that RTTI is ready for registration of scriptable record types. This should be
+     * called in the RTTI post-registration callback to ensure that scriptable record type registration is properly
+     * gated until RTTI is ready.
+     *
+     * @param aRTTIReady Whether RTTI is ready for registration of scriptable record types.
+     */
+    void SetRTTIReady(bool aRTTIReady = true);
+
+    /**
+     * @brief Returns whether the record manager has been notified that TweakDB is ready for insertion of default values
+     * for scriptable record types. This is used to gate the insertion of default values for scriptable record types
+     * until TweakDB is ready to ensure that the insertion process completes successfully.
+     *
+     * @return Whether the record manager has been notified that TweakDB is ready for insertion of default values for
+     * scriptable record types.
+     */
+    bool IsTweakDBReady() const;
+
+    /**
+     * @brief Notifies the record manager that TweakDB is ready for insertion of default values for scriptable record
+     * types. This should be called in the TweakDB post-registration callback to ensure that insertion of default values
+     * for scriptable record types is properly gated until TweakDB is ready.
+     *
+     * @param aTweakDBReady Whether TweakDB is ready for insertion of default values for scriptable record types.
+     */
+    void SetTweakDBReady(bool aTweakDBReady = true);
 
 #ifndef NDEBUG
     /**
@@ -180,41 +238,6 @@ private:
     ScriptableRecordSpecPtr GetRecordSpec(Red::CName aName) const;
 
     /**
-     * @brief Creates a @c ScriptableRecordClass and registers it with RTTI based on the provided record specification.
-     * After completion, only the skeleton type will exist with its parent or any functions. If successful, the
-     * specification may subsequently be described after all other scriptable records have been registered.
-     *
-     * @param aSpec The specification of the scriptable record type to create.
-     * @return Whether the record class was successfully created and registered with RTTI.
-     */
-    bool RegisterRTTIType(const ScriptableRecordSpecPtr& aSpec);
-
-    /**
-     * @brief Completes setup of a scriptable record type by describing its corresponding RTTI class based on the
-     * provided record specification. This involves setting the class's parent based on the parent specification of the
-     * record type, if it exists, and staging registration of property handler functions based on the property
-     * specifications of the record type.
-     *
-     * After completion, the record class itself will be usable but will contain no functions until scripting parsing
-     * and binding has been complete.
-     *
-     * @param aSpec The specification of the scriptable record type to describe.
-     * @return Whether the record class was successfully described.
-     */
-    bool DescribeRTTIType(const ScriptableRecordSpecPtr& aSpec);
-
-    /**
-     * @brief Stages a property of a script function with one or more getter functions based on the given property
-     * specification. This is a necessary step in the initialization process and sets up mappings for getter function
-     * types based on functions parsed from RedScript.
-     *
-     * @param aRecordSpec The specification of the scriptable record type that this property belongs to.
-     * @param aSpec The specification of the property to stage script getter functions for.
-     * @return Whether the script function was successfully staged.
-     */
-    bool StagePropertyFunctions(const ScriptableRecordSpecPtr& aRecordSpec, const ScriptablePropertySpecPtr& aSpec);
-
-    /**
      * @brief Inserts default values for a scriptable record type based on the provided record specification.
      *
      * This involves inserting default values for each direct property of the record with the TweakDB ID
@@ -223,7 +246,7 @@ private:
      * @param aSpec The specification of the scriptable record type for which to insert default values. This should be a
      * valid record specification contained in the registry.
      */
-    void InsertDefaults(const ScriptableRecordSpecPtr& aSpec);
+    void InsertDefaultValues(const ScriptableRecordSpecPtr& aSpec);
 
     /**
      * @brief Inserts default values for a scriptable record type based on the provided RTTI class. This is an overload
@@ -233,7 +256,7 @@ private:
      * @param aClass The RTTI class of the record type for which to insert default values. This should correspond to the
      * class of a registered scriptable record type.
      */
-    void InsertDefaults(const Red::CClass* aClass);
+    void InsertDefaultValues(const Red::CClass* aClass);
 
     /**
      * @brief Retrieves the scriptable record class corresponding to the given hash from the registry.
@@ -286,7 +309,7 @@ private:
     /**
      * @brief A registry of scriptable record classes, indexed by the hash of each record type's short name.
      */
-    Core::Map<uint32_t, Core::SharedPtr<ScriptableRecordClass>> m_classes;
+    Core::Map<uint32_t, ScriptableRecordClass*> m_classes;
 
     /**
      * @brief A pointer to the TweakDB manager.
@@ -297,5 +320,20 @@ private:
      * @brief A shared pointer to the registry for scriptable property getters.
      */
     Core::SharedPtr<ScriptablePropertyManager> m_propertyHandler;
+
+    /**
+     * @brief A flag indicating whether the RTTI system is ready for registering scriptable record types. This is set in
+     * a post-register callback after RTTI initialization and is used to ensure that scriptable record types are not
+     * registered before RTTI is ready, which would cause issues with the registration process.
+     */
+    bool m_rttiReady = false;
+
+    /**
+     * @brief A flag indicating whether the TweakDB manager is ready for inserting default values for scriptable record
+     * types. This is set in a post-register callback after TweakDB initialization and is used to ensure that default
+     * values for scriptable record types are not inserted before TweakDB is ready, which would cause issues with the
+     * insertion process.
+     */
+    bool m_tweakDBReady = false;
 };
 } // namespace App

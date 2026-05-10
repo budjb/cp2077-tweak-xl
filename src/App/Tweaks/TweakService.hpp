@@ -32,13 +32,13 @@ public:
     bool RegisterTweak(std::filesystem::path aPath);
     bool RegisterDirectory(std::filesystem::path aPath);
 
-    void LoadTweaks(bool aCheckForIssues);
-    void ImportTweaks();
-    void ExecuteTweaks();
-    void ExecuteTweak(Red::CName aName);
-    void CheckForIssues();
+    void LoadTweaks(bool aCheckForIssues) const;
+    void ImportTweaks() const;
+    void ExecuteTweaks() const;
+    void ExecuteTweak(Red::CName aName) const;
+    void CheckForIssues() const;
 
-    bool ImportMetadata();
+    bool ImportMetadata() const;
     void ExportMetadata();
 
     Core::DeferredPtr<Red::TweakDBManager> GetManager();
@@ -49,13 +49,12 @@ public:
 
 protected:
     void OnBootstrap() override;
-    void CreateTweaksDir();
-    void CreateScriptsDir();
-    void EnsureRuntimeAccess();
-    void ApplyPatches();
-    void InsertScriptableRecordDefaults();
-    void SetupScriptableRecords();
-    void SetupTweakImporter();
+    void CreateTweaksDir() const;
+    void CreateScriptsDir() const;
+    void EnsureRuntimeAccess() const;
+    void ApplyPatches() const;
+    void InsertPropertyDefaultValues() const;
+    void SetupTweakImporter() const;
     void OnValidateScripts(const Red::ScriptBundle* aBundle) const;
 
     std::filesystem::path m_gameDir;

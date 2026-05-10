@@ -66,12 +66,15 @@ private:
      * @brief Creates and sets up a scriptable record class containing all supported property types and creates an
      * instance of it with a set of values. Once complete, the test suite has the state required to validate property
      * getter functionality and the ability to create scriptable record instances.
-     *
-     * Currently, the scriptable record type, its instance, and associated flats are not removed from TweakDB. However,
-     * the scriptable record type will not be exposed to the engine's scripting layer as it's created after script
-     * validation and binding.
      */
     static void Setup();
+
+    /**
+     * @brief Cleans up the test environment by removing the test TweakDB record instance, its flat values, and
+     * unregistering the scriptable record type to ensure that the test environment does not interfere with normal
+     * application functionality after testing is complete.
+     */
+    static void Cleanup();
 
     /**
      * @brief A boolean flag indicating whether the test environment has been set up. This ensures that the setup

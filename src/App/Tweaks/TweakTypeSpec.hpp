@@ -96,6 +96,9 @@ using TweakTypeSpecPtr = Core::SharedPtr<TweakTypeSpec>;
  * be represented as the foreign record's class name (full, script alias, or short) for properties pointing to a single
  * foreign key or prefixed with "array:" for an array of foreign keys.
  *
+ * If the given value represents a foreign key flat type and a foreign type name is not provided, no type spec will be
+ * returned.
+ *
  * @param aValue The string to parse TweakDB property and flat details from.
  * @return A property spec containing the parsed property and flat details, or nullptr if the given string is not
  * a valid TweakDB property type.
@@ -111,6 +114,9 @@ TweakTypeSpecPtr GetTweakTypeSpec(const std::string& aValue);
  * represented as the foreign record's class name (full, script alias, or short) for properties pointing to a single
  * foreign key or prefixed with "array:" for an array of foreign keys.
  *
+ * If the given value represents a foreign key flat type and a foreign type name is not provided, no type spec will be
+ * returned.
+ *
  * @param aValue The string to parse TweakDB property and flat details from.
  * @return A property spec containing the parsed property and flat details, or nullptr if the given string is not
  * a valid TweakDB property type.
@@ -120,7 +126,7 @@ TweakTypeSpecPtr GetTweakTypeSpec(const char* aValue);
 /**
  * @brief Creates a set of details for a TweakDB property based on the given type name and optional foreign type name.
  *
- * If the given name references a foreign key flat type and a foreign type name is not provided, no type spec will be
+ * If the given name represents a foreign key flat type and a foreign type name is not provided, no type spec will be
  * returned.
  *
  * @param aName The name of the property type, used for RTTI type resolution.
@@ -134,7 +140,7 @@ TweakTypeSpecPtr GetTweakTypeSpec(Red::CName aName, const std::optional<std::str
 /**
  * @brief Creates a set of details for a TweakDB property based on the given type hash and optional foreign type name.
  *
- * If the given name references a foreign key flat type and a foreign type name is not provided, no type spec will be
+ * If the given type represents a foreign key relationship and a foreign type name is not provided, no type spec will be
  * returned.
  *
  * @tparam Type The hash of the property type, used for RTTI type resolution.

@@ -188,6 +188,7 @@ void App::TweakChangeset::Commit(const Core::DeferredPtr<Red::TweakDBManager>& a
 
     if (aChangelog)
     {
+        // TODO: make this revert value-specific
         aChangelog->RevertChanges(aManager);
         aChangelog->ForgetForeignKeys();
         aChangelog->ForgetResourcePaths();

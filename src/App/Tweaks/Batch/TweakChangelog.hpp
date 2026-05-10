@@ -10,6 +10,8 @@ class TweakChangelog : public Core::LoggingAgent
 public:
     bool RegisterRecord(Red::TweakDBID aRecordId);
 
+    bool RegisterSchema(Red::CName aName);
+
     bool RegisterAssignment(Red::TweakDBID aFlatId, Red::Instance aOldValue, Red::Instance aNewValue);
     bool RegisterInsertion(Red::TweakDBID aFlatId, int32_t aIndex, const Red::InstancePtr<>& aInstance);
     bool RegisterDeletion(Red::TweakDBID aFlatId, int32_t aIndex, const Red::InstancePtr<>& aInstance);
@@ -43,10 +45,11 @@ private:
     };
 
     Core::Set<Red::TweakDBID> m_records;
+    Core::Set<Red::CName> m_schemas;
     Core::Map<Red::TweakDBID, AssignmentEntry> m_assignments;
     Core::Map<Red::TweakDBID, MutationEntry> m_mutations;
     Core::Map<Red::TweakDBID, Red::TweakDBID> m_foreignKeys;
     Core::Map<Red::ResourcePath, Red::TweakDBID> m_resourcePaths;
     Core::Set<Red::TweakDBID> m_ownedKeys;
 };
-}
+} // namespace App

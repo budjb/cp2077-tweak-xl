@@ -22,7 +22,7 @@ public:
     bool Load(const std::filesystem::path& aPath) override;
     [[nodiscard]] bool IsLoaded() const override;
     void Unload() override;
-    void ReadSchemas() override;
+    void ReadSchemas(SchemaChangeset& aChangeset) override;
     void ReadValues(TweakChangeset& aChangeset) override;
 
     static Red::CName GetFlatTypeName(const Red::TweakFlatPtr& aFlat);

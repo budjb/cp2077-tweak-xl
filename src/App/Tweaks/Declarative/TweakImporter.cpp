@@ -101,12 +101,30 @@ void App::TweakImporter::ImportSchemas(const Core::SharedPtr<TweakChangelog>& aC
 {
     LogInfo("Scanning tweak files for schemas...");
 
-    for (const auto& reader : m_readers)
+    try
     {
-        if (reader->IsLoaded())
+        const auto changeset = Core::MakeShared<SchemaChangeset>();
+
+        for (const auto& reader : m_readers)
         {
-            reader->ReadSchemas();
+            if (reader->IsLoaded())
+            {
+                reader->ReadSchemas(*changeset);
+            }
         }
+
+        if (!aDryRun)
+        {
+            Apply(changeset, aChangelog);
+        }
+    }
+    catch (const std::exception& ex)
+    {
+        LogError(ex.what());
+    }
+    catch (...)
+    {
+        LogError("An unknown error occurred while trying to import schemas.");
     }
 }
 
@@ -189,8 +207,26 @@ Core::SharedPtr<App::ITweakReader> App::TweakImporter::Load(const std::filesyste
     return nullptr;
 }
 
-bool App::TweakImporter::Apply(const Core::SharedPtr<App::TweakChangeset>& aChangeset,
-                               const Core::SharedPtr<App::TweakChangelog>& aChangelog)
+bool App::TweakImporter::Apply(const Core::SharedPtr<SchemaChangeset>& aChangeset,
+                               const Core::SharedPtr<TweakChangelog>& aChangelog) const
+{
+    if (aChangeset->IsEmpty() && aChangelog->IsEmpty())
+    {
+        LogInfo("No schemas to import.");
+        return false;
+    }
+
+    LogInfo("Importing schemas...");
+
+    aChangeset->Commit(m_recordManager, aChangelog);
+
+    LogInfo("Schema import completed.");
+
+    return true;
+}
+
+bool App::TweakImporter::Apply(const Core::SharedPtr<TweakChangeset>& aChangeset,
+                               const Core::SharedPtr<TweakChangelog>& aChangelog) const
 {
     if (aChangeset->IsEmpty() && aChangelog->IsEmpty())
     {

@@ -39,8 +39,6 @@ void App::TweakService::OnBootstrap()
     CreateTweaksDir();
     CreateScriptsDir();
 
-    SetupScriptableRecords();
-
     SetupTweakImporter();
 
     HookAfter<Raw::ScriptBinder_Bind>(
@@ -58,7 +56,7 @@ void App::TweakService::OnBootstrap()
             {
                 EnsureRuntimeAccess();
                 ApplyPatches();
-                InsertScriptableRecordDefaults();
+                InsertPropertyDefaultValues();
                 LoadTweaks(false);
             }
 
@@ -83,7 +81,7 @@ void App::TweakService::OnBootstrap()
     });
 }
 
-void App::TweakService::LoadTweaks(bool aCheckForIssues)
+void App::TweakService::LoadTweaks(const bool aCheckForIssues) const
 {
     if (m_manager)
     {
@@ -97,7 +95,7 @@ void App::TweakService::LoadTweaks(bool aCheckForIssues)
     }
 }
 
-void App::TweakService::ImportTweaks()
+void App::TweakService::ImportTweaks() const
 {
     if (m_manager)
     {
@@ -105,7 +103,7 @@ void App::TweakService::ImportTweaks()
     }
 }
 
-void App::TweakService::ExecuteTweaks()
+void App::TweakService::ExecuteTweaks() const
 {
     if (m_manager)
     {
@@ -113,7 +111,7 @@ void App::TweakService::ExecuteTweaks()
     }
 }
 
-void App::TweakService::ExecuteTweak(Red::CName aName)
+void App::TweakService::ExecuteTweak(Red::CName aName) const
 {
     if (m_manager)
     {
@@ -121,7 +119,7 @@ void App::TweakService::ExecuteTweak(Red::CName aName)
     }
 }
 
-void App::TweakService::EnsureRuntimeAccess()
+void App::TweakService::EnsureRuntimeAccess() const
 {
     if (m_manager)
     {
@@ -129,7 +127,7 @@ void App::TweakService::EnsureRuntimeAccess()
     }
 }
 
-void App::TweakService::ApplyPatches()
+void App::TweakService::ApplyPatches() const
 {
     if (m_manager)
     {
@@ -138,7 +136,7 @@ void App::TweakService::ApplyPatches()
     }
 }
 
-void App::TweakService::CheckForIssues()
+void App::TweakService::CheckForIssues() const
 {
     if (m_manager && m_changelog)
     {
@@ -146,7 +144,7 @@ void App::TweakService::CheckForIssues()
     }
 }
 
-void App::TweakService::CreateTweaksDir()
+void App::TweakService::CreateTweaksDir() const
 {
     std::error_code error;
 
@@ -160,7 +158,7 @@ void App::TweakService::CreateTweaksDir()
     }
 }
 
-void App::TweakService::CreateScriptsDir()
+void App::TweakService::CreateScriptsDir() const
 {
     std::error_code error;
 
@@ -215,7 +213,7 @@ bool App::TweakService::RegisterDirectory(std::filesystem::path aPath)
     return true;
 }
 
-bool App::TweakService::ImportMetadata()
+bool App::TweakService::ImportMetadata() const
 {
     MetadataImporter importer{m_manager, m_reflection};
 
@@ -273,30 +271,25 @@ Core::SharedPtr<App::ScriptablePropertyManager> App::TweakService::GetPropertyHa
     return m_propertyHandler;
 }
 
-void App::TweakService::InsertScriptableRecordDefaults()
+void App::TweakService::InsertPropertyDefaultValues() const
 {
-    m_recordManager->InsertDefaults();
+    m_recordManager->SetTweakDBReady();
+    m_recordManager->InsertDefaultValues();
 }
 
-void App::TweakService::SetupScriptableRecords()
-{
-    static auto rtti = Red::CRTTISystem::Get();
-
-    rtti->AddPostRegisterCallback(Red::Callback<void (*)()>([] {}));
-}
-
-void App::TweakService::SetupTweakImporter()
+void App::TweakService::SetupTweakImporter() const
 {
     static auto rtti = Red::CRTTISystem::Get();
 
     rtti->AddPostRegisterCallback(Red::Callback<void (*)()>{[&] {
+        m_recordManager->SetRTTIReady();
+
         m_importer->Load(m_importPaths);
-        m_importer->ImportSchemas();
+        m_importer->ImportSchemas(m_changelog);
 
         m_propertyHandler->RegisterInvocationHandler();
 
         m_recordManager->RegisterRTTITypes();
-        m_recordManager->DescribeRTTITypes();
 
         m_redscriptExporter->ExportRedscriptTypes(m_pluginScriptsDir);
     }});

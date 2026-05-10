@@ -57,12 +57,6 @@ struct Context
 };
 
 /**
- * @brief A shared pointer to a Context struct, used to provide the execution context for script function invocations
- * corresponding to scriptable record property getters.
- */
-using ContextPtr = Core::SharedPtr<Context>;
-
-/**
  * @brief A base class for handling the processing of script functions that serve as property getters for scriptable
  * TweakDB records. Each derived class corresponds to a specific type of getter function, identified by the GetterType
  * enumeration, and implements the necessary logic for:
@@ -159,7 +153,6 @@ public:
      */
     [[nodiscard]] std::string GetFunctionName(const std::string& aName) const;
 
-#ifndef NDEBUG
     /**
      * @brief Configures the given script function's arguments and return type based on the specialized requirements of
      * the getter function and the provided property specification.
@@ -169,7 +162,6 @@ public:
      */
     virtual void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                          const ScriptablePropertySpecPtr& aPropSpec) const = 0;
-#endif
 
 protected:
     /**
@@ -291,10 +283,8 @@ public:
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
     void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                           const Context* aContext) const override;
-#ifndef NDEBUG
     void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                  const ScriptablePropertySpecPtr& aPropSpec) const override;
-#endif
 };
 
 /**
@@ -322,10 +312,8 @@ public:
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
     void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                           const Context* aContext) const override;
-#ifndef NDEBUG
     void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                  const ScriptablePropertySpecPtr& aPropSpec) const override;
-#endif
 };
 
 /**
@@ -352,10 +340,8 @@ public:
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
     void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                           const Context* aContext) const override;
-#ifndef NDEBUG
     void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                  const ScriptablePropertySpecPtr& aPropSpec) const override;
-#endif
 };
 
 /**
@@ -382,10 +368,8 @@ public:
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
     void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                           const Context* aContext) const override;
-#ifndef NDEBUG
     void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                  const ScriptablePropertySpecPtr& aPropSpec) const override;
-#endif
 };
 
 /**
@@ -407,10 +391,8 @@ public:
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
     void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                           const Context* aContext) const override;
-#ifndef NDEBUG
     void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                  const ScriptablePropertySpecPtr& aPropSpec) const override;
-#endif
 };
 
 /**
@@ -437,10 +419,8 @@ public:
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
     void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                           const Context* aContext) const override;
-#ifndef NDEBUG
     void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                  const ScriptablePropertySpecPtr& aPropSpec) const override;
-#endif
 };
 
 /**
@@ -465,10 +445,8 @@ public:
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
     void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                           const Context* aContext) const override;
-#ifndef NDEBUG
     void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                  const ScriptablePropertySpecPtr& aPropSpec) const override;
-#endif
 };
 
 /**
@@ -495,10 +473,8 @@ public:
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
     void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                           const Context* aContext) const override;
-#ifndef NDEBUG
     void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                  const ScriptablePropertySpecPtr& aPropSpec) const override;
-#endif
 };
 
 /**
@@ -526,10 +502,8 @@ public:
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
     void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                           const Context* aContext) const override;
-#ifndef NDEBUG
     void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                  const ScriptablePropertySpecPtr& aPropSpec) const override;
-#endif
 };
 
 /**
@@ -550,10 +524,8 @@ public:
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
     void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                           const Context* aContext) const override;
-#ifndef NDEBUG
     void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                  const ScriptablePropertySpecPtr& aPropSpec) const override;
-#endif
 };
 
 /**
@@ -579,10 +551,8 @@ public:
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
     void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                           const Context* aContext) const override;
-#ifndef NDEBUG
     void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                  const ScriptablePropertySpecPtr& aPropSpec) const override;
-#endif
 };
 
 /**
@@ -602,10 +572,8 @@ public:
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
     void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                           const Context* aContext) const override;
-#ifndef NDEBUG
     void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                  const ScriptablePropertySpecPtr& aPropSpec) const override;
-#endif
 };
 
 /**
@@ -629,10 +597,8 @@ public:
                                              const ScriptablePropertySpecPtr& aPropSpec) const override;
     void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                           const Context* aContext) const override;
-#ifndef NDEBUG
     void ConfigureScriptFunction(Red::CClassFunction* aFunction,
                                  const ScriptablePropertySpecPtr& aPropSpec) const override;
-#endif
 };
 
 /**
@@ -689,14 +655,14 @@ public:
      * @return Whether the given function corresponds to a registered property getter and was successfully modified to
      * invoke the getter at runtime.
      */
-    bool AdaptScriptFunction(const ScriptableRecordSpecPtr& aRecordSpec, Red::CClassFunction* aFunc);
+    bool AdaptFunction(const ScriptableRecordSpecPtr& aRecordSpec, Red::CClassFunction* aFunc);
 
-#ifndef NDEBUG
-    void CreateScriptFunctions(const ScriptableRecordSpecPtr& aRecordSpec);
+    void CreateFunctions(const ScriptableRecordSpecPtr& aRecordSpec);
+
+    void CreateFunctions(const ScriptableRecordSpecPtr& aRecordSpec, const ScriptablePropertySpecPtr& aPropSpec);
 
     template<GetterType>
-    void CreatePropertyFunction(const ScriptableRecordSpecPtr& aRecordSpec, const ScriptablePropertySpecPtr& aPropSpec);
-#endif
+    bool CreateFunction(const ScriptableRecordSpecPtr& aRecordSpec, const ScriptablePropertySpecPtr& aPropSpec);
 
 private:
     /**
@@ -765,7 +731,8 @@ private:
      * @return A shared pointer to the script execution context corresponding to the given record and property
      * specifications. If the context did not already exist, it will be created and registered before being returned.
      */
-    ContextPtr CreateContext(const ScriptableRecordSpecPtr& aRecordSpec, const ScriptablePropertySpecPtr& aPropSpec);
+    const Context* CreateContext(const ScriptableRecordSpecPtr& aRecordSpec,
+                                 const ScriptablePropertySpecPtr& aPropSpec);
 
     /**
      * @brief Registers a script function as a property getter for a scriptable record type based on the given record
@@ -791,8 +758,7 @@ private:
      * to invoke at runtime.
      * @param aContext The execution context to pass to the property getter at runtime.
      */
-    void ReplaceScriptFunction(Red::CClassFunction* aFunction, GetterType aGetterType,
-                               const ContextPtr& aContext) const;
+    void ReplaceByteCode(Red::CClassFunction* aFunction, GetterType aGetterType, const Context* aContext) const;
 
     /**
      * @brief Truncates the bytecode of a given script function, effectively removing all existing instructions from the
@@ -803,7 +769,7 @@ private:
      *
      * @param aFunction The script function for which to truncate the bytecode.
      */
-    static void TruncateScriptFunction(Red::CClassFunction* aFunction);
+    static void TruncateByteCode(Red::CClassFunction* aFunction);
 
     /**
      * @brief Generates the script bytecode for a given script function to invoke a property getter for a scriptable
@@ -823,8 +789,8 @@ private:
      * type at runtime based on the given execution context and native function object corresponding to the property
      * getter.
      */
-    Red::RawBuffer CreateFunctionBytecode(GetterType aGetterType, const ContextPtr& aContext,
-                                          Red::CClassFunction* aFunction) const;
+    Red::RawBuffer CreateByteCode(GetterType aGetterType, const Context* aContext,
+                                  Red::CClassFunction* aFunction) const;
 
     /**
      * @brief Generates the hash of the function name corresponding to the given record specification and function for a
@@ -896,7 +862,7 @@ private:
      * @brief A collection of shared pointers to getter function execution contexts, kept alive for the lifetime of
      * this manager so that the raw pointers baked into bytecode remain valid.
      */
-    Core::Map<Red::CName, Core::Map<Red::CName, ContextPtr>> m_contexts;
+    Core::Map<Red::CName, Core::Map<Red::CName, const Context*>> m_contexts;
 
     static inline RecordArrayGetter s_recordArrayGetter{};
     static inline RecordArrayContainsGetter s_recordArrayContainsGetter{};

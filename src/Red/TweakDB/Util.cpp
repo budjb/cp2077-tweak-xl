@@ -598,11 +598,6 @@ TweakDBID GetRTDBRecordID(CName aRecord)
     return GetRTDBRecordID(std::string(aRecord.ToString()));
 }
 
-std::string Capitalize(CName aName)
-{
-    return Capitalize(aName.ToString());
-}
-
 std::string Capitalize(const std::string& aName)
 {
     return Capitalize(aName.c_str());
@@ -621,11 +616,6 @@ std::string Capitalize(const char* aName)
         name[0] = static_cast<char>(std::toupper(name[0]));
     }
     return name;
-}
-
-std::string Decapitalize(CName aName)
-{
-    return Decapitalize(aName.ToString());
 }
 
 std::string Decapitalize(const std::string& aName)
@@ -755,5 +745,30 @@ CRTTIBaseArrayType* GetWHandleArrayType(const CClass* aClass)
 
     return reinterpret_cast<CRTTIBaseArrayType*>(type);
 }
+
+const CRTTIBaseArrayType* ToArrayType(const rtti::IType* aType)
+{
+    if (aType->GetType() == ERTTIType::Array)
+    {
+        return reinterpret_cast<const CRTTIBaseArrayType*>(aType);
+    }
+
+    return nullptr;
+}
+
+const rtti::IType* GetInnerType(const rtti::IType* aType)
+{
+    if (const auto* arrayType = ToArrayType(aType))
+        return arrayType->GetInnerType();
+    return nullptr;
+}
+
+CName GetInnerTypeName(const rtti::IType* aType)
+{
+    if (const auto* type = GetInnerType(aType))
+        return type->GetName();
+    return {};
+}
+
 
 } // namespace Red

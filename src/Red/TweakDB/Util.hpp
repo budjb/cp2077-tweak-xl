@@ -797,18 +797,10 @@ TweakDBID GetRTDBRecordID(CName aRecord);
  * @param aName The name to capitalize.
  * @return The capitalized version of the given name.
  */
-std::string Capitalize(CName aName);
-
-/**
- * @brief Capitalizes the given name by converting the first character to uppercase if it is a lowercase letter. For
- * example, "foo" will be capitalized to "Foo", while "Foo" and "123abc" will remain unchanged.
- *
- * @param aName The name to capitalize.
- * @return The capitalized version of the given name.
- */
 std::string Capitalize(const std::string& aName);
 
 /**
+ * @brief Capitalizes the given name by converting the first character to uppercase if it is a lowercase letter. For
  * @brief Capitalizes the given name by converting the first character to uppercase if it is a lowercase letter. For
  * example, "foo" will be capitalized to "Foo", while "Foo" and "123abc" will remain unchanged.
  *
@@ -953,4 +945,52 @@ CWeakHandle* GetWHandleType(const CClass* aClass);
  * does not exist.
  */
 CRTTIBaseArrayType* GetWHandleArrayType(const CClass* aClass);
+
+/**
+ * @brief Attempts to cast and return the given type as an array type. If the type is not an array, @c nullptr is
+ * returned.
+ *
+ * @param aType The type to cast to an array type.
+ * @return The given type cast as an array type, or @c nullptr if the type is not an array.
+ */
+const CRTTIBaseArrayType* ToArrayType(const rtti::IType* aType);
+
+/**
+ * @brief Gets the inner type of the given type if it is an array, handle, or weak handle type.
+ *
+ * For array types, the inner type is the element type. For handle and weak handle types, the inner type is the class
+ * type that the handle refers to.
+ *
+ * If the given type is not an array, handle, or weak handle type, @c nullptr is returned.
+ *
+ * @param aType The type to get the inner type of.
+ * @return The inner type of the given type, or @c nullptr .
+ */
+const rtti::IType* GetInnerType(const rtti::IType* aType);
+
+/**
+ * @brief Gets the name of the inner type of the given type if it is an array, handle, or weak handle type.
+ *
+ * For array types, the inner type is the element type. For handle and weak handle types, the inner type is the class
+ * type that the handle refers to.
+ *
+ * If the given type is not an array, handle, or weak handle type, an empty @c CName is returned.
+ *
+ * @param aType The type to get the inner type name of.
+ * @return The name of the inner type of the given type, or empty.
+ */
+CName GetInnerTypeName(const rtti::IType* aType);
+
+template<typename T = void>
+DynArray<T>* ToArray(T* aInstance)
+{
+    return static_cast<DynArray<T>*>(aInstance);
+}
+
+template<typename T = void>
+DynArray<T>* ToArray(void* aInstance)
+{
+    return static_cast<DynArray<T>*>(aInstance);
+}
+
 } // namespace Red

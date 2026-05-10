@@ -132,10 +132,13 @@ ScriptablePropertySpecPtr ScriptableRecordManager::RegisterScriptableProperty(
     const ScriptableRecordSpecPtr& aRecordSpec, const std::string& aPropertyName, const TweakTypeSpecPtr& aTypeSpec,
     const Red::InstancePtr<>& aDefaultValue)
 {
-    const auto cname = Red::CName{aPropertyName.c_str()};
-
-    if (aRecordSpec->props.contains(cname))
-        return {};
+    if (aRecordSpec->props.contains(aPropertyName.c_str()))
+    {
+        LogError("Registration of property {} for record type {} failed because another with the same name is already "
+                 "registered.",
+                 aPropertyName, aRecordSpec->name);
+        return nullptr;
+    }
 
     const auto propertyInfo = Core::MakeShared<ScriptablePropertySpec>();
     propertyInfo->name = aPropertyName;
@@ -156,18 +159,17 @@ void ScriptableRecordManager::RegisterRTTITypes()
     {
         RegisterRTTIType(spec);
     }
-}
 
-void ScriptableRecordManager::DescribeRTTITypes()
-{
     for (auto& spec : m_specs | std::views::values)
+    {
         DescribeRTTIType(spec);
+    }
 }
 
-void ScriptableRecordManager::InsertDefaults()
+void ScriptableRecordManager::InsertDefaultValues()
 {
     for (const auto& spec : m_specs | std::views::values)
-        InsertDefaults(spec);
+        InsertDefaultValues(spec);
 }
 
 void ScriptableRecordManager::AdaptScriptClasses(const Red::DynArray<Red::ScriptClass*>& aClasses)
@@ -176,7 +178,26 @@ void ScriptableRecordManager::AdaptScriptClasses(const Red::DynArray<Red::Script
         AdaptScriptClass(classDef);
 }
 
-#ifndef NDEBUG
+bool ScriptableRecordManager::IsRTTIReady() const
+{
+    return m_rttiReady;
+}
+
+void ScriptableRecordManager::SetRTTIReady(const bool aRTTIReady)
+{
+    m_rttiReady = aRTTIReady;
+}
+
+bool ScriptableRecordManager::IsTweakDBReady() const
+{
+    return m_tweakDBReady;
+}
+
+void ScriptableRecordManager::SetTweakDBReady(const bool aTweakDBReady)
+{
+    m_tweakDBReady = aTweakDBReady;
+}
+
 bool ScriptableRecordManager::SetupTestRecordSpec(const ScriptableRecordSpecPtr& aSpec)
 {
     if (aSpec->isRegistered)
@@ -188,13 +209,13 @@ bool ScriptableRecordManager::SetupTestRecordSpec(const ScriptableRecordSpecPtr&
     if (!DescribeRTTIType(aSpec))
         return false;
 
-    InsertDefaults(aSpec);
+    for (auto& propSpec : aSpec->props | std::views::values)
+        CreatePropertyFunctions(aSpec, propSpec);
 
-    m_propertyHandler->CreateScriptFunctions(aSpec);
+    InsertDefaultValues(aSpec);
 
     return true;
 }
-#endif
 
 ScriptableRecordSpecPtr ScriptableRecordManager::GetRecordSpec(Red::CName aName) const
 {
@@ -254,15 +275,12 @@ bool ScriptableRecordManager::DescribeRTTIType(const ScriptableRecordSpecPtr& aS
     Red::CNamePool::Add(Red::GetWHandleTypeName<std::string>(aSpec->type).c_str());
     Red::CNamePool::Add(Red::GetWHandleArrayTypeName<std::string>(aSpec->type).c_str());
 
-    for (const auto& prop : aSpec->props | std::views::values)
-        StagePropertyFunctions(aSpec, prop);
-
     aSpec->isDescribed = true;
     return true;
 }
 
-bool ScriptableRecordManager::StagePropertyFunctions(const ScriptableRecordSpecPtr& aRecordSpec,
-                                                     const ScriptablePropertySpecPtr& aPropSpec)
+bool ScriptableRecordManager::CreatePropertyFunctions(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                      const ScriptablePropertySpecPtr& aPropSpec) const
 {
     if (aPropSpec->isDescribed)
     {
@@ -271,9 +289,7 @@ bool ScriptableRecordManager::StagePropertyFunctions(const ScriptableRecordSpecP
         return false;
     }
 
-    const auto& typeSpec = aPropSpec->typeSpec;
-
-    if (typeSpec->isForeignKey)
+    if (const auto& typeSpec = aPropSpec->typeSpec; typeSpec->isForeignKey)
     {
         if (!typeSpec->foreignType)
         {
@@ -294,14 +310,14 @@ bool ScriptableRecordManager::StagePropertyFunctions(const ScriptableRecordSpecP
         Red::CNamePool::Add(Red::GetWHandleArrayTypeName<std::string>(typeSpec->foreignType).c_str());
     }
 
-    m_propertyHandler->RegisterScriptableProperty(aRecordSpec, aPropSpec);
+    m_propertyHandler->CreateFunctions(aRecordSpec, aPropSpec);
 
     aPropSpec->isDescribed = true;
 
     return true;
 }
 
-void ScriptableRecordManager::InsertDefaults(const ScriptableRecordSpecPtr& aSpec)
+void ScriptableRecordManager::InsertDefaultValues(const ScriptableRecordSpecPtr& aSpec)
 {
     if (!aSpec->isDescribed || aSpec->isInserted)
         return;
@@ -325,18 +341,18 @@ void ScriptableRecordManager::InsertDefaults(const ScriptableRecordSpecPtr& aSpe
     }
 
     if (aSpec->type->parent)
-        InsertDefaults(aSpec->type->parent);
+        InsertDefaultValues(aSpec->type->parent);
 
     aSpec->isInserted = true;
 }
 
-void ScriptableRecordManager::InsertDefaults(const Red::CClass* aClass)
+void ScriptableRecordManager::InsertDefaultValues(const Red::CClass* aClass)
 {
     if (!aClass)
         return;
 
     if (const auto spec = GetRecordSpec(aClass->GetName()))
-        InsertDefaults(spec);
+        InsertDefaultValues(spec);
 }
 
 ScriptableRecordClass* ScriptableRecordManager::GetRecordClass(const uint32_t aHash) const
@@ -344,7 +360,7 @@ ScriptableRecordClass* ScriptableRecordManager::GetRecordClass(const uint32_t aH
     std::shared_lock lockR(m_classesMutex);
 
     if (const auto it = m_classes.find(aHash); it != m_classes.end())
-        return it->second.get();
+        return it->second;
 
     return nullptr;
 }
@@ -365,9 +381,11 @@ ScriptableRecordClass* ScriptableRecordManager::CreateRecordClass(const Scriptab
         return nullptr;
     }
 
-    const auto cls = Core::MakeShared<ScriptableRecordClass>(aSpec->cname, aSpec->hash);
+    const auto allocator = Red::Memory::RTTIAllocator::Get();
+    auto alloc = allocator->AllocAligned(sizeof(ScriptableRecordClass), alignof(ScriptableRecordClass));
+    const auto cls = new (alloc.memory) ScriptableRecordClass(aSpec->cname, aSpec->hash);
 
-    m_rtti->RegisterType(cls.get());
+    m_rtti->RegisterType(cls);
     m_rtti->RegisterScriptName(aSpec->cname, aSpec->aliasCName);
 
     {
@@ -375,7 +393,7 @@ ScriptableRecordClass* ScriptableRecordManager::CreateRecordClass(const Scriptab
         m_classes[cls->tweakBaseHash] = cls;
     }
 
-    return cls.get();
+    return cls;
 }
 
 void ScriptableRecordManager::AdaptScriptClass(const Red::ScriptClass* aClassDef)
@@ -396,7 +414,7 @@ void ScriptableRecordManager::AdaptScriptClass(const Red::ScriptClass* aClassDef
         return;
 
     for (const auto& func : cls->funcs)
-        m_propertyHandler->AdaptScriptFunction(recordSpec, func);
+        m_propertyHandler->AdaptFunction(recordSpec, func);
 }
 
 } // namespace App
