@@ -70,13 +70,6 @@ private:
     static void Setup();
 
     /**
-     * @brief Cleans up the test environment by removing the test TweakDB record instance, its flat values, and
-     * unregistering the scriptable record type to ensure that the test environment does not interfere with normal
-     * application functionality after testing is complete.
-     */
-    static void Cleanup();
-
-    /**
      * @brief A boolean flag indicating whether the test environment has been set up. This ensures that the setup
      * process is only performed once, even if the Run method is called multiple times.
      */

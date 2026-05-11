@@ -224,7 +224,7 @@ public:
      * If this function returns false, the specification should not be used for testing as it may be in an incomplete or
      * invalid state.
      */
-    bool SetupTestRecordSpec(const ScriptableRecordSpecPtr& aSpec);
+    bool SetupTestRecord(const ScriptableRecordSpecPtr& aSpec);
 #endif
 
 private:

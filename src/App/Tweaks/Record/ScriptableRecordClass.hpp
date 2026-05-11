@@ -12,6 +12,11 @@ class ScriptableRecordClass : public Red::CClass
 {
 public:
     /**
+     * @brief The allocator type used for instances of this class.
+     */
+    using AllocatorType = Red::Memory::RTTIAllocator;
+
+    /**
      * @brief Constructs a new ScriptableRecordClass with the specified name and hash.
      *
      * The name of the record must be registered in the CName pool as the fully-qualified name of the record type,

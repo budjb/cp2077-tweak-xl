@@ -166,66 +166,6 @@ void ScriptableRecordManager::RegisterRTTITypes()
     }
 }
 
-void ScriptableRecordManager::InsertDefaultValues()
-{
-    for (const auto& spec : m_specs | std::views::values)
-        InsertDefaultValues(spec);
-}
-
-void ScriptableRecordManager::AdaptScriptClasses(const Red::DynArray<Red::ScriptClass*>& aClasses)
-{
-    for (const auto& classDef : aClasses)
-        AdaptScriptClass(classDef);
-}
-
-bool ScriptableRecordManager::IsRTTIReady() const
-{
-    return m_rttiReady;
-}
-
-void ScriptableRecordManager::SetRTTIReady(const bool aRTTIReady)
-{
-    m_rttiReady = aRTTIReady;
-}
-
-bool ScriptableRecordManager::IsTweakDBReady() const
-{
-    return m_tweakDBReady;
-}
-
-void ScriptableRecordManager::SetTweakDBReady(const bool aTweakDBReady)
-{
-    m_tweakDBReady = aTweakDBReady;
-}
-
-bool ScriptableRecordManager::SetupTestRecordSpec(const ScriptableRecordSpecPtr& aSpec)
-{
-    if (aSpec->isRegistered)
-        return false;
-
-    if (!RegisterRTTIType(aSpec))
-        return false;
-
-    if (!DescribeRTTIType(aSpec))
-        return false;
-
-    for (auto& propSpec : aSpec->props | std::views::values)
-        CreatePropertyFunctions(aSpec, propSpec);
-
-    InsertDefaultValues(aSpec);
-
-    return true;
-}
-
-ScriptableRecordSpecPtr ScriptableRecordManager::GetRecordSpec(Red::CName aName) const
-{
-    std::shared_lock lockR(m_specsMutex);
-    if (const auto it = m_specs.find(aName); it != m_specs.end())
-        return it->second;
-
-    return nullptr;
-}
-
 bool ScriptableRecordManager::RegisterRTTIType(const ScriptableRecordSpecPtr& aSpec)
 {
     if (aSpec->isRegistered)
@@ -317,6 +257,66 @@ bool ScriptableRecordManager::CreatePropertyFunctions(const ScriptableRecordSpec
     return true;
 }
 
+void ScriptableRecordManager::InsertDefaultValues()
+{
+    for (const auto& spec : m_specs | std::views::values)
+        InsertDefaultValues(spec);
+}
+
+void ScriptableRecordManager::AdaptScriptClasses(const Red::DynArray<Red::ScriptClass*>& aClasses)
+{
+    for (const auto& classDef : aClasses)
+        AdaptScriptClass(classDef);
+}
+
+bool ScriptableRecordManager::IsRTTIReady() const
+{
+    return m_rttiReady;
+}
+
+void ScriptableRecordManager::SetRTTIReady(const bool aRTTIReady)
+{
+    m_rttiReady = aRTTIReady;
+}
+
+bool ScriptableRecordManager::IsTweakDBReady() const
+{
+    return m_tweakDBReady;
+}
+
+void ScriptableRecordManager::SetTweakDBReady(const bool aTweakDBReady)
+{
+    m_tweakDBReady = aTweakDBReady;
+}
+
+bool ScriptableRecordManager::SetupTestRecord(const ScriptableRecordSpecPtr& aSpec)
+{
+    if (aSpec->isRegistered)
+        return false;
+
+    if (!RegisterRTTIType(aSpec))
+        return false;
+
+    if (!DescribeRTTIType(aSpec))
+        return false;
+
+    for (auto& propSpec : aSpec->props | std::views::values)
+        (void)CreatePropertyFunctions(aSpec, propSpec);
+
+    InsertDefaultValues(aSpec);
+
+    return true;
+}
+
+ScriptableRecordSpecPtr ScriptableRecordManager::GetRecordSpec(Red::CName aName) const
+{
+    std::shared_lock lockR(m_specsMutex);
+    if (const auto it = m_specs.find(aName); it != m_specs.end())
+        return it->second;
+
+    return nullptr;
+}
+
 void ScriptableRecordManager::InsertDefaultValues(const ScriptableRecordSpecPtr& aSpec)
 {
     if (!aSpec->isDescribed || aSpec->isInserted)
@@ -381,9 +381,7 @@ ScriptableRecordClass* ScriptableRecordManager::CreateRecordClass(const Scriptab
         return nullptr;
     }
 
-    const auto allocator = Red::Memory::RTTIAllocator::Get();
-    auto alloc = allocator->AllocAligned(sizeof(ScriptableRecordClass), alignof(ScriptableRecordClass));
-    const auto cls = new (alloc.memory) ScriptableRecordClass(aSpec->cname, aSpec->hash);
+    const auto cls = Red::Memory::New<ScriptableRecordClass>(aSpec->cname, aSpec->hash);
 
     m_rtti->RegisterType(cls);
     m_rtti->RegisterScriptName(aSpec->cname, aSpec->aliasCName);

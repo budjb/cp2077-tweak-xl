@@ -102,12 +102,7 @@ int Tests::ScriptableRecordTestRunner::Run(const std::filesystem::path& aDir)
     const char* argv[] = {"TweakXL.dll"};
     auto session = Catch::Session();
     session.configData().defaultOutputFilename = (aDir / "test_results.txt").string();
-    const auto result = session.run(1, argv);
-
-    Cleanup();
-    s_isSetup = false;
-
-    return result;
+    return session.run(1, argv);
 }
 
 void Tests::ScriptableRecordTestRunner::Setup()
@@ -148,7 +143,7 @@ void Tests::ScriptableRecordTestRunner::Setup()
     recordManager->RegisterScriptableProperty(recordSpec, "TweakDBIDArrayProp",
                                               GetTweakTypeSpec<TweakDBIDArray>("Vehicle"));
 
-    recordManager->SetupTestRecordSpec(recordSpec);
+    recordManager->SetupTestRecord(recordSpec);
 
     auto intVal = 42;
     auto floatVal = 3.14f;
@@ -210,43 +205,6 @@ void Tests::ScriptableRecordTestRunner::Setup()
     tweakManager->SetFlat(TweakDBIDArrayID, TweakDBIDArrayType::Get(), &tweakDBIDArrayVal);
 
     tweakManager->CreateRecord(RecordID, RecordType::GetClass());
-}
-
-void Tests::ScriptableRecordTestRunner::Cleanup()
-{
-    const auto tweakManager = Tests::ScriptableRecordTestRunner::GetTweakManager();
-    auto* tweakDB = tweakManager->GetTweakDB();
-
-    tweakDB->RemoveRecord(RecordID);
-
-    tweakDB->RemoveFlat(IntID);
-    tweakDB->RemoveFlat(FloatID);
-    tweakDB->RemoveFlat(BoolID);
-    tweakDB->RemoveFlat(StringID);
-    tweakDB->RemoveFlat(CNameID);
-    tweakDB->RemoveFlat(LocKeyID);
-    tweakDB->RemoveFlat(ResRefID);
-    tweakDB->RemoveFlat(QuaternionID);
-    tweakDB->RemoveFlat(EulerAnglesID);
-    tweakDB->RemoveFlat(Vector3ID);
-    tweakDB->RemoveFlat(Vector2ID);
-    tweakDB->RemoveFlat(ColorID);
-    tweakDB->RemoveFlat(IntArrayID);
-    tweakDB->RemoveFlat(FloatArrayID);
-    tweakDB->RemoveFlat(BoolArrayID);
-    tweakDB->RemoveFlat(StringArrayID);
-    tweakDB->RemoveFlat(CNameArrayID);
-    tweakDB->RemoveFlat(LocKeyArrayID);
-    tweakDB->RemoveFlat(ResRefArrayID);
-    tweakDB->RemoveFlat(QuaternionArrayID);
-    tweakDB->RemoveFlat(EulerAnglesArrayID);
-    tweakDB->RemoveFlat(Vector3ArrayID);
-    tweakDB->RemoveFlat(Vector2ArrayID);
-    tweakDB->RemoveFlat(ColorArrayID);
-    tweakDB->RemoveFlat(TweakDBIDID);
-    tweakDB->RemoveFlat(TweakDBIDArrayID);
-
-    // TODO: clear handler registrations and remove scriptable record class
 }
 
 TEST_CASE("When an existing scriptable record is queried, TweakDB returns it")

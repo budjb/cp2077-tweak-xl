@@ -625,23 +625,6 @@ public:
     void RegisterInvocationHandler();
 
     /**
-     * @brief Registers a script function as a property getter for a scriptable record type based on the given record
-     * and property specifications.
-     *
-     * This process does not create any functions with RTTI or the scripting system, but merely stages downstream
-     * processing so that functions parsed from RedScript can be modified to invoke the correct property getter. Based
-     * on the characteristics of the property one or many functions will be created according to typical TweakDB
-     * conventions.
-     *
-     * This function must be called for each valid property of a scriptable record in order to function correctly.
-     *
-     * @param aRecordSpec The specification of the scriptable record type that this property belongs to.
-     * @param aPropSpec The specification of the property that this function serves as a getter for.
-     */
-    void RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
-                                    const ScriptablePropertySpecPtr& aPropSpec);
-
-    /**
      * @brief Checks whether a given script function corresponds to a registered property getter for a scriptable
      * record type based on the given record specification, and if so, modifies the function's bytecode to invoke the
      * appropriate property getter at runtime.
@@ -661,10 +644,14 @@ public:
 
     void CreateFunctions(const ScriptableRecordSpecPtr& aRecordSpec, const ScriptablePropertySpecPtr& aPropSpec);
 
-    template<GetterType>
-    bool CreateFunction(const ScriptableRecordSpecPtr& aRecordSpec, const ScriptablePropertySpecPtr& aPropSpec);
-
 private:
+    struct FunctionEntry
+    {
+        GetterType type;
+        Red::CClassFunction* function;
+        Red::RawBuffer bytecode;
+    };
+
     /**
      * @brief The name of the global function registered with RTTI that serves as the invocation handler for all
      * property getter functions.
@@ -731,21 +718,11 @@ private:
      * @return A shared pointer to the script execution context corresponding to the given record and property
      * specifications. If the context did not already exist, it will be created and registered before being returned.
      */
-    const Context* CreateContext(const ScriptableRecordSpecPtr& aRecordSpec,
-                                 const ScriptablePropertySpecPtr& aPropSpec);
+    const Context* GetContext(const ScriptableRecordSpecPtr& aRecordSpec, const ScriptablePropertySpecPtr& aPropSpec);
 
-    /**
-     * @brief Registers a script function as a property getter for a scriptable record type based on the given record
-     * and property specifications for a specific getter type. As opposed to @c RegisterScriptableProperty, this
-     * function is responsible for registering a single function corresponding to a specific getter type based on the
-     * property.
-     *
-     * @param aRecordSpec The specification of the scriptable record type that this property belongs to.
-     * @param aPropSpec The specification of the property that this function serves as a getter for.
-     */
+    // TODO: doc this
     template<GetterType>
-    void RegisterPropertyFunction(const ScriptableRecordSpecPtr& aRecordSpec,
-                                  const ScriptablePropertySpecPtr& aPropSpec);
+    bool CreateFunction(const ScriptableRecordSpecPtr& aRecordSpec, const ScriptablePropertySpecPtr& aPropSpec);
 
     /**
      * @brief Modifies a given script function to invoke the appropriate property getter for a scriptable record type
@@ -754,11 +731,13 @@ private:
      * execution context to the getter at runtime.
      *
      * @param aFunction The script function to modify to invoke a property getter at runtime.
-     * @param aGetterType The type of getter function to generate bytecode for, used to determine which property getter
-     * to invoke at runtime.
+     * @param aEntry The function entry containing the getter type and existing bytecode for the given function, which
+     * will be replaced with bytecode to invoke the appropriate property getter at runtime.
      * @param aContext The execution context to pass to the property getter at runtime.
+     * @todo update this doc
      */
-    void ReplaceByteCode(Red::CClassFunction* aFunction, GetterType aGetterType, const Context* aContext) const;
+    void ReplaceByteCode(Red::CClassFunction* aFunction, const Core::SharedPtr<FunctionEntry>& aEntry,
+                         const Context* aContext) const;
 
     /**
      * @brief Truncates the bytecode of a given script function, effectively removing all existing instructions from the
@@ -769,7 +748,7 @@ private:
      *
      * @param aFunction The script function for which to truncate the bytecode.
      */
-    static void TruncateByteCode(Red::CClassFunction* aFunction);
+    static void TruncateByteCode(Red::CClassFunction* aFunction, const Core::SharedPtr<FunctionEntry>& aEntry);
 
     /**
      * @brief Generates the script bytecode for a given script function to invoke a property getter for a scriptable
@@ -836,7 +815,7 @@ private:
      * @brief A mutex for synchronizing access to the mapping of function signature hashes to getter types for
      * thread safety.
      */
-    std::shared_mutex m_functionTypesMutex;
+    std::shared_mutex m_functionsMutex;
 
     /**
      * @brief A pointer to the global function registered with RTTI that serves as the invocation handler for all
@@ -844,13 +823,8 @@ private:
      */
     Red::CGlobalFunction* m_invocationHandler = nullptr;
 
-    /**
-     * @brief A mapping of function signature hashes to getter types, indexed by the CName of the record class name and
-     * the CName of the function name corresponding to the property specification for a script function. This is used to
-     * determine which property getter to invoke for a given script function based on the function's signature when
-     * adapting script functions to invoke property getters at runtime.
-     */
-    Core::Map<Red::CName, Core::Map<Red::CName, GetterType>> m_functionTypes;
+    // TODO: doc this
+    Core::Map<Red::CName, Core::Map<Red::CName, Core::SharedPtr<FunctionEntry>>> m_functions;
 
     /**
      * @brief A mutex for synchronizing access to the scriptable record property getter function execution contexts for
