@@ -21,8 +21,7 @@ bool App::TweakChangelog::RegisterSchema(Red::CName aName)
     return true;
 }
 
-bool App::TweakChangelog::RegisterAssignment(Red::TweakDBID aFlatId, const Red::Instance aOldValue,
-                                             const Red::Instance aNewValue)
+bool App::TweakChangelog::RegisterAssignment(Red::TweakDBID aFlatId, Red::Instance aOldValue, Red::Instance aNewValue)
 {
     if (!aFlatId.IsValid() || !aOldValue || !aNewValue || aOldValue == aNewValue)
         return false;

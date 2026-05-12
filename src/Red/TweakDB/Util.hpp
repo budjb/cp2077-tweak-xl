@@ -953,7 +953,25 @@ CRTTIBaseArrayType* GetWHandleArrayType(const CClass* aClass);
  * @param aType The type to cast to an array type.
  * @return The given type cast as an array type, or @c nullptr if the type is not an array.
  */
-const CRTTIBaseArrayType* ToArrayType(const rtti::IType* aType);
+const CRTTIBaseArrayType* ToArrayType(const CBaseRTTIType* aType);
+
+/**
+ * @brief Attempts to cast and return the given type as a weak handle type. If the type is not a weak handle, @c nullptr
+ * is returned.
+ *
+ * @param aType The type to cast to a weak handle type.
+ * @return The given type cast as a weak handle type, or @c nullptr if the type is not a weak handle.
+ */
+const CWeakHandle* ToWeakHandleType(const CBaseRTTIType* aType);
+
+/**
+ * @brief Attempts to cast and return the given type as a handle type. If the type is not a handle, @c nullptr is
+ * returned.
+ *
+ * @param aType The type to cast to a handle type.
+ * @return The given type cast as a handle type, or @c nullptr if the type is not a handle.
+ */
+const CHandle* ToHandleType(const CBaseRTTIType* aType);
 
 /**
  * @brief Gets the inner type of the given type if it is an array, handle, or weak handle type.
@@ -966,7 +984,27 @@ const CRTTIBaseArrayType* ToArrayType(const rtti::IType* aType);
  * @param aType The type to get the inner type of.
  * @return The inner type of the given type, or @c nullptr .
  */
-const rtti::IType* GetInnerType(const rtti::IType* aType);
+template<typename T = CBaseRTTIType>
+    requires std::is_base_of_v<CBaseRTTIType, T>
+const T* GetInnerType(const CBaseRTTIType* aType);
+
+/**
+ * @brief Gets the inner type of the given type if it is an array, handle, or weak handle type.
+ *
+ * @param aType The type to get the inner type of.
+ * @return The inner type of the given type, or @c nullptr.
+ */
+template<>
+const CBaseRTTIType* GetInnerType(const CBaseRTTIType* aType);
+
+/**
+ * @brief Gets the inner class type of the given type if it is an array, handle, or weak handle type.
+ *
+ * @param aType The type to get the inner type of.
+ * @return The inner class type of the given type, or @c nullptr.
+ */
+template<>
+const CClass* GetInnerType(const CBaseRTTIType* aType);
 
 /**
  * @brief Gets the name of the inner type of the given type if it is an array, handle, or weak handle type.
@@ -979,5 +1017,5 @@ const rtti::IType* GetInnerType(const rtti::IType* aType);
  * @param aType The type to get the inner type name of.
  * @return The name of the inner type of the given type, or empty.
  */
-CName GetInnerTypeName(const rtti::IType* aType);
+CName GetInnerTypeName(const CBaseRTTIType* aType);
 } // namespace Red

@@ -15,16 +15,15 @@ std::string ScriptablePropertyGetter::GetFunctionName(const std::string& aName) 
     return std::string(m_prefix).append(aName).append(m_suffix);
 }
 
-Red::TweakDBID ScriptablePropertyGetter::GetFlatID(const Red::Instance aInstance, const Context* aContext)
+Red::TweakDBID ScriptablePropertyGetter::GetFlatID(Red::Instance aInstance, const Context* aContext) const
 {
     return static_cast<ScriptableTweakDBRecord*>(aInstance)->recordID + aContext->appendix;
 }
 
 template<template<typename> typename THandle>
-    requires(std::is_same_v<THandle<Red::TweakDBRecord>, Red::Handle<Red::TweakDBRecord>> ||
-             std::is_same_v<THandle<Red::TweakDBRecord>, Red::WeakHandle<Red::TweakDBRecord>>)
+    requires IsHandleType<THandle>
 std::optional<Red::DynArray<THandle<Red::TweakDBRecord>>> ScriptablePropertyGetter::GetRecordArray(
-    const Red::Value<>& aValue, const Context* aContext)
+    const Red::Value<>& aValue, const Context* aContext) const
 {
     if (!aContext->typeSpec->foreignType || !Red::IsArrayType(aValue.type))
         return nullptr;
@@ -884,10 +883,8 @@ void ScriptablePropertyManager::CreateFunctions(const ScriptableRecordSpecPtr& a
     if (!aRecordSpec->type)
         return;
 
-    for (const auto propSpec : aRecordSpec->props | std::views::values)
-    {
+    for (const auto& propSpec : aRecordSpec->props | std::views::values)
         CreateFunctions(aRecordSpec, propSpec);
-    }
 }
 
 void ScriptablePropertyManager::CreateFunctions(const ScriptableRecordSpecPtr& aRecordSpec,
@@ -934,6 +931,7 @@ Context* ScriptablePropertyManager::ParseContext(Red::CStackFrame* aFrame)
 GetterType ScriptablePropertyManager::ParseGetterType(Red::CStackFrame* aFrame)
 {
     static constexpr auto TypeSize = sizeof(GetterType);
+
     const auto type = *reinterpret_cast<GetterType*>(aFrame->code);
     aFrame->code += TypeSize;
     return type;
@@ -1030,7 +1028,7 @@ bool ScriptablePropertyManager::CreateFunction(const GetterType aType, const Scr
 
     if (!handler)
     {
-        LogError("Unsupported getter type \"{}\" for record \"{}\" property \"{}\"", static_cast<uint32_t>(aType),
+        LogError(R"(Unsupported getter type "{}" for record "{}" property "{}")", static_cast<uint32_t>(aType),
                  aRecordSpec->aliasName, aPropSpec->name);
         return false;
     }
@@ -1039,7 +1037,7 @@ bool ScriptablePropertyManager::CreateFunction(const GetterType aType, const Scr
 
     const auto name = handler->GetFunctionName(aPropSpec->functionName);
 
-    LogDebug("Creating function \"{}::{}\"...", aRecordSpec->aliasName, name);
+    LogDebug(R"(Creating function "{}::{}"...)", aRecordSpec->aliasName, name);
 
     auto* function = Red::CClassFunction::Create(aRecordSpec->type, name.c_str(), name.c_str(), &HandleInvocation);
     handler->ConfigureScriptFunction(function, aPropSpec);
@@ -1077,7 +1075,7 @@ bool ScriptablePropertyManager::DeleteFunction(const GetterType aType, const Scr
     if (!recordEntry.contains(hash))
         return false;
 
-    LogDebug("Deleting function \"{}::{}\".", aRecordSpec->aliasName,
+    LogDebug(R"(Deleting function "{}::{}".)", aRecordSpec->aliasName,
              handler->GetFunctionName(aPropSpec->functionName));
 
     TruncateByteCode(recordEntry.at(hash));

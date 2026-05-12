@@ -1,5 +1,7 @@
 #include "SchemaChangeset.hpp"
 
+#include <regex>
+
 namespace
 {
 struct VectorDiff
@@ -32,12 +34,22 @@ VectorDiff GetVectorDiff(std::vector<Red::CName> aLhs, std::vector<Red::CName> a
     return diff;
 }
 
+const auto NameRegex = std::regex("^[a-zA-Z_][a-zA-Z0-9_]*$");
+
 } // namespace
 
 namespace App
 {
 bool SchemaChangeset::MakeRecord(const std::string& aName, const std::optional<std::string>& aParent)
 {
+    if (!std::regex_match(aName, NameRegex))
+    {
+        LogError(R"(Invalid scriptable record name "{}". Record names must start with a letter or underscore and can )"
+                 "only contain letters, digits, and underscores.",
+                 aName);
+        return false;
+    }
+
     // TODO: validate record name is valid?
 
     const auto name = Red::NormalizeRecordName(aName);
@@ -45,7 +57,7 @@ bool SchemaChangeset::MakeRecord(const std::string& aName, const std::optional<s
 
     if (name.empty())
     {
-        LogError("Invalid scriptable record name \"{}\".", aliasName);
+        LogError(R"(Invalid scriptable record name "{}".)", aliasName);
         return false;
     }
 
@@ -53,13 +65,13 @@ bool SchemaChangeset::MakeRecord(const std::string& aName, const std::optional<s
 
     if (m_pendingRecords.contains(cname))
     {
-        LogError("Record \"{}\" is already defined; skipping...", aliasName);
+        LogError(R"(Record "{}" is already defined; skipping...)", aliasName);
         return false;
     }
 
     if (aliasName == aName)
     {
-        LogInfo("Record name \"{}\" is normalized to \"{}\".", aName, aliasName);
+        LogInfo(R"(Record name "{}" is normalized to "{}".)", aName, aliasName);
     }
 
     m_pendingRecords.insert({cname, {name, aParent}});
@@ -70,13 +82,20 @@ bool SchemaChangeset::MakeRecord(const std::string& aName, const std::optional<s
 bool SchemaChangeset::MakeProperty(const std::string& aRecordName, const std::string& aPropName,
                                    const TweakTypeSpecPtr& aTypeInfo, const Red::InstancePtr<>& aDefaultValue)
 {
-    // TODO: validate property name is valid?
+    if (!std::regex_match(aPropName, NameRegex))
+    {
+        LogError(R"(Invalid scriptable property name "{}" for record "{}". Property names must start with a letter )"
+                 "or underscore and can "
+                 "only contain letters, digits, and underscores.",
+                 aPropName, aRecordName);
+        return false;
+    }
 
     const auto recordName = Red::NormalizeRecordName(aRecordName);
 
     if (recordName.empty())
     {
-        LogError("Invalid scriptable record name \"{}\" for property \"{}\".", aRecordName, aPropName);
+        LogError(R"(Invalid scriptable record name "{}" for property "{}".)", aRecordName, aPropName);
         return false;
     }
 
@@ -85,7 +104,7 @@ bool SchemaChangeset::MakeProperty(const std::string& aRecordName, const std::st
 
     if (!m_pendingRecords.contains(recordCName))
     {
-        LogError("Cannot define property \"{}\" for record \"{}\", the record is not defined.", aPropName, aliasName);
+        LogError(R"(Cannot define property "{}" for record "{}", the record is not defined.)", aPropName, aliasName);
         return false;
     }
 
@@ -95,7 +114,7 @@ bool SchemaChangeset::MakeProperty(const std::string& aRecordName, const std::st
 
     if (record.properties.contains(propertyCName))
     {
-        LogError("Property \"{}\" of record \"{}\" is already defined; skipping...", aPropName, aliasName);
+        LogError(R"(Property "{}" of record "{}" is already defined; skipping...)", aPropName, aliasName);
         return false;
     }
 
@@ -159,7 +178,7 @@ void SchemaChangeset::Commit(const Core::SharedPtr<ScriptableRecordManager>& aRe
 
             if (*propSpec->typeSpec != *propEntry.type)
             {
-                LogError("{}: Type \"{}\" for property \"{}\" is not compatible with the existing type \"{}\".",
+                LogError(R"({}: Type "{}" for property "{}" is not compatible with the existing type "{}".)",
                          recordEntry.name, propEntry.type->flatTypeName.ToString(), propEntry.name,
                          propSpec->typeSpec->flatTypeName.ToString());
                 continue;
@@ -188,7 +207,7 @@ void SchemaChangeset::Commit(const Core::SharedPtr<ScriptableRecordManager>& aRe
         }
 
         for (auto& propSpec : recordSpec->props | std::views::values)
-            (void)aRecordManager->CreatePropertyFunctions(recordSpec, propSpec);
+            aRecordManager->CreatePropertyFunctions(recordSpec, propSpec);
     }
 
     if (aRecordManager->IsTweakDBReady())

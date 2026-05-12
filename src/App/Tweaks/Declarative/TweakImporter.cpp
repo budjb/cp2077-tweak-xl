@@ -99,7 +99,7 @@ void App::TweakImporter::Load(const Core::Vector<std::filesystem::path>& aImport
     }
 }
 
-void App::TweakImporter::ImportSchemas(const Core::SharedPtr<TweakChangelog>& aChangelog, const bool aDryRun)
+void App::TweakImporter::ImportSchemas(const Core::SharedPtr<TweakChangelog>& aChangelog, const bool aDryRun) const
 {
     LogInfo("Scanning tweak files for schemas...");
 
@@ -117,7 +117,7 @@ void App::TweakImporter::ImportSchemas(const Core::SharedPtr<TweakChangelog>& aC
 
         if (!aDryRun)
         {
-            Apply(changeset, aChangelog);
+            (void)Apply(changeset, aChangelog);
         }
     }
     catch (const std::exception& ex)
@@ -146,7 +146,7 @@ void App::TweakImporter::ImportValues(const Core::SharedPtr<TweakChangelog>& aCh
 
         if (!aDryRun)
         {
-            Apply(changeset, aChangelog);
+            (void)Apply(changeset, aChangelog);
         }
     }
     catch (const std::exception& ex)
@@ -247,12 +247,12 @@ bool App::TweakImporter::Apply(const Core::SharedPtr<TweakChangeset>& aChangeset
 
 bool App::TweakImporter::IsFirstPriority(const std::filesystem::path& aPath)
 {
-    const std::string s_firstPriorityMarkers = "_#$!";
+    static const std::string s_firstPriorityMarkers = "_#$!";
     return s_firstPriorityMarkers.find(aPath.filename().string().front()) != std::string::npos;
 }
 
 bool App::TweakImporter::IsLastPriority(const std::filesystem::path& aPath)
 {
-    const std::string s_lastPriorityMarkers = "^";
+    static const std::string s_lastPriorityMarkers = "^";
     return s_lastPriorityMarkers.find(aPath.filename().string().front()) != std::string::npos;
 }

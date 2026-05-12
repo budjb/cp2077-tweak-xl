@@ -125,10 +125,10 @@ public:
      * @return A shared pointer to the registered property specification, or @c nullptr if registration failed for any
      * reason.
      */
-    static ScriptablePropertySpecPtr RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
+    void RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
                                                                 const std::string& aPropertyName,
                                                                 const TweakTypeSpecPtr& aTypeSpec,
-                                                                const Red::InstancePtr<>& aDefaultValue = nullptr);
+                                                                const Red::InstancePtr<>& aDefaultValue = nullptr) const;
 
     /**
      * @brief Unregisters a scriptable record type and all of its properties from this manager based on the record's
@@ -167,8 +167,8 @@ public:
      * @param aDefaultValue The new default value of the property that will be inherited by instances of the record type
      * when no explicit value is provided for the instance.
      */
-    static void UpdateScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec, const std::string& aPropName,
-                                         const Red::InstancePtr<>& aDefaultValue);
+    void UpdateScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec, const std::string& aPropName,
+                                         const Red::InstancePtr<>& aDefaultValue) const;
     /**
      * @brief Creates and registers RTTI classes for all pending scriptable record specifications registered with this
      * object. RTTI type registration only creates classes without any properties, functions, or inheritance.
@@ -205,7 +205,7 @@ public:
      * @return Whether all functions for the properties of the given record specification were successfully created and
      * registered with RTTI.
      */
-    bool CreatePropertyFunctions(const ScriptableRecordSpecPtr& aRecordSpec,
+    void CreatePropertyFunctions(const ScriptableRecordSpecPtr& aRecordSpec,
                                  const ScriptablePropertySpecPtr& aPropSpec) const;
 
     /**

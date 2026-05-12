@@ -110,7 +110,7 @@ bool ScriptableRecordManager::CreateScriptableRecord(Red::TweakDB* aTweakDB, Scr
         return true;
     }
 
-    LogError("Failed to create an instance of scriptable record type \"{}\".", aClass->GetName().ToString());
+    LogError(R"(Failed to create an instance of scriptable record type "{}".)", aClass->GetName().ToString());
     return false;
 }
 
@@ -122,14 +122,14 @@ ScriptableRecordSpecPtr ScriptableRecordManager::RegisterScriptableRecordType(
 
     if (GetRecordSpec(cname))
     {
-        LogError("Registration of record type \"{}\" failed because another with the same name is already registered.",
+        LogError(R"(Registration of record type "{}" failed because another with the same name is already registered.)",
                  aliasName);
         return nullptr;
     }
 
     if (m_rtti->GetClass(cname))
     {
-        LogError("Registration of record type \"{}\" failed because a class with the same name already exists.",
+        LogError(R"(Registration of record type "{}" failed because a class with the same name already exists.)",
                  aliasName);
         return nullptr;
     }
@@ -155,16 +155,17 @@ ScriptableRecordSpecPtr ScriptableRecordManager::RegisterScriptableRecordType(
     return spec;
 }
 
-ScriptablePropertySpecPtr ScriptableRecordManager::RegisterScriptableProperty(
-    const ScriptableRecordSpecPtr& aRecordSpec, const std::string& aPropertyName, const TweakTypeSpecPtr& aTypeSpec,
-    const Red::InstancePtr<>& aDefaultValue)
+void ScriptableRecordManager::RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                         const std::string& aPropertyName,
+                                                         const TweakTypeSpecPtr& aTypeSpec,
+                                                         const Red::InstancePtr<>& aDefaultValue) const
 {
     if (aRecordSpec->props.contains(aPropertyName.c_str()))
     {
-        LogError("Registration of property \"{}\" for record type \"{}\" failed because another with the same name is "
+        LogError(R"(Registration of property "{}" for record type "{}" failed because another with the same name is )"
                  "already registered.",
                  aPropertyName, aRecordSpec->aliasName);
-        return nullptr;
+        return;
     }
 
     const auto propertyInfo = Core::MakeShared<ScriptablePropertySpec>();
@@ -176,8 +177,6 @@ ScriptablePropertySpecPtr ScriptableRecordManager::RegisterScriptableProperty(
     propertyInfo->defaultValue = aDefaultValue;
 
     aRecordSpec->props[propertyInfo->cname] = propertyInfo;
-
-    return propertyInfo;
 }
 
 void ScriptableRecordManager::UnregisterScriptableRecordType(Red::CName aRecordName) const
@@ -207,7 +206,7 @@ bool ScriptableRecordManager::RegisterRTTIType(const ScriptableRecordSpecPtr& aS
     if (aSpec->isRegistered)
         return true;
 
-    LogDebug("Creating RTTI type \"{}\" for scriptable record \"{}\"...", aSpec->name, aSpec->aliasName);
+    LogDebug(R"(Creating RTTI type "{}" for scriptable record "{}"...)", aSpec->name, aSpec->aliasName);
 
     if (auto* cls = CreateRecordClass(aSpec))
     {
@@ -258,17 +257,17 @@ bool ScriptableRecordManager::DescribeRTTIType(const ScriptableRecordSpecPtr& aS
     return true;
 }
 
-bool ScriptableRecordManager::CreatePropertyFunctions(const ScriptableRecordSpecPtr& aRecordSpec,
+void ScriptableRecordManager::CreatePropertyFunctions(const ScriptableRecordSpecPtr& aRecordSpec,
                                                       const ScriptablePropertySpecPtr& aPropSpec) const
 {
     if (!aRecordSpec->isDescribed)
     {
-        LogDebug("Record type \"{}\" is not described, skipping function creation.", aRecordSpec->aliasName);
-        return false;
+        LogDebug(R"(Record type "{}" is not described, skipping function creation.)", aRecordSpec->aliasName);
+        return;
     }
 
     if (aPropSpec->isCreated)
-        return true;
+        return;
 
     if (const auto& typeSpec = aPropSpec->typeSpec; typeSpec->isForeignKey)
     {
@@ -281,9 +280,9 @@ bool ScriptableRecordManager::CreatePropertyFunctions(const ScriptableRecordSpec
             else
             {
                 LogError(
-                    "Failed to describe property \"{}\" of record type \"{}\", the foreign type \"{}\" does not exist.",
+                    R"(Failed to describe property "{}" of record type "{}", the foreign type "{}" does not exist.)",
                     aPropSpec->name, aRecordSpec->aliasName, typeSpec->foreignName);
-                return false;
+                return;
             }
         }
 
@@ -295,8 +294,6 @@ bool ScriptableRecordManager::CreatePropertyFunctions(const ScriptableRecordSpec
     m_propertyHandler->CreateFunctions(aRecordSpec, aPropSpec);
 
     aPropSpec->isCreated = true;
-
-    return true;
 }
 
 void ScriptableRecordManager::InsertDefaultValues()
@@ -335,7 +332,7 @@ bool ScriptableRecordManager::SetupTestRecord(const ScriptableRecordSpecPtr& aSp
         return false;
 
     for (auto& propSpec : aSpec->props | std::views::values)
-        (void)CreatePropertyFunctions(aSpec, propSpec);
+        CreatePropertyFunctions(aSpec, propSpec);
 
     InsertDefaultValues(aSpec);
 
@@ -353,11 +350,11 @@ void ScriptableRecordManager::UnregisterScriptableProperty(const ScriptableRecor
 
 void ScriptableRecordManager::UpdateScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
                                                        const std::string& aPropName,
-                                                       const Red::InstancePtr<>& aDefaultValue)
+                                                       const Red::InstancePtr<>& aDefaultValue) const
 {
     if (const auto spec = aRecordSpec->FindPropertyByName(aPropName))
     {
-        LogDebug("Updating default value for property \"{}\" of record type \"{}\"...", spec->name,
+        LogDebug(R"(Updating default value for property "{}" of record type "{}"...)", spec->name,
                  aRecordSpec->aliasName);
 
         spec->isInserted = false;
@@ -393,7 +390,7 @@ void ScriptableRecordManager::InsertDefaultValues(const ScriptableRecordSpecPtr&
         const auto value = Red::MakeValue(prop->typeSpec->flatType, instance.get());
 
         if (!value || !m_tweakManager->SetFlat(flatID, *value))
-            LogError("Failed to insert default value for property \"{}\" of record type \"{}\" into TweakDB.",
+            LogError(R"(Failed to insert default value for property "{}" of record type "{}" into TweakDB.)",
                      prop->name, aSpec->aliasName);
 
         prop->isInserted = true;
@@ -426,7 +423,7 @@ ScriptableRecordClass* ScriptableRecordManager::CreateRecordClass(const Scriptab
 {
     if (GetRecordClass(aSpec->hash))
     {
-        LogError("Failed to create RTTI class for record type \"{}\" because its specification was not found.",
+        LogError(R"(Failed to create RTTI class for record type "{}" because its specification was not found.)",
                  aSpec->name);
         return nullptr;
     }
@@ -434,7 +431,7 @@ ScriptableRecordClass* ScriptableRecordManager::CreateRecordClass(const Scriptab
     if (m_rtti->GetClass(aSpec->cname))
     {
         LogError(
-            "Failed to create RTTI class for record type \"{}\" because a class with the same name already exists.",
+            R"(Failed to create RTTI class for record type "{}" because a class with the same name already exists.)",
             aSpec->name);
         return nullptr;
     }

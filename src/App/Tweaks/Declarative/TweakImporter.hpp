@@ -20,7 +20,7 @@ public:
 
     void Load(const Core::Vector<std::filesystem::path>& aImportPaths);
 
-    void ImportSchemas(const Core::SharedPtr<TweakChangelog>& aChangelog = nullptr, bool aDryRun = false);
+    void ImportSchemas(const Core::SharedPtr<TweakChangelog>& aChangelog = nullptr, bool aDryRun = false) const;
     void ImportValues(const Core::SharedPtr<TweakChangelog>& aChangelog = nullptr, bool aDryRun = false) const;
 
 private:

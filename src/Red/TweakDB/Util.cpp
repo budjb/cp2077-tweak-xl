@@ -718,7 +718,7 @@ CHandle* GetHandleType(const CClass* aClass)
 
 CWeakHandle* GetWHandleType(const CClass* aClass)
 {
-    static auto* rtti = Red::CRTTISystem::Get();
+    static auto* rtti = CRTTISystem::Get();
 
     if (!aClass)
         return nullptr;
@@ -733,7 +733,7 @@ CWeakHandle* GetWHandleType(const CClass* aClass)
 
 CRTTIBaseArrayType* GetWHandleArrayType(const CClass* aClass)
 {
-    static auto* rtti = Red::CRTTISystem::Get();
+    static auto* rtti = CRTTISystem::Get();
 
     if (!aClass)
         return nullptr;
@@ -746,7 +746,7 @@ CRTTIBaseArrayType* GetWHandleArrayType(const CClass* aClass)
     return reinterpret_cast<CRTTIBaseArrayType*>(type);
 }
 
-const CRTTIBaseArrayType* ToArrayType(const rtti::IType* aType)
+const CRTTIBaseArrayType* ToArrayType(const CBaseRTTIType* aType)
 {
     if (aType->GetType() == ERTTIType::Array)
     {
@@ -756,18 +756,52 @@ const CRTTIBaseArrayType* ToArrayType(const rtti::IType* aType)
     return nullptr;
 }
 
-const rtti::IType* GetInnerType(const rtti::IType* aType)
+const CWeakHandle* ToWeakHandleType(const CBaseRTTIType* aType)
 {
-    if (const auto* arrayType = ToArrayType(aType))
-        return arrayType->GetInnerType();
+    if (aType->GetType() == ERTTIType::WeakHandle)
+    {
+        return reinterpret_cast<const CWeakHandle*>(aType);
+    }
     return nullptr;
 }
 
-CName GetInnerTypeName(const rtti::IType* aType)
+const CHandle* ToHandleType(const CBaseRTTIType* aType)
+{
+    if (aType->GetType() == ERTTIType::Handle)
+    {
+        return reinterpret_cast<const CHandle*>(aType);
+    }
+    return nullptr;
+}
+
+template<>
+const CBaseRTTIType* GetInnerType(const CBaseRTTIType* aType)
+{
+    if (const auto arrayType = ToArrayType(aType))
+        return arrayType->GetInnerType();
+
+    if (const auto handleType = ToWeakHandleType(aType))
+        return handleType->GetInnerType();
+
+    if (const auto handleType = ToHandleType(aType))
+        return handleType->GetInnerType();
+
+    return nullptr;
+}
+
+template<>
+const CClass* GetInnerType(const CBaseRTTIType* aType)
+{
+    if (const auto* type = GetInnerType(aType); type && type->GetType() == ERTTIType::Class)
+        return reinterpret_cast<const CClass*>(type);
+
+    return nullptr;
+}
+
+CName GetInnerTypeName(const CBaseRTTIType* aType)
 {
     if (const auto* type = GetInnerType(aType))
         return type->GetName();
     return {};
 }
-
 } // namespace Red
