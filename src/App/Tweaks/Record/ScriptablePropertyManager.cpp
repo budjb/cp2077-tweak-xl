@@ -344,7 +344,7 @@ void ArrayCountGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStack
         return;
 
     if (const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext));
-        flat.type->GetType() == Red::rtti::ERTTIType::Array)
+        flat.type->GetType() == Red::ERTTIType::Array)
     {
         const auto* arrayType = Red::ToArrayType(flat.type);
         *static_cast<uint32_t*>(aOut) = arrayType->GetLength(flat.instance);
@@ -390,7 +390,7 @@ void ArrayItemGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackF
 
     const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext));
 
-    if (flat.type != aContext->typeSpec->propertyType || flat.type->GetType() != Red::rtti::ERTTIType::Array)
+    if (flat.type != aContext->typeSpec->propertyType || flat.type->GetType() != Red::ERTTIType::Array)
         return;
 
     const auto* arrayType = Red::ToArrayType(flat.type);
@@ -439,7 +439,7 @@ void ArrayContainsGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CSt
 
     const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext));
 
-    if (flat.type != aContext->typeSpec->propertyType || flat.type->GetType() != Red::rtti::ERTTIType::Array)
+    if (flat.type != aContext->typeSpec->propertyType || flat.type->GetType() != Red::ERTTIType::Array)
     {
         *static_cast<bool*>(aOut) = false;
         return;

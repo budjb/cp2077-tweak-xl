@@ -18,7 +18,7 @@ struct TweakTypeSpec
      *
      * Note that if @c isArray is @ true, this type is guaranteed to be castable to @c CRTTIBaseArrayType .
      */
-    const Red::rtti::IType* propertyType{};
+    const Red::CBaseRTTIType* propertyType{};
 
     /**
      * @brief The name of the RTTI type pointed to by @c propertyType .
@@ -28,7 +28,7 @@ struct TweakTypeSpec
     /**
      * @brief The RTTI type of the TweakDB flat that corresponds to this property.
      */
-    const Red::rtti::IType* flatType{};
+    const Red::CBaseRTTIType* flatType{};
 
     /**
      * @brief The name of the RTTI type of the TweakDB flat that corresponds to this property.
