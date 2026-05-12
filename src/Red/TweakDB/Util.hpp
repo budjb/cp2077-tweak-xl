@@ -443,7 +443,7 @@ T GetRecordShortName(const char* aName);
  * @return The fully-qualified record name corresponding to the given name.
  */
 template<>
-[[nodiscard]] std::string GetRecordFullName(const std::string& aName);
+std::string GetRecordFullName(const std::string& aName);
 
 /**
  * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
@@ -455,7 +455,7 @@ template<>
  * @return The fully-qualified record name corresponding to the given name.
  */
 template<>
-[[nodiscard]] std::string GetRecordFullName(const char* aName);
+std::string GetRecordFullName(const char* aName);
 
 /**
  * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
@@ -467,7 +467,7 @@ template<>
  * @return The fully-qualified record name corresponding to the given name.
  */
 template<>
-[[nodiscard]] std::string GetRecordFullName(CName aName);
+std::string GetRecordFullName(CName aName);
 
 /**
  * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
@@ -479,7 +479,7 @@ template<>
  * @return The fully-qualified record name corresponding to the given name.
  */
 template<>
-[[nodiscard]] CName GetRecordFullName(const std::string& aName);
+CName GetRecordFullName(const std::string& aName);
 
 /**
  * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
@@ -491,7 +491,7 @@ template<>
  * @return The fully-qualified record name corresponding to the given name.
  */
 template<>
-[[nodiscard]] CName GetRecordFullName(const char* aName);
+CName GetRecordFullName(const char* aName);
 
 /**
  * @brief Gets the fully-qualified TweakDB record name corresponding to the given name. Fully-qualified TweakDB names
@@ -503,7 +503,7 @@ template<>
  * @return The fully-qualified record name corresponding to the given name.
  */
 template<>
-[[nodiscard]] CName GetRecordFullName(CName aName);
+CName GetRecordFullName(CName aName);
 
 /**
  * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
@@ -515,7 +515,7 @@ template<>
  * @return The alias/scripted record name corresponding to the given name.
  */
 template<>
-[[nodiscard]] std::string GetRecordAliasName(const std::string& aName);
+std::string GetRecordAliasName(const std::string& aName);
 
 /**
  * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
@@ -527,7 +527,7 @@ template<>
  * @return The alias/scripted record name corresponding to the given name.
  */
 template<>
-[[nodiscard]] std::string GetRecordAliasName(const char* aName);
+std::string GetRecordAliasName(const char* aName);
 
 /**
  * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
@@ -539,7 +539,7 @@ template<>
  * @return The alias/scripted record name corresponding to the given name.
  */
 template<>
-[[nodiscard]] std::string GetRecordAliasName(CName aName);
+std::string GetRecordAliasName(CName aName);
 
 /**
  * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
@@ -551,7 +551,7 @@ template<>
  * @return The alias/scripted record name corresponding to the given name.
  */
 template<>
-[[nodiscard]] CName GetRecordAliasName(const std::string& aName);
+CName GetRecordAliasName(const std::string& aName);
 
 /**
  * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
@@ -563,7 +563,7 @@ template<>
  * @return The alias/scripted record name corresponding to the given name.
  */
 template<>
-[[nodiscard]] CName GetRecordAliasName(const char* aName);
+CName GetRecordAliasName(const char* aName);
 
 /**
  * @brief Gets the alias/scripted TweakDB record name corresponding to the given name. The alias name is the same as the
@@ -575,7 +575,7 @@ template<>
  * @return The alias/scripted record name corresponding to the given name.
  */
 template<>
-[[nodiscard]] CName GetRecordAliasName(CName aName);
+CName GetRecordAliasName(CName aName);
 
 /**
  * @brief Gets the short name of a TweakDB record corresponding to the given name. The short name is the part of the
@@ -980,17 +980,4 @@ const rtti::IType* GetInnerType(const rtti::IType* aType);
  * @return The name of the inner type of the given type, or empty.
  */
 CName GetInnerTypeName(const rtti::IType* aType);
-
-template<typename T = void>
-DynArray<T>* ToArray(T* aInstance)
-{
-    return static_cast<DynArray<T>*>(aInstance);
-}
-
-template<typename T = void>
-DynArray<T>* ToArray(void* aInstance)
-{
-    return static_cast<DynArray<T>*>(aInstance);
-}
-
 } // namespace Red

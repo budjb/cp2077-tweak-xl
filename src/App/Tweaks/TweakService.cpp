@@ -36,10 +36,17 @@ App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesyste
 
 void App::TweakService::OnBootstrap()
 {
+    static auto rtti = Red::CRTTISystem::Get();
+
     CreateTweaksDir();
     CreateScriptsDir();
 
-    SetupTweakImporter();
+    rtti->AddPostRegisterCallback(Red::Callback<void (*)()>{[&] {
+        m_propertyHandler->RegisterInvocationHandler();
+
+        LoadFiles();
+        LoadSchemas();
+    }});
 
     HookAfter<Raw::ScriptBinder_Bind>(
         [&](void*, Red::ScriptBundle* aBundle, void*, bool) { OnValidateScripts(aBundle); });
@@ -57,7 +64,7 @@ void App::TweakService::OnBootstrap()
                 EnsureRuntimeAccess();
                 ApplyPatches();
                 InsertPropertyDefaultValues();
-                LoadTweaks(false);
+                LoadValues(false, true);
             }
 
 #ifndef NDEBUG
@@ -75,32 +82,48 @@ void App::TweakService::OnBootstrap()
     HookWrap<Raw::CreateRecord>([&](const CreateRecordFunction aOriginal, Red::TweakDB* aTweakDB,
                                     const uint32_t aTypeHash, const Red::TweakDBID aTweakDBID) {
         if (!m_recordManager->CreateScriptableRecord(aTweakDB, aTypeHash, aTweakDBID))
-        {
             aOriginal(aTweakDB, aTypeHash, aTweakDBID);
-        }
     });
 }
 
 void App::TweakService::LoadTweaks(const bool aCheckForIssues) const
 {
+    LoadFiles();
+    LoadSchemas();
+    LoadValues(aCheckForIssues, true);
+}
+
+void App::TweakService::LoadFiles() const
+{
+    m_importer->Load(m_importPaths);
+}
+
+void App::TweakService::LoadSchemas() const
+{
+    m_importer->ImportSchemas(m_changelog);
+    m_recordManager->RegisterRTTITypes();
+    m_redscriptExporter->ExportRedscriptTypes(m_pluginScriptsDir);
+}
+
+void App::TweakService::LoadValues(const bool aCheckForIssues, const bool aExecute) const
+{
     if (m_manager)
     {
         m_importer->ImportValues(m_changelog);
-        m_executor->ExecuteTweaks();
+
+        if (aExecute)
+            m_executor->ExecuteTweaks();
 
         if (aCheckForIssues)
-        {
             m_changelog->CheckForIssues(m_manager);
-        }
     }
 }
 
 void App::TweakService::ImportTweaks() const
 {
-    if (m_manager)
-    {
-        m_importer->ImportValues(m_changelog);
-    }
+    LoadFiles();
+    LoadSchemas();
+    LoadValues(false, false);
 }
 
 void App::TweakService::ExecuteTweaks() const
@@ -275,24 +298,6 @@ void App::TweakService::InsertPropertyDefaultValues() const
 {
     m_recordManager->SetTweakDBReady();
     m_recordManager->InsertDefaultValues();
-}
-
-void App::TweakService::SetupTweakImporter() const
-{
-    static auto rtti = Red::CRTTISystem::Get();
-
-    rtti->AddPostRegisterCallback(Red::Callback<void (*)()>{[&] {
-        m_recordManager->SetRTTIReady();
-
-        m_importer->Load(m_importPaths);
-        m_importer->ImportSchemas(m_changelog);
-
-        m_propertyHandler->RegisterInvocationHandler();
-
-        m_recordManager->RegisterRTTITypes();
-
-        m_redscriptExporter->ExportRedscriptTypes(m_pluginScriptsDir);
-    }});
 }
 
 void App::TweakService::OnValidateScripts(const Red::ScriptBundle* aBundle) const

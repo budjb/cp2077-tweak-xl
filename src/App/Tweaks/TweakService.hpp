@@ -33,6 +33,11 @@ public:
     bool RegisterDirectory(std::filesystem::path aPath);
 
     void LoadTweaks(bool aCheckForIssues) const;
+
+    void LoadFiles() const;
+    void LoadSchemas() const;
+    void LoadValues(bool aCheckForIssues, bool aExecute) const;
+
     void ImportTweaks() const;
     void ExecuteTweaks() const;
     void ExecuteTweak(Red::CName aName) const;
@@ -54,7 +59,6 @@ protected:
     void EnsureRuntimeAccess() const;
     void ApplyPatches() const;
     void InsertPropertyDefaultValues() const;
-    void SetupTweakImporter() const;
     void OnValidateScripts(const Red::ScriptBundle* aBundle) const;
 
     std::filesystem::path m_gameDir;

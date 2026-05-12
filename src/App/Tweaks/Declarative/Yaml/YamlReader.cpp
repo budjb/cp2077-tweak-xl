@@ -100,39 +100,6 @@ void App::YamlReader::ReadValues(TweakChangeset& aChangeset)
     }
 }
 
-bool App::YamlReader::CheckConditions(const YAML::Node& aNode) const
-{
-    if (const auto& gameConditionAttr = aNode[GameConditionKey]; gameConditionAttr.IsDefined())
-    {
-        if (!gameConditionAttr.IsScalar())
-            return false;
-
-        if (!m_context->CheckGameVersion(gameConditionAttr.Scalar()))
-            return false;
-    }
-
-    if (const auto& dlcConditionAttr = aNode[DLCConditionKey]; dlcConditionAttr.IsDefined())
-    {
-        if (!dlcConditionAttr.IsScalar())
-            return false;
-
-        if (!m_context->CheckInstalledDLC(dlcConditionAttr.Scalar()))
-            return false;
-    }
-
-    return true;
-}
-
-App::YamlReader::PropertyMode App::YamlReader::ResolvePropertyMode(const YAML::Node& aNode, const PropertyMode aDefault)
-{
-    if (const auto& modeAttr = aNode[PropModeKey]; modeAttr.IsDefined() && modeAttr.Scalar() == PropModeAuto)
-    {
-        return PropertyMode::Auto;
-    }
-
-    return aDefault;
-}
-
 void App::YamlReader::HandleSchemaNode(SchemaChangeset& aChangeset, const std::string& aRecordName,
                                        const YAML::Node& aNode)
 {
@@ -196,6 +163,8 @@ void App::YamlReader::HandleSchemaPropertyNode(SchemaChangeset& aChangeset, cons
     if (aPropName.empty() || aPropName[0] == AttrSymbol)
         return;
 
+    const auto recordName = Red::GetRecordFullName<std::string>(aRecordName);
+
     if (aNode.IsMap())
     {
         const auto typeAttr = aNode[TypeAttrKey];
@@ -203,9 +172,9 @@ void App::YamlReader::HandleSchemaPropertyNode(SchemaChangeset& aChangeset, cons
 
         if (typeAttr.IsDefined() && valueAttr.IsDefined())
         {
-            const auto typeInfo = ResolvePropertyFlatInfo(typeAttr);
+            const auto typeSpec = ResolvePropertyFlatInfo(typeAttr);
 
-            if (!typeInfo)
+            if (!typeSpec)
             {
                 LogError("{}: Invalid type {} for property type {}.", aRecordName, typeAttr.Scalar(), aPropName);
                 return;
@@ -213,14 +182,14 @@ void App::YamlReader::HandleSchemaPropertyNode(SchemaChangeset& aChangeset, cons
 
             const auto [propType, propInstance] = TryMakeValue(valueAttr);
 
-            if (propInstance && propType != typeInfo->flatTypeName)
+            if (propInstance && propType != typeSpec->flatTypeName)
             {
                 LogError("{}: Invalid value type for property {}. Expected {}, got {}.", aRecordName, aPropName,
-                         typeInfo->flatTypeName.ToString(), propType.ToString());
+                         typeSpec->flatTypeName.ToString(), propType.ToString());
                 return;
             }
 
-            aChangeset.MakeProperty(aRecordName, aPropName, typeInfo, propInstance);
+            aChangeset.MakeProperty(aRecordName, aPropName, typeSpec, propInstance);
             return;
         }
     }
@@ -235,7 +204,15 @@ void App::YamlReader::HandleSchemaPropertyNode(SchemaChangeset& aChangeset, cons
             return;
         }
 
-        aChangeset.MakeProperty(aRecordName, aPropName, GetTweakTypeSpec(propType.ToString()), propInstance);
+        const auto typeSpec = GetTweakTypeSpec(propType.ToString());
+
+        if (!typeSpec)
+        {
+            LogError("{}: Invalid type {} for property type {}.", aRecordName, propType.ToString(), aPropName);
+            return;
+        }
+
+        aChangeset.MakeProperty(aRecordName, aPropName, typeSpec, propInstance);
         return;
     }
 
@@ -423,27 +400,6 @@ void App::YamlReader::HandleFlatNode(App::TweakChangeset& aChangeset, const std:
     aChangeset.SetFlat(flatId, flatType, flatValue);
 
     UpdateFlatOwner(aChangeset, aName);
-}
-
-void App::YamlReader::UpdateFlatOwner(TweakChangeset& aChangeset, const std::string& aName)
-{
-    const auto separatorPos = aName.find_last_of(PropSeparator);
-
-    if (separatorPos != std::string::npos)
-    {
-        const auto recordName = aName.substr(0, separatorPos);
-        const auto recordId = Red::TweakDBID(recordName);
-
-        if (ResolveRecordInstanceType(aChangeset, recordId))
-        {
-            aChangeset.UpdateRecord(recordId);
-
-            if (IsOriginalBaseRecord(recordId))
-            {
-                aChangeset.ReinheritFlat(aName.data(), recordId, aName.substr(separatorPos));
-            }
-        }
-    }
 }
 
 void App::YamlReader::HandleRecordNode(TweakChangeset& aChangeset, PropertyMode aPropMode,
@@ -792,6 +748,60 @@ bool App::YamlReader::HandleMutations(TweakChangeset& aChangeset, const std::str
     }
 
     return isMutation;
+}
+
+void App::YamlReader::UpdateFlatOwner(TweakChangeset& aChangeset, const std::string& aName)
+{
+    const auto separatorPos = aName.find_last_of(PropSeparator);
+
+    if (separatorPos != std::string::npos)
+    {
+        const auto recordName = aName.substr(0, separatorPos);
+        const auto recordId = Red::TweakDBID(recordName);
+
+        if (ResolveRecordInstanceType(aChangeset, recordId))
+        {
+            aChangeset.UpdateRecord(recordId);
+
+            if (IsOriginalBaseRecord(recordId))
+            {
+                aChangeset.ReinheritFlat(aName.data(), recordId, aName.substr(separatorPos));
+            }
+        }
+    }
+}
+
+bool App::YamlReader::CheckConditions(const YAML::Node& aNode) const
+{
+    if (const auto& gameConditionAttr = aNode[GameConditionKey]; gameConditionAttr.IsDefined())
+    {
+        if (!gameConditionAttr.IsScalar())
+            return false;
+
+        if (!m_context->CheckGameVersion(gameConditionAttr.Scalar()))
+            return false;
+    }
+
+    if (const auto& dlcConditionAttr = aNode[DLCConditionKey]; dlcConditionAttr.IsDefined())
+    {
+        if (!dlcConditionAttr.IsScalar())
+            return false;
+
+        if (!m_context->CheckInstalledDLC(dlcConditionAttr.Scalar()))
+            return false;
+    }
+
+    return true;
+}
+
+App::YamlReader::PropertyMode App::YamlReader::ResolvePropertyMode(const YAML::Node& aNode, const PropertyMode aDefault)
+{
+    if (const auto& modeAttr = aNode[PropModeKey]; modeAttr.IsDefined() && modeAttr.Scalar() == PropModeAuto)
+    {
+        return PropertyMode::Auto;
+    }
+
+    return aDefault;
 }
 
 App::TweakTypeSpecPtr App::YamlReader::ResolvePropertyFlatInfo(const YAML::Node& aNode)

@@ -91,43 +91,30 @@ void App::RedReader::HandleSchemaGroup(SchemaChangeset& aChangeset, const Red::T
         return;
 
     if (aGroup->name.empty())
-    {
-        // TODO: how does this happen? Need to log error.
         return;
-    }
-
-    const auto name = Red::NormalizeRecordName(aGroup->name);
-
-    if (name != aGroup->name)
-    {
-        LogInfo("Normalizing record name {} to {}.", aGroup->name, name);
-    }
 
     const auto parent = !aGroup->base.empty() ? std::optional(aGroup->base) : std::nullopt;
 
-    if (!aChangeset.MakeRecord(name, parent))
+    if (!aChangeset.MakeRecord(aGroup->name, parent))
         return;
 
     for (const auto prop : aGroup->flats)
-    {
-        HandleSchemaProperty(aChangeset, name, prop);
-    }
+        HandleSchemaProperty(aChangeset, aGroup->name, prop);
 }
 
 void App::RedReader::HandleSchemaProperty(SchemaChangeset& aChangeset, const std::string& aRecordName,
                                           const Red::TweakFlatPtr& aFlat)
 {
     const auto foreignType = !aFlat->foreignType.empty() ? std::optional(aFlat->foreignType) : std::nullopt;
+    const auto typeSpec = GetTweakTypeSpec(GetFlatTypeName(aFlat), foreignType);
 
-    const auto propInfo = GetTweakTypeSpec(GetFlatTypeName(aFlat), foreignType);
-
-    if (!propInfo)
+    if (!typeSpec)
     {
         LogError("{}: Unable to infer type for property {}.", aRecordName, aFlat->name);
         return;
     }
 
-    aChangeset.MakeProperty(aRecordName.c_str(), aFlat->name, propInfo, MakeValue(propInfo->flatType, aFlat->values));
+    aChangeset.MakeProperty(aRecordName.c_str(), aFlat->name, typeSpec, MakeValue(typeSpec->flatType, aFlat->values));
 }
 
 App::RedReader::GroupStatePtr App::RedReader::HandleGroup(TweakChangeset& aChangeset, const Red::TweakGroupPtr& aGroup,

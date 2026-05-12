@@ -674,7 +674,7 @@ bool ScriptablePropertyManager::AdaptFunction(const ScriptableRecordSpecPtr& aRe
     if (const auto propSpec = aRecordSpec->FindPropertyByFunctionName(baseFunctionName))
     {
         // TODO: truncate it here?
-        if (!propSpec->isDescribed)
+        if (!propSpec->isCreated)
             return false;
 
         const auto context = GetContext(aRecordSpec, propSpec);
@@ -699,40 +699,21 @@ void ScriptablePropertyManager::CreateFunctions(const ScriptableRecordSpecPtr& a
 void ScriptablePropertyManager::CreateFunctions(const ScriptableRecordSpecPtr& aRecordSpec,
                                                 const ScriptablePropertySpecPtr& aPropSpec)
 {
-    if (aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isForeignKey)
-    {
-        CreateFunction<GetterType::GetRecordArray>(aRecordSpec, aPropSpec);
-        CreateFunction<GetterType::GetArrayCount>(aRecordSpec, aPropSpec);
-        CreateFunction<GetterType::GetRecordItem>(aRecordSpec, aPropSpec);
-        CreateFunction<GetterType::GetRecordItemHandle>(aRecordSpec, aPropSpec);
-        CreateFunction<GetterType::RecordArrayContains>(aRecordSpec, aPropSpec);
-    }
-    else if (!aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isForeignKey)
-    {
-        CreateFunction<GetterType::GetRecord>(aRecordSpec, aPropSpec);
-        CreateFunction<GetterType::GetRecordHandle>(aRecordSpec, aPropSpec);
-    }
-    else if (aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isResRef)
-    {
-        CreateFunction<GetterType::GetResRefArray>(aRecordSpec, aPropSpec);
-        CreateFunction<GetterType::GetArrayCount>(aRecordSpec, aPropSpec);
-        CreateFunction<GetterType::GetResRefItem>(aRecordSpec, aPropSpec);
-    }
-    else if (aPropSpec->typeSpec->isArray)
-    {
-        CreateFunction<GetterType::Get>(aRecordSpec, aPropSpec);
-        CreateFunction<GetterType::GetArrayCount>(aRecordSpec, aPropSpec);
-        CreateFunction<GetterType::GetArrayItem>(aRecordSpec, aPropSpec);
-        CreateFunction<GetterType::ArrayContains>(aRecordSpec, aPropSpec);
-    }
-    else if (aPropSpec->typeSpec->isResRef)
-    {
-        CreateFunction<GetterType::GetResRef>(aRecordSpec, aPropSpec);
-    }
-    else
-    {
-        CreateFunction<GetterType::Get>(aRecordSpec, aPropSpec);
-    }
+    for (const auto getterType : GetGetterTypes(aPropSpec))
+        CreateFunction(getterType, aRecordSpec, aPropSpec);
+}
+
+void ScriptablePropertyManager::DeleteFunctions(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                const ScriptablePropertySpecPtr& aPropSpec)
+{
+    if (!aRecordSpec->type || !aRecordSpec->isDeleted)
+        return;
+
+    if (!aPropSpec->isDeleted)
+        return;
+
+    for (const auto getterType : GetGetterTypes(aPropSpec))
+        DeleteFunction(getterType, aRecordSpec, aPropSpec);
 }
 
 void ScriptablePropertyManager::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
@@ -787,6 +768,26 @@ ScriptablePropertyGetter* ScriptablePropertyManager::GetPropertyGetter(const Get
     // clang-format on
 }
 
+std::span<const GetterType> ScriptablePropertyManager::GetGetterTypes(const ScriptablePropertySpecPtr& aPropSpec)
+{
+    if (aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isForeignKey)
+        return ForeignKeyArrayGetters;
+
+    if (!aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isForeignKey)
+        return ForeignKeyGetters;
+
+    if (aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isResRef)
+        return ResRefArrayGetters;
+
+    if (aPropSpec->typeSpec->isArray)
+        return ArrayGetters;
+
+    if (aPropSpec->typeSpec->isResRef)
+        return ResRefGetters;
+
+    return ValueGetters;
+}
+
 const Context* ScriptablePropertyManager::GetContext(const ScriptableRecordSpecPtr& aRecordSpec,
                                                      const ScriptablePropertySpecPtr& aPropSpec)
 {
@@ -818,18 +819,24 @@ const Context* ScriptablePropertyManager::GetContext(const ScriptableRecordSpecP
     return context;
 }
 
-template<GetterType Type>
-bool ScriptablePropertyManager::CreateFunction(const ScriptableRecordSpecPtr& aRecordSpec,
+bool ScriptablePropertyManager::CreateFunction(const GetterType aType, const ScriptableRecordSpecPtr& aRecordSpec,
                                                const ScriptablePropertySpecPtr& aPropSpec)
 {
-    const auto* handler = GetPropertyGetter(Type);
+    const auto* handler = GetPropertyGetter(aType);
 
     if (!handler)
+    {
+        LogError("Unsupported getter type \"{}\" for record \"{}\" property \"{}\"", static_cast<uint32_t>(aType),
+                 aRecordSpec->aliasName, aPropSpec->name);
         return false;
+    }
 
     const auto context = GetContext(aRecordSpec, aPropSpec);
 
     const auto name = handler->GetFunctionName(aPropSpec->functionName);
+
+    LogDebug("Creating function \"{}::{}\"...", aRecordSpec->aliasName, name);
+
     auto* function = Red::CClassFunction::Create(aRecordSpec->type, name.c_str(), name.c_str(), &HandleInvocation);
     handler->ConfigureScriptFunction(function, aPropSpec);
     aRecordSpec->type->RegisterFunction(function);
@@ -837,13 +844,39 @@ bool ScriptablePropertyManager::CreateFunction(const ScriptableRecordSpecPtr& aR
     Red::MarkSpecial(function);
 
     const auto entry = Core::MakeShared<FunctionEntry>();
-    entry->type = Type;
+    entry->type = aType;
     entry->function = function;
 
     ReplaceByteCode(function, entry, context);
 
     std::unique_lock lockRW(m_functionsMutex);
     m_functions[aRecordSpec->cname][handler->GetFunctionHash(aRecordSpec, aPropSpec)] = entry;
+
+    return true;
+}
+
+bool ScriptablePropertyManager::DeleteFunction(const GetterType aType, const ScriptableRecordSpecPtr& aRecordSpec,
+                                               const ScriptablePropertySpecPtr& aPropSpec)
+{
+    const auto* handler = GetPropertyGetter(aType);
+
+    if (!handler)
+        return false;
+
+    if (!m_functions.contains(aRecordSpec->cname))
+        return false;
+
+    auto& recordEntry = m_functions.at(aRecordSpec->cname);
+
+    const auto hash = handler->GetFunctionHash(aRecordSpec, aPropSpec);
+
+    if (!recordEntry.contains(hash))
+        return false;
+
+    LogDebug("Deleting function \"{}::{}\".", aRecordSpec->aliasName,
+             handler->GetFunctionName(aPropSpec->functionName));
+
+    TruncateByteCode(recordEntry.at(hash));
 
     return true;
 }
@@ -857,12 +890,11 @@ void ScriptablePropertyManager::ReplaceByteCode(Red::CClassFunction* aFunction,
     aFunction->bytecode.bytecode.buffer.size = aEntry->bytecode.size;
 }
 
-void ScriptablePropertyManager::TruncateByteCode(Red::CClassFunction* aFunction,
-                                                 const Core::SharedPtr<FunctionEntry>& aEntry)
+void ScriptablePropertyManager::TruncateByteCode(const Core::SharedPtr<FunctionEntry>& aEntry)
 {
     aEntry->bytecode = {};
-    aFunction->bytecode.bytecode.buffer.data = aEntry->bytecode.data;
-    aFunction->bytecode.bytecode.buffer.size = aEntry->bytecode.size;
+    aEntry->function->bytecode.bytecode.buffer.data = aEntry->bytecode.data;
+    aEntry->function->bytecode.bytecode.buffer.size = aEntry->bytecode.size;
 }
 
 Red::RawBuffer ScriptablePropertyManager::CreateByteCode(const GetterType aGetterType, const Context* aContext,

@@ -80,6 +80,24 @@ struct TweakTypeSpec
      * type is not yet available (e.g. for scriptable record foreign keys that have not yet been created).
      */
     Red::CName foreignTypeName;
+
+    /**
+     * @brief Checks whether this TweakTypeSpec is equal to another by comparing all members for equality.
+     *
+     * @param aOther The other TweakTypeSpec to compare against.
+     * @return true if all members of both TweakTypeSpecs are equal, otherwise false.
+     */
+    bool operator==(const TweakTypeSpec& aOther) const = default;
+
+    /**
+     * @brief Checks whether this TweakTypeSpec is not equal to another by comparing all members for inequality.
+     * @param aOther The other TweakTypeSpec to compare against.
+     * @return true if any member of the TweakTypeSpecs is not equal, otherwise false.
+     */
+    bool operator!=(const TweakTypeSpec& aOther) const
+    {
+        return !(*this == aOther);
+    }
 };
 
 /**

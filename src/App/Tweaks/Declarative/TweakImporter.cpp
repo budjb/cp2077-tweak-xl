@@ -20,6 +20,8 @@ void App::TweakImporter::Load(const Core::Vector<std::filesystem::path>& aImport
 {
     LogInfo("Scanning for tweak files...");
 
+    m_readers.clear();
+
     Core::Vector<std::pair<std::filesystem::path, std::filesystem::path>> firstPriorityPaths;
     Core::Vector<std::pair<std::filesystem::path, std::filesystem::path>> secondPriorityPaths;
     Core::Vector<std::pair<std::filesystem::path, std::filesystem::path>> lastPriorityPaths;
@@ -128,7 +130,7 @@ void App::TweakImporter::ImportSchemas(const Core::SharedPtr<TweakChangelog>& aC
     }
 }
 
-void App::TweakImporter::ImportValues(const Core::SharedPtr<TweakChangelog>& aChangelog, const bool aDryRun)
+void App::TweakImporter::ImportValues(const Core::SharedPtr<TweakChangelog>& aChangelog, const bool aDryRun) const
 {
     try
     {
@@ -218,7 +220,7 @@ bool App::TweakImporter::Apply(const Core::SharedPtr<SchemaChangeset>& aChangese
 
     LogInfo("Importing schemas...");
 
-    aChangeset->Commit(m_recordManager, aChangelog);
+    aChangeset->Commit(m_recordManager);
 
     LogInfo("Schema import completed.");
 

@@ -66,9 +66,19 @@ struct ScriptablePropertySpec
     Red::InstancePtr<> defaultValue;
 
     /**
-     * @brief Whether the property is valid and registered.
+     * @brief Whether the property and its functions have been created.
      */
-    bool isDescribed = false;
+    bool isCreated = false;
+
+    /**
+     * @brief Whether the property and its functions have been soft-deleted.
+     */
+    bool isDeleted = false;
+
+    /**
+     * Whether the current default value has been inserted as a flat value into the RTDB namespace of TweakDB.
+     */
+    bool isInserted = false;
 };
 
 /**
@@ -90,6 +100,15 @@ struct ScriptableRecordSpec
      * function name exists.
      */
     [[nodiscard]] ScriptablePropertySpecPtr FindPropertyByFunctionName(const std::string& aFunctionName) const;
+
+    /**
+     * @brief Find a property specification by the name of the property.
+     *
+     * @param aName The name of the property to find.
+     * @return A shared pointer to the property specification if found, or @c nullptr if no property with the given name
+     * exists.
+     */
+    [[nodiscard]] ScriptablePropertySpecPtr FindPropertyByName(const std::string& aName) const;
 
     /**
      * @brief The fully-qualified, or native, name of the scriptable record.
@@ -155,10 +174,9 @@ struct ScriptableRecordSpec
     bool isDescribed = false;
 
     /**
-     * @brief Whether the scriptable record has had its default TweakDB flat values inserted into TweakDB for all its
-     * properties.
+     * @brief Whether the scriptable record and its properties have been soft-deleted.
      */
-    bool isInserted = false;
+    bool isDeleted = false;
 };
 
 /**

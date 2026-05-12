@@ -403,6 +403,28 @@ std::string GetRecordFullName(const CName aName)
 }
 
 template<>
+CName GetRecordFullName(const std::string& aName)
+{
+    return {GetRecordFullName<std::string>(aName).c_str()};
+}
+
+template<>
+CName GetRecordFullName(const char* aName)
+{
+    if (aName)
+    {
+        return GetRecordFullName<CName>(std::string(aName));
+    }
+    return {};
+}
+
+template<>
+CName GetRecordFullName(const CName aName)
+{
+    return GetRecordFullName<CName>(aName.ToString());
+}
+
+template<>
 std::string GetRecordAliasName(const std::string& aName)
 {
     std::string finalName = aName;
@@ -433,28 +455,6 @@ template<>
 std::string GetRecordAliasName(const CName aName)
 {
     return GetRecordAliasName<std::string>(aName.ToString());
-}
-
-template<>
-CName GetRecordFullName(const std::string& aName)
-{
-    return {GetRecordFullName<std::string>(aName).c_str()};
-}
-
-template<>
-CName GetRecordFullName(const char* aName)
-{
-    if (aName)
-    {
-        return GetRecordFullName<CName>(std::string(aName));
-    }
-    return {};
-}
-
-template<>
-CName GetRecordFullName(const CName aName)
-{
-    return GetRecordFullName<CName>(aName.ToString());
 }
 
 template<>
@@ -769,6 +769,5 @@ CName GetInnerTypeName(const rtti::IType* aType)
         return type->GetName();
     return {};
 }
-
 
 } // namespace Red

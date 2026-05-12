@@ -46,7 +46,7 @@ void RedscriptTypesExporter::ExportRedscriptTypes(const std::filesystem::path& a
         file.flush();
         file.close();
 
-        LogInfo("Exported RedScript scriptable record class definitions to {}", filePath.string());
+        LogInfo("Exported RedScript scriptable record class definitions to: {}", filePath.string());
     }
     catch (const std::exception& e)
     {
@@ -76,7 +76,7 @@ RedscriptTypesExporter::Json RedscriptTypesExporter::ToJson(const ScriptableReco
 
 RedscriptTypesExporter::Json RedscriptTypesExporter::ToJson(const ScriptablePropertySpecPtr& aSpec) const
 {
-    if (!aSpec->isDescribed)
+    if (!aSpec->isCreated)
         return nullptr;
 
     Json json;
