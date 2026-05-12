@@ -50,8 +50,6 @@ bool SchemaChangeset::MakeRecord(const std::string& aName, const std::optional<s
         return false;
     }
 
-    // TODO: validate record name is valid?
-
     const auto name = Red::NormalizeRecordName(aName);
     const auto aliasName = Red::GetRecordAliasName<std::string>(name);
 
