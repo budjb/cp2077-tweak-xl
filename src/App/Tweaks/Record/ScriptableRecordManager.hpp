@@ -125,10 +125,9 @@ public:
      * @return A shared pointer to the registered property specification, or @c nullptr if registration failed for any
      * reason.
      */
-    void RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec,
-                                                                const std::string& aPropertyName,
-                                                                const TweakTypeSpecPtr& aTypeSpec,
-                                                                const Red::InstancePtr<>& aDefaultValue = nullptr) const;
+    void RegisterScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec, const std::string& aPropertyName,
+                                    const TweakTypeSpecPtr& aTypeSpec,
+                                    const Red::InstancePtr<>& aDefaultValue = nullptr) const;
 
     /**
      * @brief Unregisters a scriptable record type and all of its properties from this manager based on the record's
@@ -168,7 +167,7 @@ public:
      * when no explicit value is provided for the instance.
      */
     void UpdateScriptableProperty(const ScriptableRecordSpecPtr& aRecordSpec, const std::string& aPropName,
-                                         const Red::InstancePtr<>& aDefaultValue) const;
+                                  const Red::InstancePtr<>& aDefaultValue) const;
     /**
      * @brief Creates and registers RTTI classes for all pending scriptable record specifications registered with this
      * object. RTTI type registration only creates classes without any properties, functions, or inheritance.

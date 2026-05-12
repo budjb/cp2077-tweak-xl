@@ -167,7 +167,7 @@ TweakTypeSpecPtr GetTweakTypeSpec(Red::CName aName, const std::optional<std::str
  * @see Red::ERTDBFlatType
  */
 template<uint64_t Type>
-TweakTypeSpecPtr GetTweakTypeSpec(const std::optional<std::string> aValue = std::nullopt)
+TweakTypeSpecPtr GetTweakTypeSpec(const std::optional<std::string>& aValue = std::nullopt)
 {
     static const Core::SharedPtr<TweakTypeSpec> spec = GetTweakTypeSpec(Type, aValue);
     return spec;

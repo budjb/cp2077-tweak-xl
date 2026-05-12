@@ -99,7 +99,7 @@ private:
     Red::InstancePtr<> MakeValue(const Red::CBaseRTTIType* aType, const Red::TweakValuePtr& aValue);
     Red::InstancePtr<> MakeValue(const Red::CBaseRTTIType* aType, const Core::Vector<Red::TweakValuePtr>& aValues);
 
-    bool CheckConditions(const Core::Vector<std::string>& aTags) const;
+    [[nodiscard]] bool CheckConditions(const Core::Vector<std::string>& aTags) const;
 
     std::filesystem::path m_path;
     Red::TweakSourcePtr m_source;

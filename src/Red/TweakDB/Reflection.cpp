@@ -76,9 +76,9 @@ Core::SharedPtr<TweakDBRecordInfo> TweakDBReflection::CollectRecordInfo(const CC
         // Case: Foreign Key Array => TweakDBID[]
         if (!func->returnType)
         {
-            propInfo->type = m_rtti->GetType(ERTDBFlatType::TweakDBIDArray);
+            propInfo->type = TypeLocator<ERTDBFlatType::TweakDBIDArray>::Get();
             propInfo->isArray = true;
-            propInfo->elementType = m_rtti->GetType(ERTDBFlatType::TweakDBID);
+            propInfo->elementType = TypeLocator<ERTDBFlatType::TweakDBID>::Get();
             propInfo->isForeignKey = true;
             propInfo->foreignType = GetInnerType<CClass>(func->params[0]->type);
 
@@ -96,7 +96,7 @@ Core::SharedPtr<TweakDBRecordInfo> TweakDBReflection::CollectRecordInfo(const CC
             case ERTTIType::WeakHandle:
             {
                 // Case: Foreign Key => TweakDBID
-                propInfo->type = m_rtti->GetType(ERTDBFlatType::TweakDBID);
+                propInfo->type = TypeLocator<ERTDBFlatType::TweakDBID>::Get();
                 propInfo->isForeignKey = true;
                 propInfo->foreignType = GetInnerType<CClass>(returnType);
 
@@ -140,6 +140,7 @@ Core::SharedPtr<TweakDBRecordInfo> TweakDBReflection::CollectRecordInfo(const CC
             }
             default:
             {
+                // TODO: check if the return type is resref, not raref
                 if (IsResRefToken(returnType))
                 {
                     propInfo->type = TypeLocator<ERTDBFlatType::ResRef>::Get();

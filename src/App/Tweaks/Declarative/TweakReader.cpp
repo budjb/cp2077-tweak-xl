@@ -28,7 +28,7 @@ App::BaseTweakReader::BaseTweakReader(const Core::DeferredPtr<Red::TweakDBManage
 {
 }
 
-bool App::BaseTweakReader::IsOriginalBaseRecord(Red::TweakDBID aRecordId)
+bool App::BaseTweakReader::IsOriginalBaseRecord(const Red::TweakDBID aRecordId)
 {
     if (!m_reflection && m_manager)
     {
@@ -74,7 +74,7 @@ std::string App::BaseTweakReader::ComposeFlatName(const std::string& aParentName
 }
 
 std::string App::BaseTweakReader::ComposeInlineName(const std::string& aParentName, const Red::CClass* aRecordType,
-                                                    const std::filesystem::path& aSource, int32_t aItemIndex)
+                                                    const std::filesystem::path& aSource, const int32_t aItemIndex)
 {
     auto inlineHash = aSource.string();
     inlineHash.append(HashSeparator);
@@ -112,7 +112,7 @@ std::string App::BaseTweakReader::ComposePath(const std::string& aParentPath, co
     return itemPath;
 }
 
-std::string App::BaseTweakReader::ComposePath(const std::string& aParentPath, int32_t aItemIndex)
+std::string App::BaseTweakReader::ComposePath(const std::string& aParentPath, const int32_t aItemIndex)
 {
     if (aParentPath.empty())
         return {};
@@ -128,17 +128,15 @@ std::string App::BaseTweakReader::ComposePath(const std::string& aParentPath, in
     return itemPath;
 }
 
-const Red::CBaseRTTIType* App::BaseTweakReader::ResolveFlatInstanceType(App::TweakChangeset& aChangeset,
-                                                                        Red::TweakDBID aFlatId)
+const Red::CBaseRTTIType* App::BaseTweakReader::ResolveFlatInstanceType(TweakChangeset& aChangeset,
+                                                                        const Red::TweakDBID aFlatId)
 {
-    const auto existingFlat = m_manager->GetFlat(aFlatId);
-    if (existingFlat.instance)
+    if (const auto existingFlat = m_manager->GetFlat(aFlatId))
     {
         return existingFlat.type;
     }
 
-    const auto pendingFlat = aChangeset.GetFlat(aFlatId);
-    if (pendingFlat)
+    if (const auto pendingFlat = aChangeset.GetFlat(aFlatId))
     {
         return pendingFlat->type;
     }
@@ -146,20 +144,18 @@ const Red::CBaseRTTIType* App::BaseTweakReader::ResolveFlatInstanceType(App::Twe
     return nullptr;
 }
 
-const Red::CClass* App::BaseTweakReader::ResolveRecordInstanceType(App::TweakChangeset& aChangeset,
-                                                                   Red::TweakDBID aRecordId)
+const Red::CClass* App::BaseTweakReader::ResolveRecordInstanceType(TweakChangeset& aChangeset,
+                                                                   const Red::TweakDBID aRecordId)
 {
     if (!aRecordId.IsValid())
         return nullptr;
 
-    const auto existingRecordType = m_manager->GetRecordType(aRecordId);
-    if (existingRecordType)
+    if (const auto existingRecordType = m_manager->GetRecordType(aRecordId))
     {
         return existingRecordType;
     }
 
-    const auto pendingRecord = aChangeset.GetRecord(aRecordId);
-    if (pendingRecord)
+    if (const auto pendingRecord = aChangeset.GetRecord(aRecordId))
     {
         return pendingRecord->type;
     }

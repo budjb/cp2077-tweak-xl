@@ -792,8 +792,14 @@ const CBaseRTTIType* GetInnerType(const CBaseRTTIType* aType)
 template<>
 const CClass* GetInnerType(const CBaseRTTIType* aType)
 {
-    if (const auto* type = GetInnerType(aType); type && type->GetType() == ERTTIType::Class)
-        return reinterpret_cast<const CClass*>(type);
+    if (const auto* type = GetInnerType(aType))
+    {
+        if (type->GetType() == ERTTIType::Class)
+            return reinterpret_cast<const CClass*>(type);
+
+        if (const auto* innerType = GetInnerType(type); innerType && innerType->GetType() == ERTTIType::Class)
+            return reinterpret_cast<const CClass*>(innerType);
+    }
 
     return nullptr;
 }

@@ -43,7 +43,7 @@ public:
     void ExecuteTweak(Red::CName aName) const;
     void CheckForIssues() const;
 
-    bool ImportMetadata() const;
+    [[nodiscard]] bool ImportMetadata() const;
     void ExportMetadata();
 
     Core::DeferredPtr<Red::TweakDBManager> GetManager();

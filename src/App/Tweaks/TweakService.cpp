@@ -34,56 +34,43 @@ App::TweakService::TweakService(const Core::SemvVer& aProductVer, std::filesyste
     m_importPaths.push_back(m_tweaksDir);
 }
 
-void App::TweakService::OnBootstrap()
+bool App::TweakService::RegisterTweak(std::filesystem::path aPath)
 {
-    static auto rtti = Red::CRTTISystem::Get();
+    std::error_code error;
 
-    CreateTweaksDir();
-    CreateScriptsDir();
+    if (aPath.is_relative())
+    {
+        aPath = m_gameDir / aPath;
+    }
 
-    rtti->AddPostRegisterCallback(Red::Callback<void (*)()>{[&] {
-        m_propertyHandler->RegisterInvocationHandler();
+    if (!std::filesystem::exists(aPath, error) || !std::filesystem::is_regular_file(aPath, error))
+    {
+        LogError("Can't register non-existing tweak \"{}\".", std::filesystem::relative(aPath, m_gameDir).string());
+        return false;
+    }
 
-        LoadFiles();
-        LoadSchemas();
-    }});
+    m_importPaths.emplace_back(std::move(aPath));
+    return true;
+}
 
-    HookAfter<Raw::ScriptBinder_Bind>(
-        [&](void*, Red::ScriptBundle* aBundle, void*, bool) { OnValidateScripts(aBundle); });
+bool App::TweakService::RegisterDirectory(std::filesystem::path aPath)
+{
+    std::error_code error;
 
-    HookAfter<Raw::TryLoadTweakDB>([&](bool& aSuccess) {
-        if (aSuccess)
-        {
-            m_reflection = Core::MakeShared<Red::TweakDBReflection>(Red::TweakDB::Get());
-            m_manager = Core::MakeShared<Red::TweakDBManager>(m_reflection);
-            m_executor = Core::MakeShared<TweakExecutor>(m_manager, m_reflection);
-            m_changelog = Core::MakeShared<TweakChangelog>();
+    if (aPath.is_relative())
+    {
+        aPath = m_gameDir / aPath;
+    }
 
-            if (ImportMetadata())
-            {
-                EnsureRuntimeAccess();
-                ApplyPatches();
-                InsertPropertyDefaultValues();
-                LoadValues(false, true);
-            }
+    if (!std::filesystem::exists(aPath, error) || !std::filesystem::is_directory(aPath, error))
+    {
+        LogError("Can't register non-existing tweak directory \"{}\".",
+                 std::filesystem::relative(aPath, m_gameDir).string());
+        return false;
+    }
 
-#ifndef NDEBUG
-            const int testExitCode = Tests::ScriptableRecordTestRunner::Run(m_pluginDir);
-            assert(testExitCode == 0 && "Scriptable record tests failed! Check the test results for more information.");
-#endif
-        }
-    });
-
-    HookAfter<Raw::InitTweakDB>([&]() {
-        EnsureRuntimeAccess();
-        CheckForIssues();
-    });
-
-    HookWrap<Raw::CreateRecord>([&](const CreateRecordFunction aOriginal, Red::TweakDB* aTweakDB,
-                                    const uint32_t aTypeHash, const Red::TweakDBID aTweakDBID) {
-        if (!m_recordManager->CreateScriptableRecord(aTweakDB, aTypeHash, aTweakDBID))
-            aOriginal(aTweakDB, aTypeHash, aTweakDBID);
-    });
+    m_importPaths.emplace_back(std::move(aPath));
+    return true;
 }
 
 void App::TweakService::LoadTweaks(const bool aCheckForIssues) const
@@ -142,98 +129,12 @@ void App::TweakService::ExecuteTweak(Red::CName aName) const
     }
 }
 
-void App::TweakService::EnsureRuntimeAccess() const
-{
-    if (m_manager)
-    {
-        m_manager->GetTweakDB()->unk160 = 0;
-    }
-}
-
-void App::TweakService::ApplyPatches() const
-{
-    if (m_manager)
-    {
-        m_manager->CloneRecord("Vendors.IsPresent", "Vendors.Always_Present");
-        m_manager->RegisterName("Vendors.IsPresent");
-    }
-}
-
 void App::TweakService::CheckForIssues() const
 {
     if (m_manager && m_changelog)
     {
         m_changelog->CheckForIssues(m_manager);
     }
-}
-
-void App::TweakService::CreateTweaksDir() const
-{
-    std::error_code error;
-
-    if (!std::filesystem::exists(m_tweaksDir, error))
-    {
-        if (!std::filesystem::create_directories(m_tweaksDir, error))
-        {
-            LogWarning("Cannot create tweaks directory \"{}\": {}.",
-                       std::filesystem::relative(m_tweaksDir, m_gameDir).string(), error.message());
-        }
-    }
-}
-
-void App::TweakService::CreateScriptsDir() const
-{
-    std::error_code error;
-
-    const auto dir = m_pluginScriptsDir.parent_path();
-
-    if (!std::filesystem::exists(dir, error))
-    {
-        if (!std::filesystem::create_directories(dir, error))
-        {
-            LogWarning("Cannot create scripts directory \"{}\": {}.",
-                       std::filesystem::relative(dir, m_gameDir).string(), error.message());
-        }
-    }
-}
-
-bool App::TweakService::RegisterTweak(std::filesystem::path aPath)
-{
-    std::error_code error;
-
-    if (aPath.is_relative())
-    {
-        aPath = m_gameDir / aPath;
-    }
-
-    if (!std::filesystem::exists(aPath, error) || !std::filesystem::is_regular_file(aPath, error))
-    {
-        LogError("Can't register non-existing tweak \"{}\".", std::filesystem::relative(aPath, m_gameDir).string());
-        return false;
-    }
-
-    m_importPaths.emplace_back(std::move(aPath));
-    return true;
-}
-
-bool App::TweakService::RegisterDirectory(std::filesystem::path aPath)
-{
-    std::error_code error;
-
-    if (aPath.is_relative())
-    {
-        aPath = m_gameDir / aPath;
-    }
-
-    if (!std::filesystem::exists(aPath, error) || !std::filesystem::is_directory(aPath, error))
-    {
-        LogError("Can't register non-existing tweak directory \"{}\".",
-                 std::filesystem::relative(aPath, m_gameDir).string());
-        return false;
-    }
-
-    m_importPaths.emplace_back(std::move(aPath));
-    return true;
 }
 
 bool App::TweakService::ImportMetadata() const
@@ -292,6 +193,105 @@ Core::SharedPtr<App::ScriptableRecordManager> App::TweakService::GetRecordManage
 Core::SharedPtr<App::ScriptablePropertyManager> App::TweakService::GetPropertyHandler()
 {
     return m_propertyHandler;
+}
+
+void App::TweakService::OnBootstrap()
+{
+    static auto rtti = Red::CRTTISystem::Get();
+
+    CreateTweaksDir();
+    CreateScriptsDir();
+
+    rtti->AddPostRegisterCallback(Red::Callback<void (*)()>{[&] {
+        m_propertyHandler->RegisterInvocationHandler();
+
+        LoadFiles();
+        LoadSchemas();
+    }});
+
+    HookAfter<Raw::ScriptBinder_Bind>(
+        [&](void*, Red::ScriptBundle* aBundle, void*, bool) { OnValidateScripts(aBundle); });
+
+    HookAfter<Raw::TryLoadTweakDB>([&](bool& aSuccess) {
+        if (aSuccess)
+        {
+            m_reflection = Core::MakeShared<Red::TweakDBReflection>(Red::TweakDB::Get());
+            m_manager = Core::MakeShared<Red::TweakDBManager>(m_reflection);
+            m_executor = Core::MakeShared<TweakExecutor>(m_manager, m_reflection);
+            m_changelog = Core::MakeShared<TweakChangelog>();
+
+            if (ImportMetadata())
+            {
+                EnsureRuntimeAccess();
+                ApplyPatches();
+                InsertPropertyDefaultValues();
+                LoadValues(false, true);
+            }
+
+#ifndef NDEBUG
+            const int testExitCode = Tests::ScriptableRecordTestRunner::Run(m_pluginDir);
+            assert(testExitCode == 0 && "Scriptable record tests failed! Check the test results for more information.");
+#endif
+        }
+    });
+
+    HookAfter<Raw::InitTweakDB>([&]() {
+        EnsureRuntimeAccess();
+        CheckForIssues();
+    });
+
+    HookWrap<Raw::CreateRecord>([&](const CreateRecordFunction aOriginal, Red::TweakDB* aTweakDB,
+                                    const uint32_t aTypeHash, const Red::TweakDBID aTweakDBID) {
+        if (!m_recordManager->CreateScriptableRecord(aTweakDB, aTypeHash, aTweakDBID))
+            aOriginal(aTweakDB, aTypeHash, aTweakDBID);
+    });
+}
+
+void App::TweakService::CreateTweaksDir() const
+{
+    std::error_code error;
+
+    if (!std::filesystem::exists(m_tweaksDir, error))
+    {
+        if (!std::filesystem::create_directories(m_tweaksDir, error))
+        {
+            LogWarning("Cannot create tweaks directory \"{}\": {}.",
+                       std::filesystem::relative(m_tweaksDir, m_gameDir).string(), error.message());
+        }
+    }
+}
+
+void App::TweakService::CreateScriptsDir() const
+{
+    std::error_code error;
+
+    const auto dir = m_pluginScriptsDir.parent_path();
+
+    if (!std::filesystem::exists(dir, error))
+    {
+        if (!std::filesystem::create_directories(dir, error))
+        {
+            LogWarning("Cannot create scripts directory \"{}\": {}.",
+                       std::filesystem::relative(dir, m_gameDir).string(), error.message());
+        }
+    }
+}
+
+void App::TweakService::EnsureRuntimeAccess() const
+{
+    if (m_manager)
+    {
+        m_manager->GetTweakDB()->unk160 = 0;
+    }
+}
+
+void App::TweakService::ApplyPatches() const
+{
+    if (m_manager)
+    {
+        m_manager->CloneRecord("Vendors.IsPresent", "Vendors.Always_Present");
+        m_manager->RegisterName("Vendors.IsPresent");
+    }
 }
 
 void App::TweakService::InsertPropertyDefaultValues() const

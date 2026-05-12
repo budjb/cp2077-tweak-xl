@@ -998,7 +998,9 @@ template<>
 const CBaseRTTIType* GetInnerType(const CBaseRTTIType* aType);
 
 /**
- * @brief Gets the inner class type of the given type if it is an array, handle, or weak handle type.
+ * @brief Gets the innermost class type of the given type if it is an array, handle, or weak handle type.
+ *
+ * If the type is an array of handles, the returned type will be in the inner type of the handle elements of the array.
  *
  * @param aType The type to get the inner type of.
  * @return The inner class type of the given type, or @c nullptr.
