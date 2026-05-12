@@ -3,8 +3,6 @@
 
 #include <spdlog/fmt/bundled/ranges.h>
 
-// TODO: lockey getters need to return CName for compatibility.
-
 namespace App
 {
 std::string ScriptablePropertyGetter::GetFunctionBaseName(const std::string& aName) const
@@ -606,6 +604,203 @@ void ResRefGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
     aFunction->SetReturnType(Red::GetTypeName<Red::ResRef>());
 }
 
+Red::CName LocKeyGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                         const ScriptablePropertySpecPtr& aPropSpec) const
+{
+    static constexpr auto CNameName = Red::GetTypeNameStr<Red::CName>();
+
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(CNameName.data());
+    segments.emplace_back(aPropSpec->functionName);
+
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
+}
+
+void LocKeyGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                    const Context* aContext) const
+{
+    static const auto LocKeyType = Red::TypeLocator<Red::GetTypeName<Red::LocKeyWrapper>()>::Get();
+
+    ++aFrame->code;
+
+    if (!aOut)
+        return;
+
+    const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext));
+
+    if (flat.type != LocKeyType)
+        return;
+
+    *static_cast<Red::CName*>(aOut) = static_cast<Red::LocKeyWrapper*>(flat.instance)->primaryKey;
+}
+
+void LocKeyGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
+                                           const ScriptablePropertySpecPtr& aPropSpec) const
+{
+    aFunction->SetReturnType(Red::GetTypeName<Red::CName>());
+}
+
+Red::CName LocKeyArrayGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                              const ScriptablePropertySpecPtr& aPropSpec) const
+{
+    static constexpr auto CNameArrayName = Red::GetTypeNameStr<Red::DynArray<Red::CName>>();
+
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(CNameArrayName.data());
+    segments.emplace_back(aPropSpec->functionName);
+
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
+}
+
+void LocKeyArrayGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                         const Context* aContext) const
+{
+    static const auto LocKeyArrayType =
+        Red::ToArrayType(Red::TypeLocator<Red::GetTypeName<Red::DynArray<Red::LocKeyWrapper>>()>::Get());
+
+    ++aFrame->code;
+
+    if (!aOut)
+        return;
+
+    const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext));
+
+    if (flat.type != LocKeyArrayType)
+        return;
+
+    const auto length = LocKeyArrayType->GetLength(flat.instance);
+
+    auto result = Red::DynArray<Red::CName>();
+    result.Resize(length);
+
+    for (uint32_t i = 0; i < length; ++i)
+    {
+        const auto value = static_cast<Red::LocKeyWrapper*>(LocKeyArrayType->GetElement(flat.instance, i));
+        result.At(i) = Red::CName(value->primaryKey);
+    }
+
+    *static_cast<Red::DynArray<Red::CName>*>(aOut) = result;
+}
+
+void LocKeyArrayGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
+                                                const ScriptablePropertySpecPtr& aPropSpec) const
+{
+    aFunction->SetReturnType(Red::GetTypeName<Red::DynArray<Red::CName>>());
+}
+
+Red::CName LocKeyItemGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                             const ScriptablePropertySpecPtr& aPropSpec) const
+{
+    static constexpr auto IntName = Red::GetTypeNameStr<int>();
+    static constexpr auto CNameName = Red::GetTypeNameStr<Red::CName>();
+
+    std::string funcName = "Get" + aPropSpec->functionName + "Item";
+
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(CNameName.data());
+    segments.emplace_back(funcName);
+    segments.emplace_back(IntName.data());
+
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
+}
+
+void LocKeyItemGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                        const Context* aContext) const
+{
+    static const auto LocKeyArrayType =
+        Red::ToArrayType(Red::TypeLocator<Red::GetTypeName<Red::DynArray<Red::LocKeyWrapper>>()>::Get());
+
+    int index;
+    Red::GetParameter(aFrame, &index);
+
+    ++aFrame->code;
+
+    if (index < 0)
+        return;
+
+    const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext));
+
+    if (flat.type != LocKeyArrayType)
+        return;
+
+    if (const auto length = LocKeyArrayType->GetLength(flat.instance); index >= static_cast<int>(length))
+        return;
+
+    const auto value = static_cast<Red::LocKeyWrapper*>(LocKeyArrayType->GetElement(flat.instance, index));
+    *static_cast<Red::CName*>(aOut) = value->primaryKey;
+}
+
+void LocKeyItemGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
+                                               const ScriptablePropertySpecPtr& aPropSpec) const
+{
+    aFunction->AddParam(Red::GetTypeName<int>(), "index");
+    aFunction->SetReturnType(Red::GetTypeName<Red::CName>());
+}
+
+Red::CName LocKeyArrayContainsGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                                                      const ScriptablePropertySpecPtr& aPropSpec) const
+{
+    static constexpr auto BoolName = Red::GetTypeNameStr<bool>();
+
+    std::string funcName = aPropSpec->functionName + "Contains";
+
+    std::vector<std::string> segments;
+    segments.emplace_back(aRecordSpec->name);
+    segments.emplace_back(BoolName.data());
+    segments.emplace_back(funcName);
+    segments.emplace_back(Red::GetTypeNameStr<Red::CName>().data());
+
+    return fmt::format("{}", fmt::join(segments, ";")).c_str();
+}
+
+void LocKeyArrayContainsGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                                                 const Context* aContext) const
+{
+    static const auto LocKeyArrayType =
+        Red::ToArrayType(Red::TypeLocator<Red::GetTypeName<Red::DynArray<Red::LocKeyWrapper>>()>::Get());
+
+    Red::CName item;
+    Red::GetParameter(aFrame, &item);
+
+    ++aFrame->code; // ParamEnd
+
+    if (!aOut)
+        return;
+
+    const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext));
+
+    if (flat.type != LocKeyArrayType)
+    {
+        *static_cast<bool*>(aOut) = false;
+        return;
+    }
+
+    const auto length = LocKeyArrayType->GetLength(flat.instance);
+
+    for (uint32_t i = 0; i < length; ++i)
+    {
+        const auto value = static_cast<Red::LocKeyWrapper*>(LocKeyArrayType->GetElement(flat.instance, i));
+
+        if (value->primaryKey == item)
+        {
+            *static_cast<bool*>(aOut) = true;
+            return;
+        }
+    }
+
+    *static_cast<bool*>(aOut) = false;
+}
+
+void LocKeyArrayContainsGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
+                                                        const ScriptablePropertySpecPtr& aPropSpec) const
+{
+    aFunction->AddParam(Red::GetTypeName<Red::CName>(), "item");
+    aFunction->SetReturnType(Red::GetTypeName<bool>());
+}
+
 Red::CName ValueGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
                                         const ScriptablePropertySpecPtr& aPropSpec) const
 {
@@ -627,10 +822,10 @@ void ValueGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame
 
     const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext));
 
-    if (flat.type != aContext->typeSpec->propertyType)
+    if (flat.type != aContext->typeSpec->flatType)
         return;
 
-    flat.type->Assign(aOut, flat.instance);
+    aContext->typeSpec->propertyType->Assign(aOut, flat.instance);
 }
 
 void ValueGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
@@ -673,7 +868,6 @@ bool ScriptablePropertyManager::AdaptFunction(const ScriptableRecordSpecPtr& aRe
 
     if (const auto propSpec = aRecordSpec->FindPropertyByFunctionName(baseFunctionName))
     {
-        // TODO: truncate it here?
         if (!propSpec->isCreated)
             return false;
 
@@ -762,6 +956,10 @@ ScriptablePropertyGetter* ScriptablePropertyManager::GetPropertyGetter(const Get
     case GetterType::GetResRefArray: return &s_resRefArrayGetter;
     case GetterType::GetResRefItem: return &s_resRefItemGetter;
     case GetterType::GetResRef: return &s_resRefGetter;
+    case GetterType::GetLocKey: return &s_locKeyGetter;
+    case GetterType::GetLocKeyArray: return &s_locKeyArrayGetter;
+    case GetterType::GetLocKeyItem: return &s_locKeyItemGetter;
+    case GetterType::LocKeyArrayContains: return &s_locKeyArrayContainsGetter;
     case GetterType::Get: return &s_valueGetter;
     default: return nullptr;
     }
@@ -779,11 +977,17 @@ std::span<const GetterType> ScriptablePropertyManager::GetGetterTypes(const Scri
     if (aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isResRef)
         return ResRefArrayGetters;
 
+    if (aPropSpec->typeSpec->isArray && aPropSpec->typeSpec->isLocKey)
+        return LocKeyArrayGetters;
+
     if (aPropSpec->typeSpec->isArray)
         return ArrayGetters;
 
     if (aPropSpec->typeSpec->isResRef)
         return ResRefGetters;
+
+    if (aPropSpec->typeSpec->isLocKey)
+        return LocKeyGetters;
 
     return ValueGetters;
 }

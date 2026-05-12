@@ -38,7 +38,7 @@ namespace App
 {
 bool SchemaChangeset::MakeRecord(const std::string& aName, const std::optional<std::string>& aParent)
 {
-    // TODO: validate property is valid?
+    // TODO: validate record name is valid?
 
     const auto name = Red::NormalizeRecordName(aName);
     const auto aliasName = Red::GetRecordAliasName<std::string>(name);
@@ -70,7 +70,7 @@ bool SchemaChangeset::MakeRecord(const std::string& aName, const std::optional<s
 bool SchemaChangeset::MakeProperty(const std::string& aRecordName, const std::string& aPropName,
                                    const TweakTypeSpecPtr& aTypeInfo, const Red::InstancePtr<>& aDefaultValue)
 {
-    // TODO: validate property is valid?
+    // TODO: validate property name is valid?
 
     const auto recordName = Red::NormalizeRecordName(aRecordName);
 

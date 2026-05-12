@@ -25,6 +25,10 @@ enum class GetterType : uint8_t
     GetResRefArray,
     GetResRefItem,
     GetResRef,
+    GetLocKeyArray,
+    GetLocKeyItem,
+    LocKeyArrayContains,
+    GetLocKey,
     Get
 };
 
@@ -577,6 +581,104 @@ public:
 };
 
 /**
+ * @brief A property getter that retrieve a localization key from a scriptable record property.
+ *
+ * The generated function name for this getter has no additional prefix or suffix beyond the base property name. For
+ * example, a property named @c MyProperty would correspond to a function named @c MyProperty.
+ *
+ * The TweakDB flat associated with the property is expected to contain a @c LocKey. During processing, the result is
+ * validated to ensure that it is of the expected type. On success, the getter will return the value as a @c CName .
+ */
+class LocKeyGetter : public TTypedPropertyGetter<GetterType::GetLocKey>
+{
+public:
+    consteval LocKeyGetter() = default;
+    Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                               const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
+    void ConfigureScriptFunction(Red::CClassFunction* aFunction,
+                                 const ScriptablePropertySpecPtr& aPropSpec) const override;
+};
+
+/**
+ * @brief A property getter that retrieve an array of localization keys from a scriptable record property.
+ *
+ * The generated function name for this getter has no additional prefix or suffix beyond the base property name. For
+ * example, a property named @c MyProperty would correspond to a function named @c MyProperty.
+ *
+ * The TweakDB flat associated with the property is expected to contain an array of @c LocKey. During processing, the
+ * result is validated to ensure that it is of the expected type. On success, the getter will return the value as an
+ * array of @c CName .
+ */
+class LocKeyArrayGetter : public TTypedPropertyGetter<GetterType::GetLocKeyArray>
+{
+public:
+    consteval LocKeyArrayGetter() = default;
+    Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                               const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
+    void ConfigureScriptFunction(Red::CClassFunction* aFunction,
+                                 const ScriptablePropertySpecPtr& aPropSpec) const override;
+};
+
+/**
+ * @brief A property getter that retrieve an item at a specific index from an array of localization keys associated with
+ * a scriptable record property.
+ *
+ * The generated function name for this getter has the prefix @c Get and the suffix @c Item. For example, a property
+ * named @c MyProperty would correspond to a function named @c GetMyPropertyItem.
+ *
+ * The TweakDB flat associated with the property is expected to contain an array of @c LocKey. During processing, the
+ * result is validated to ensure that it is of the expected type. On success, the getter will return the @c CName at the
+ * specified index in the array.
+ */
+class LocKeyItemGetter : public TTypedPropertyGetter<GetterType::GetLocKeyItem>
+{
+public:
+    consteval LocKeyItemGetter()
+        : TTypedPropertyGetter("Get", "Item")
+    {
+    }
+
+    Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                               const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
+    void ConfigureScriptFunction(Red::CClassFunction* aFunction,
+                                 const ScriptablePropertySpecPtr& aPropSpec) const override;
+};
+
+/**
+ * @brief A property getter that check whether a specific item is contained within an array of localization keys
+ * associated with a scriptable record property.
+ *
+ * The generated function name for this getter has the suffix @c Contains and no prefix. For example, a property named
+ * @c MyProperty would correspond to a function named @c MyPropertyContains.
+ *
+ * The TweakDB flat associated with the property is expected to contain an array of @c LocKey. During processing, the
+ * result is validated to ensure that it is of the expected type. The getter takes a @c CName as an argument and checks
+ * whether it is contained within the array of localization keys associated with the property, returning true if it is
+ * and false otherwise.
+ */
+class LocKeyArrayContainsGetter : public TTypedPropertyGetter<GetterType::LocKeyArrayContains>
+{
+public:
+    consteval LocKeyArrayContainsGetter()
+        : TTypedPropertyGetter("Contains")
+    {
+    }
+
+    Red::CName GetFunctionHash(const ScriptableRecordSpecPtr& aRecordSpec,
+                               const ScriptablePropertySpecPtr& aPropSpec) const override;
+    void HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
+                          const Context* aContext) const override;
+    void ConfigureScriptFunction(Red::CClassFunction* aFunction,
+                                 const ScriptablePropertySpecPtr& aPropSpec) const override;
+};
+
+/**
  * @brief A property getter that retrieve a simple value (i.e., a value that is simply returned from its TweakDB flat)
  * from a scriptable record property.
  *
@@ -932,6 +1034,10 @@ private:
     static inline ResRefArrayGetter s_resRefArrayGetter{};
     static inline ResRefItemGetter s_resRefItemGetter{};
     static inline ResRefGetter s_resRefGetter{};
+    static inline LocKeyGetter s_locKeyGetter{};
+    static inline LocKeyArrayGetter s_locKeyArrayGetter{};
+    static inline LocKeyItemGetter s_locKeyItemGetter{};
+    static inline LocKeyArrayContainsGetter s_locKeyArrayContainsGetter{};
     static inline ValueGetter s_valueGetter{};
 };
 
@@ -973,6 +1079,16 @@ static constexpr inline auto ResRefArrayGetters = std::array {
 // clang-format on
 
 /**
+ * @brief The set of getter function types associated with TweakDB record properties that are a single resource
+ * reference rather than an array.
+ */
+// clang-format off
+static constexpr inline auto ResRefGetters = std::array {
+    GetterType::GetResRef
+};
+// clang-format on
+
+/**
  * @brief The set of getter function types associated with TweakDB record properties that are arrays of simple values
  * that are not foreign keys to other TweakDB records or resource references.
  */
@@ -986,12 +1102,24 @@ static constexpr inline auto ArrayGetters = std::array {
 // clang-format on
 
 /**
- * @brief The set of getter function types associated with TweakDB record properties that are a single resource
- * reference rather than an array.
+ * @brief The set of getter function types associated with TweakDB record properties that are a single localization key.
  */
 // clang-format off
-static constexpr inline auto ResRefGetters = std::array {
-    GetterType::GetResRef
+static constexpr inline auto LocKeyGetters = std::array {
+    GetterType::GetLocKey
+};
+// clang-format on
+
+/**
+ * @brief The set of getter function types associated with TweakDB record properties that are arrays of localization
+ * keys.
+ */
+// clang-format off
+static constexpr inline auto LocKeyArrayGetters = std::array {
+    GetterType::GetLocKeyArray,
+    GetterType::GetArrayCount,
+    GetterType::GetLocKeyItem,
+    GetterType::LocKeyArrayContains
 };
 // clang-format on
 

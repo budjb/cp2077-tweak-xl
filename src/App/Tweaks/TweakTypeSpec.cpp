@@ -7,6 +7,9 @@ constexpr auto ArrayPrefixSize = ArrayPrefix.size() - 1;
 
 using ResRefArrayType = Red::TypeLocator<Red::GetTypeName<Red::DynArray<Red::ResRef>>()>;
 using ResRefType = Red::TypeLocator<Red::GetTypeName<Red::ResRef>()>;
+
+using CNameArrayType = Red::TypeLocator<Red::GetTypeName<Red::DynArray<Red::CName>>()>;
+using CNameType = Red::TypeLocator<Red::GetTypeName<Red::CName>()>;
 } // namespace
 
 namespace App
@@ -70,6 +73,11 @@ TweakTypeSpecPtr GetTweakTypeSpec(Red::CName aName, const std::optional<std::str
     else if (isResRef)
     {
         spec->propertyType = isArray ? ResRefArrayType::Get() : ResRefType::Get();
+        spec->propertyTypeName = spec->propertyType->GetName();
+    }
+    else if (isLocKey)
+    {
+        spec->propertyType = isArray ? CNameArrayType::Get() : CNameType::Get();
         spec->propertyTypeName = spec->propertyType->GetName();
     }
 

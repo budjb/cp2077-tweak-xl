@@ -303,9 +303,9 @@ TEST_CASE("When a property is defined as LocKey, its getter function exists and 
     auto* func = RecordType::GetClass()->GetFunction("LocKeyProp");
     REQUIRE(func != nullptr);
 
-    Red::LocKeyWrapper result;
+    Red::CName result;
     REQUIRE(Red::CallFunction(record, func, result) == true);
-    REQUIRE(result.primaryKey == Red::CName("test"));
+    REQUIRE(result == Red::CName("test"));
 }
 
 TEST_CASE("When a property is defined as ResRef, its getter function exists and returns a valid value")
@@ -985,12 +985,12 @@ TEST_CASE("When a property is defined as LocKeyArray, its getter function exists
     auto* func = RecordType::GetClass()->GetFunction("LocKeyArrayProp");
     REQUIRE(func != nullptr);
 
-    Red::DynArray<Red::LocKeyWrapper> result;
+    Red::DynArray<Red::CName> result;
     REQUIRE(Red::CallFunction(record, func, result) == true);
     REQUIRE(result.size() == 3);
-    REQUIRE(result.At(0).primaryKey == Red::CName("one"));
-    REQUIRE(result.At(1).primaryKey == Red::CName("two"));
-    REQUIRE(result.At(2).primaryKey == Red::CName("three"));
+    REQUIRE(result.At(0) == Red::CName("one"));
+    REQUIRE(result.At(1) == Red::CName("two"));
+    REQUIRE(result.At(2) == Red::CName("three"));
 }
 
 TEST_CASE("When a property is defined as LocKeyArray, its count function exists and returns the correct size")
@@ -1020,19 +1020,19 @@ TEST_CASE("When a property is defined as LocKeyArray, its item getter function e
     REQUIRE(func != nullptr);
 
     {
-        Red::LocKeyWrapper result;
+        Red::CName result;
         REQUIRE(Red::CallFunction(record, func, result, 0) == true);
-        REQUIRE(result.primaryKey == Red::CName("one"));
+        REQUIRE(result == Red::CName("one"));
     }
     {
-        Red::LocKeyWrapper result;
+        Red::CName result;
         REQUIRE(Red::CallFunction(record, func, result, 1) == true);
-        REQUIRE(result.primaryKey == Red::CName("two"));
+        REQUIRE(result == Red::CName("two"));
     }
     {
-        Red::LocKeyWrapper result;
+        Red::CName result;
         REQUIRE(Red::CallFunction(record, func, result, 2) == true);
-        REQUIRE(result.primaryKey == Red::CName("three"));
+        REQUIRE(result == Red::CName("three"));
     }
 }
 
@@ -1048,14 +1048,14 @@ TEST_CASE("When a property is defined as LocKeyArray, its item getter function d
     REQUIRE(func != nullptr);
 
     {
-        Red::LocKeyWrapper result("asdf");
+        Red::CName result("asdf");
         REQUIRE(Red::CallFunction(record, func, result, -1) == true);
-        REQUIRE(result.primaryKey == Red::CName("asdf"));
+        REQUIRE(result == Red::CName("asdf"));
     }
     {
-        Red::LocKeyWrapper result("qwer");
+        Red::CName result("qwer");
         REQUIRE(Red::CallFunction(record, func, result, 3) == true);
-        REQUIRE(result.primaryKey == Red::CName("qwer"));
+        REQUIRE(result == Red::CName("qwer"));
     }
 }
 
@@ -1071,7 +1071,7 @@ TEST_CASE("When a property is defined as LocKeyArray, its contains function retu
     REQUIRE(func != nullptr);
 
     bool result;
-    REQUIRE(Red::CallFunction(record, func, result, Red::LocKeyWrapper("two")) == true);
+    REQUIRE(Red::CallFunction(record, func, result, Red::CName("two")) == true);
     REQUIRE(result == true);
 }
 
@@ -1087,7 +1087,7 @@ TEST_CASE("When a property is defined as LocKeyArray, its contains function retu
     REQUIRE(func != nullptr);
 
     bool result;
-    REQUIRE(Red::CallFunction(record, func, result, Red::LocKeyWrapper("four")) == true);
+    REQUIRE(Red::CallFunction(record, func, result, Red::CName("four")) == true);
     REQUIRE(result == false);
 }
 

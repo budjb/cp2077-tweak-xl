@@ -90,12 +90,6 @@ RedscriptTypesExporter::Json RedscriptTypesExporter::ToJson(const ScriptableProp
     json["ForeignType"] = GetClassScriptName(aSpec->typeSpec->foreignType);
     json["ElementType"] = Red::GetElementTypeName(aSpec->typeSpec->propertyType).ToString();
 
-    if (aSpec->typeSpec->isLocKey)
-    {
-        json["Type"] = "LocKey";
-        json["ElementType"] = "LocKey";
-    }
-
     return json;
 }
 
