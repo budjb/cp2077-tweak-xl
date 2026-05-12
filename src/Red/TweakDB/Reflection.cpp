@@ -140,7 +140,6 @@ Core::SharedPtr<TweakDBRecordInfo> TweakDBReflection::CollectRecordInfo(const CC
             }
             default:
             {
-                // TODO: check if the return type is resref, not raref
                 if (IsResRefToken(returnType))
                 {
                     propInfo->type = TypeLocator<ERTDBFlatType::ResRef>::Get();
