@@ -69,7 +69,7 @@ void RecordArrayGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStac
 {
     (void)aOut;
 
-    void* out;
+    RecordArray* out;
     Red::GetParameter(aFrame, &out);
 
     ++aFrame->code; // ParamEnd
@@ -77,7 +77,7 @@ void RecordArrayGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStac
     const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext));
 
     if (const auto result = GetRecordArray<Red::WeakHandle>(flat, aContext))
-        *static_cast<RecordArray*>(out) = *result;
+        *out = *result;
 }
 
 void RecordArrayGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
@@ -113,6 +113,8 @@ void RecordArrayContainsGetter::HandleInvocation(Red::IScriptable* aInstance, Re
     if (!aOut)
         return;
 
+    auto& out = *static_cast<bool*>(aOut);
+
     const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext));
 
     if (const auto result = GetRecordArray<Red::WeakHandle>(flat, aContext))
@@ -122,13 +124,13 @@ void RecordArrayContainsGetter::HandleInvocation(Red::IScriptable* aInstance, Re
             if (record.instance->recordID == item->instance->recordID &&
                 record.instance->GetType() == item->instance->GetType())
             {
-                *static_cast<bool*>(aOut) = true;
+                out = true;
                 return;
             }
         }
     }
 
-    *static_cast<bool*>(aOut) = false;
+    out = false;
 }
 
 void RecordArrayContainsGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
@@ -168,6 +170,8 @@ void RecordItemGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStack
     if (index < 0)
         return;
 
+    auto& out = *static_cast<RecordWHandle*>(aOut);
+
     if (const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext)))
     {
         if (const auto result = GetRecordArray<Red::WeakHandle>(flat, aContext))
@@ -177,7 +181,7 @@ void RecordItemGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStack
                 if (const auto record = result->At(index);
                     record.instance->GetType()->IsA(aContext->typeSpec->foreignType))
                 {
-                    *static_cast<RecordWHandle*>(aOut) = result->At(index);
+                    out = result->At(index);
                 }
             }
         }
@@ -221,6 +225,8 @@ void RecordItemHandleGetter::HandleInvocation(Red::IScriptable* aInstance, Red::
     if (index < 0)
         return;
 
+    RecordHandle& out = *static_cast<RecordHandle*>(aOut);
+
     if (const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext)))
     {
         if (const auto result = GetRecordArray<Red::Handle>(flat, aContext))
@@ -230,7 +236,7 @@ void RecordItemHandleGetter::HandleInvocation(Red::IScriptable* aInstance, Red::
                 if (const auto record = result->At(index);
                     record.instance->GetType()->IsA(aContext->typeSpec->foreignType))
                 {
-                    *static_cast<RecordHandle*>(aOut) = result->At(index);
+                    out = result->At(index);
                 }
             }
         }
@@ -263,6 +269,8 @@ void RecordGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFram
     if (!aOut)
         return;
 
+    RecordWHandle& out = *static_cast<RecordWHandle*>(aOut);
+
     if (const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext)))
     {
         const auto* id = static_cast<Red::TweakDBID*>(flat.instance);
@@ -270,7 +278,7 @@ void RecordGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFram
         if (const auto record = aContext->tweakManager->GetRecord(*id);
             record && record->GetType()->IsA(aContext->typeSpec->foreignType))
         {
-            *static_cast<RecordWHandle*>(aOut) = record;
+            out = record;
         }
     }
 }
@@ -302,6 +310,8 @@ void RecordHandleGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CSta
     if (!aOut)
         return;
 
+    RecordHandle& out = *static_cast<RecordHandle*>(aOut);
+
     if (const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext)))
     {
         const auto* id = static_cast<Red::TweakDBID*>(flat.instance);
@@ -309,7 +319,7 @@ void RecordHandleGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CSta
         if (const auto record = aContext->tweakManager->GetRecord(*id);
             record && record->GetType()->IsA(aContext->typeSpec->foreignType))
         {
-            *static_cast<RecordHandle*>(aOut) = record;
+            out = record;
         }
     }
 }
@@ -343,15 +353,17 @@ void ArrayCountGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStack
     if (!aOut)
         return;
 
+    uint32_t& out = *static_cast<uint32_t*>(aOut);
+
     if (const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext));
         flat.type->GetType() == Red::ERTTIType::Array)
     {
         const auto* arrayType = Red::ToArrayType(flat.type);
-        *static_cast<uint32_t*>(aOut) = arrayType->GetLength(flat.instance);
+        out = arrayType->GetLength(flat.instance);
     }
     else
     {
-        *static_cast<int*>(aOut) = 0;
+        out = 0;
     }
 }
 
@@ -437,11 +449,13 @@ void ArrayContainsGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CSt
     if (!aOut)
         return;
 
+    bool& out = *static_cast<bool*>(aOut);
+
     const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext));
 
     if (flat.type != aContext->typeSpec->propertyType || flat.type->GetType() != Red::ERTTIType::Array)
     {
-        *static_cast<bool*>(aOut) = false;
+        out = false;
         return;
     }
 
@@ -453,12 +467,12 @@ void ArrayContainsGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CSt
     {
         if (innerType->IsEqual(arrayType->GetElement(flat.instance, i), item))
         {
-            *static_cast<bool*>(aOut) = true;
+            out = true;
             return;
         }
     }
 
-    *static_cast<bool*>(aOut) = false;
+    out = false;
 }
 
 void ArrayContainsGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
@@ -484,7 +498,6 @@ Red::CName ResRefArrayGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aRe
 void ResRefArrayGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                                          const Context* aContext) const
 {
-    static const auto ResRefType = Red::TypeLocator<Red::GetTypeName<Red::ResRef>()>::Get();
     static const auto RaRefArrayType =
         Red::ToArrayType(Red::TypeLocator<Red::GetTypeName<Red::DynArray<Red::RaRef<Red::CResource>>>()>::Get());
 
@@ -498,17 +511,13 @@ void ResRefArrayGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStac
     if (flat.type != RaRefArrayType)
         return;
 
-    const auto length = RaRefArrayType->GetLength(flat.instance);
+    auto* inArray = static_cast<Red::DynArray<Red::RaRef<Red::CResource>>*>(flat.instance);
+    auto* outArray = static_cast<Red::DynArray<Red::ResRef>*>(aOut);
 
-    auto result = Red::DynArray<Red::ResRef>();
-    result.Resize(length);
+    *outArray = Red::DynArray<Red::ResRef>(inArray->Size());
 
-    for (uint32_t i = 0; i < length; ++i)
-    {
-        ResRefType->Assign(&result.At(i), RaRefArrayType->GetElement(flat.instance, i));
-    }
-
-    *static_cast<Red::DynArray<Red::ResRef>*>(aOut) = result;
+    for (uint32_t i = 0; i < inArray->Size(); ++i)
+        outArray->At(i) = Red::ResRef(inArray->At(i));
 }
 
 void ResRefArrayGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
@@ -535,7 +544,6 @@ Red::CName ResRefItemGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aRec
 void ResRefItemGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                                         const Context* aContext) const
 {
-    static const auto ResRefType = Red::TypeLocator<Red::GetTypeName<Red::ResRef>()>::Get();
     static const auto RaRefArrayType =
         Red::ToArrayType(Red::TypeLocator<Red::GetTypeName<Red::DynArray<Red::RaRef<Red::CResource>>>()>::Get());
 
@@ -552,10 +560,13 @@ void ResRefItemGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStack
     if (flat.type != RaRefArrayType)
         return;
 
-    if (const auto length = RaRefArrayType->GetLength(flat.instance); index >= static_cast<int>(length))
+    auto& out = *static_cast<Red::ResRef*>(aOut);
+    const auto* inArray = static_cast<Red::DynArray<Red::RaRef<Red::CResource>>*>(flat.instance);
+
+    if (const auto length = inArray->Size(); index >= static_cast<int>(length))
         return;
 
-    ResRefType->Assign(aOut, RaRefArrayType->GetElement(flat.instance, index));
+    out = Red::ResRef(inArray->At(index));
 }
 
 void ResRefItemGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
@@ -581,7 +592,6 @@ Red::CName ResRefGetter::GetFunctionHash(const ScriptableRecordSpecPtr& aRecordS
 void ResRefGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFrame* aFrame, void* aOut,
                                     const Context* aContext) const
 {
-    static const auto ResRefType = Red::TypeLocator<Red::GetTypeName<Red::ResRef>()>::Get();
     static const auto RaRefType = Red::TypeLocator<Red::GetTypeName<Red::RaRef<Red::CResource>>()>::Get();
 
     ++aFrame->code;
@@ -594,7 +604,10 @@ void ResRefGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFram
     if (flat.type != RaRefType)
         return;
 
-    ResRefType->Assign(aOut, flat.instance);
+    Red::ResRef& out = *static_cast<Red::ResRef*>(aOut);
+    const Red::RaRef<Red::CResource>& in = *static_cast<Red::RaRef<Red::CResource>*>(flat.instance);
+
+    out = Red::ResRef(in);
 }
 
 void ResRefGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
@@ -631,7 +644,10 @@ void LocKeyGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStackFram
     if (flat.type != LocKeyType)
         return;
 
-    *static_cast<Red::CName*>(aOut) = static_cast<Red::LocKeyWrapper*>(flat.instance)->primaryKey;
+    Red::CName& out = *static_cast<Red::CName*>(aOut);
+    const Red::LocKeyWrapper& in = *static_cast<Red::LocKeyWrapper*>(flat.instance);
+
+    out = Red::CName(in.primaryKey);
 }
 
 void LocKeyGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
@@ -671,16 +687,13 @@ void LocKeyArrayGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStac
 
     const auto length = LocKeyArrayType->GetLength(flat.instance);
 
-    auto result = Red::DynArray<Red::CName>();
-    result.Resize(length);
+    auto& inArray = *static_cast<Red::DynArray<Red::LocKeyWrapper>*>(flat.instance);
+    auto& outArray = *static_cast<Red::DynArray<Red::CName>*>(aOut);
+
+    outArray = Red::DynArray<Red::CName>(length);
 
     for (uint32_t i = 0; i < length; ++i)
-    {
-        const auto value = static_cast<Red::LocKeyWrapper*>(LocKeyArrayType->GetElement(flat.instance, i));
-        result.At(i) = Red::CName(value->primaryKey);
-    }
-
-    *static_cast<Red::DynArray<Red::CName>*>(aOut) = result;
+        outArray.At(i) = Red::CName(inArray.At(i).primaryKey);
 }
 
 void LocKeyArrayGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
@@ -728,8 +741,10 @@ void LocKeyItemGetter::HandleInvocation(Red::IScriptable* aInstance, Red::CStack
     if (const auto length = LocKeyArrayType->GetLength(flat.instance); index >= static_cast<int>(length))
         return;
 
-    const auto value = static_cast<Red::LocKeyWrapper*>(LocKeyArrayType->GetElement(flat.instance, index));
-    *static_cast<Red::CName*>(aOut) = value->primaryKey;
+    auto& out = *static_cast<Red::CName*>(aOut);
+    auto& inArray = *static_cast<Red::DynArray<Red::LocKeyWrapper>*>(flat.instance);
+
+    out = Red::CName(inArray.At(index).primaryKey);
 }
 
 void LocKeyItemGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
@@ -769,28 +784,28 @@ void LocKeyArrayContainsGetter::HandleInvocation(Red::IScriptable* aInstance, Re
     if (!aOut)
         return;
 
+    auto& out = *static_cast<bool*>(aOut);
+
     const auto flat = aContext->tweakManager->GetFlat(GetFlatID(aInstance, aContext));
 
     if (flat.type != LocKeyArrayType)
     {
-        *static_cast<bool*>(aOut) = false;
+        out = false;
         return;
     }
 
-    const auto length = LocKeyArrayType->GetLength(flat.instance);
+    const auto& inArray = *static_cast<Red::DynArray<Red::LocKeyWrapper>*>(flat.instance);
 
-    for (uint32_t i = 0; i < length; ++i)
+    for (uint32_t i = 0; i < inArray.Size(); ++i)
     {
-        const auto value = static_cast<Red::LocKeyWrapper*>(LocKeyArrayType->GetElement(flat.instance, i));
-
-        if (value->primaryKey == item)
+        if (inArray.At(i).primaryKey == item)
         {
-            *static_cast<bool*>(aOut) = true;
+            out = true;
             return;
         }
     }
 
-    *static_cast<bool*>(aOut) = false;
+    out = false;
 }
 
 void LocKeyArrayContainsGetter::ConfigureScriptFunction(Red::CClassFunction* aFunction,
